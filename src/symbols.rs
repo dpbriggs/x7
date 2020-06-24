@@ -1,11 +1,10 @@
-#![allow(unused)]
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 #[derive(Clone, Debug)]
-pub(crate) enum DataType {
+pub(crate) enum Expr {
     Num(f64),
     Symbol(String),
     List(Vec<Expr>),
@@ -16,16 +15,16 @@ pub(crate) enum DataType {
     // Bool(bool),
 }
 
-impl fmt::Display for DataType {
+impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DataType::Nil => write!(f, "Nil"),
-            DataType::String(s) => write!(f, "\"{}\"", s),
-            DataType::Num(n) => write!(f, "{}", n),
-            DataType::Symbol(s) => write!(f, "{}", s),
+            Expr::Nil => write!(f, "Nil"),
+            Expr::String(s) => write!(f, "\"{}\"", s),
+            Expr::Num(n) => write!(f, "{}", n),
+            Expr::Symbol(s) => write!(f, "{}", s),
             // DataType::Bool(b) => write!(f, "{}", b),
-            DataType::Function(ff) => write!(f, "{}", ff),
-            DataType::Quote(l) => {
+            Expr::Function(ff) => write!(f, "{}", ff),
+            Expr::Quote(l) => {
                 write!(f, "'")?;
                 let mut first = true;
                 write!(f, "(")?;
@@ -39,7 +38,7 @@ impl fmt::Display for DataType {
                 write!(f, ")")?;
                 Ok(())
             }
-            DataType::List(l) => {
+            Expr::List(l) => {
                 let mut first = true;
                 write!(f, "(")?;
                 for item in l {
@@ -56,70 +55,70 @@ impl fmt::Display for DataType {
     }
 }
 
-impl DataType {
-    // XXX: HACK
-    fn is_quote(&self) -> bool {
-        if let DataType::Function(f) = self {
-            if f.symbol == "quote" {
-                return true;
-            }
+impl Expr {
+    pub(crate) fn is_even_list(&self) -> bool {
+        if let Expr::List(l) = self {
+            l.len() % 2 == 0
+        } else {
+            false
         }
-        false
     }
-    fn is_list(&self) -> bool {
-        if let DataType::List(_) = self {
+
+    pub(crate) fn is_list(&self) -> bool {
+        if let Expr::List(_) = self {
             true
         } else {
             false
         }
     }
 
-    fn is_symbol(&self) -> bool {
-        if let DataType::Symbol(_) = self {
+    pub(crate) fn is_symbol(&self) -> bool {
+        if let Expr::Symbol(_) = self {
             true
         } else {
             false
         }
     }
 
-    fn get_list(&self) -> &[Expr] {
-        if let DataType::List(l) = self {
-            &l
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub(crate) fn coll_iter(&self) -> LispResult<impl Iterator<Item = &Expr>> {
-        if let DataType::List(l) = self {
-            Ok(l.iter())
+    pub(crate) fn get_list(&self) -> LispResult<&[Expr]> {
+        if let Expr::List(l) = self {
+            Ok(&l)
         } else {
             Err(ProgramError::BadTypes)
         }
     }
 
-    // fn first_n<'a>(&'a self, amount: usize) -> &'a [Expr] {
-    // }
-
-    fn call_fn(&self, args: &[Expr]) -> LispResult<Expr> {
-        if let DataType::Function(f) = self {
-            f.call_fn(args)
+    pub(crate) fn symbol_matches(&self, sym: &'static str) -> bool {
+        if let Expr::Symbol(s) = self {
+            s == sym
         } else {
-            Err(ProgramError::NotAFunction)
+            false
+        }
+    }
+
+    pub(crate) fn get_symbol_string(&self) -> LispResult<String> {
+        if let Expr::Symbol(s) = self {
+            Ok(s.clone())
+        } else {
+            Err(ProgramError::BadTypes)
         }
     }
 }
+
+pub(crate) type X7FunctionPtr =
+    Arc<dyn for<'c> Fn(&'c [Expr], &'c SymbolTable) -> LispResult<Expr> + Sync + Send>;
 
 #[derive(Clone)]
 pub(crate) struct Function {
     symbol: String,
     minimum_args: usize,
-    f: Arc<dyn Fn(&[Expr]) -> LispResult<Expr> + Sync + Send>,
+    f: X7FunctionPtr,
+    named_args: Vec<Expr>, // Expr::Symbol
 }
 
 impl fmt::Debug for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Fn<{}, {}>", self.symbol, self.minimum_args)
+        write!(f, "AnonFn<{}, {}>", self.symbol, self.minimum_args)
     }
 }
 
@@ -130,23 +129,39 @@ impl fmt::Display for Function {
 }
 
 impl Function {
-    pub fn new(
+    pub fn new(symbol: String, minimum_args: usize, f: X7FunctionPtr) -> Self {
+        Self {
+            symbol,
+            minimum_args,
+            f,
+            named_args: Vec::with_capacity(0),
+        }
+    }
+
+    pub fn new_named_args(
         symbol: String,
         minimum_args: usize,
-        f: Arc<dyn Fn(&[Expr]) -> LispResult<Expr> + Sync + Send>,
+        f: X7FunctionPtr,
+        named_args: Vec<Expr>,
     ) -> Self {
         Self {
             symbol,
             minimum_args,
             f,
+            named_args,
         }
     }
 
-    fn call_fn(&self, args: &[Expr]) -> LispResult<Expr> {
+    fn call_fn(&self, args: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
         if self.minimum_args > args.len() {
             Err(ProgramError::NotEnoughArgs)
         } else {
-            (self.f)(args)
+            if self.named_args.is_empty() {
+                (self.f)(args, symbol_table)
+            } else {
+                let new_sym = symbol_table.with_locals(&self.named_args, args)?;
+                (self.f)(args, &new_sym)
+            }
         }
     }
 }
@@ -171,19 +186,16 @@ pub enum ProgramError {
 
 pub type LispResult<T> = Result<T, ProgramError>;
 
-#[derive(Clone, Debug)]
-pub(crate) struct Expr {
-    pub dataty: DataType,
-    symbol_table: SymbolTable,
-}
-
 impl std::ops::Add<&Expr> for Expr {
     type Output = LispResult<Expr>;
     fn add(self, other: &Expr) -> LispResult<Expr> {
-        match (&self.dataty, &other.dataty) {
-            (DataType::Num(l), DataType::Num(r)) => (self.bind(DataType::Num(l + r))),
-            (DataType::String(l), DataType::String(r)) => {
-                self.bind(DataType::String(l.to_string() + r))
+        match (&self, &other) {
+            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l + r))),
+            (Expr::String(l), Expr::String(r)) => Ok(Expr::String(l.to_string() + r)),
+            (Expr::List(l), Expr::List(r)) => {
+                let mut res = l.clone();
+                res.append(&mut r.clone());
+                Ok(Expr::List(res))
             }
             _ => Err(ProgramError::BadTypes),
         }
@@ -193,8 +205,8 @@ impl std::ops::Add<&Expr> for Expr {
 impl std::ops::Sub<&Expr> for Expr {
     type Output = LispResult<Expr>;
     fn sub(self, other: &Expr) -> LispResult<Expr> {
-        match (&self.dataty, &other.dataty) {
-            (DataType::Num(l), DataType::Num(r)) => (self.bind(DataType::Num(l - r))),
+        match (&self, &other) {
+            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l - r))),
             _ => Err(ProgramError::BadTypes),
         }
     }
@@ -203,11 +215,11 @@ impl std::ops::Sub<&Expr> for Expr {
 impl std::ops::Mul<&Expr> for Expr {
     type Output = LispResult<Expr>;
     fn mul(self, other: &Expr) -> LispResult<Expr> {
-        match (&self.dataty, &other.dataty) {
-            (DataType::Num(l), DataType::Num(r)) => (self.bind(DataType::Num(l * r))),
-            (DataType::String(l), DataType::Num(r)) => {
+        match (&self, &other) {
+            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l * r))),
+            (Expr::String(l), Expr::Num(r)) => {
                 if *r >= 0.0 {
-                    self.bind(DataType::String(l.to_string().repeat(r.trunc() as usize)))
+                    Ok(Expr::String(l.to_string().repeat(r.trunc() as usize)))
                 } else {
                     Err(ProgramError::NotImplementedYet)
                 }
@@ -220,12 +232,12 @@ impl std::ops::Mul<&Expr> for Expr {
 impl std::ops::Div<&Expr> for Expr {
     type Output = LispResult<Expr>;
     fn div(self, other: &Expr) -> LispResult<Expr> {
-        match (&self.dataty, &other.dataty) {
-            (DataType::Num(l), DataType::Num(r)) => {
+        match (&self, &other) {
+            (Expr::Num(l), Expr::Num(r)) => {
                 if *r == 0.0 {
                     Err(ProgramError::DivisionByZero)
                 } else {
-                    self.bind(DataType::Num(l / r))
+                    Ok(Expr::Num(l / r))
                 }
             }
             _ => Err(ProgramError::BadTypes),
@@ -233,95 +245,86 @@ impl std::ops::Div<&Expr> for Expr {
     }
 }
 
-impl fmt::Display for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.dataty.fmt(f)
-    }
-}
-
 impl Expr {
-    pub(crate) fn new(dataty: DataType) -> Expr {
-        Self {
-            symbol_table: SymbolTable::new(),
-            dataty,
-        }
-    }
-
-    pub(crate) fn nil() -> Expr {
-        Expr::new(DataType::Nil)
-    }
-
-    pub(crate) fn list(l: Vec<Expr>) -> Expr {
-        Expr::new(DataType::List(l))
-    }
-
-    pub(crate) fn func(l: Function) -> Expr {
-        Expr::new(DataType::Function(l))
-    }
-
-    pub(crate) fn quote(q: Vec<Expr>) -> Expr {
-        Expr::new(DataType::Quote(q))
-    }
-
     pub(crate) fn top_level_iter(self) -> Vec<Expr> {
-        if let DataType::List(l) = self.dataty {
+        if let Expr::List(l) = self {
             l
         } else {
             unreachable!()
         }
     }
 
-    pub fn list_iter(&self) -> LispResult<Vec<Expr>> {
-        match &self.dataty {
-            DataType::List(l) => Ok(l.to_vec()),
-            // TODO: Figure out quotes
-            // DataType::Quote(q) => q.iter().cloned().map(|e| e.eval())
-            _ => Err(ProgramError::NotAList),
+    pub(crate) fn call_fn(&self, args: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+        if let Expr::Function(f) = self {
+            f.call_fn(args, symbol_table)
+        } else {
+            Err(ProgramError::NotAFunction)
         }
     }
 
-    pub fn bind(&self, dataty: DataType) -> LispResult<Expr> {
-        let expr = Expr {
-            symbol_table: self.symbol_table.clone(),
-            dataty,
-        };
-        Ok(expr)
+    pub(crate) fn eval_iter<'a>(
+        &'a self,
+        symbol_table: &'a SymbolTable,
+        start: usize,
+    ) -> LispResult<EvalIter<'a>> {
+        if let Expr::List(l) = self {
+            let ei = EvalIter {
+                inner: &l[start..],
+                symbol_table,
+            };
+            Ok(ei)
+        } else {
+            Err(ProgramError::BadTypes)
+        }
     }
 
-    pub(crate) fn call_fn(&self, args: &[Expr]) -> LispResult<Expr> {
-        self.dataty.call_fn(args)
-    }
-
-    pub(crate) fn eval(&self) -> LispResult<Expr> {
-        if self.dataty.is_list() {
+    pub(crate) fn eval(&self, symbol_table: &SymbolTable) -> LispResult<Expr> {
+        if self.is_list() {
             // eval list
-            let list = self.dataty.get_list();
+            let list = self.get_list()?;
             if list.is_empty() {
-                return self.bind(DataType::List(Vec::with_capacity(0)));
+                return Ok(Expr::List(Vec::with_capacity(0)));
             }
 
-            // TODO: Is there a more efficient way to do this?
-            let mut iter = list.iter().map(|expr| expr.eval());
-            let head = iter.next().unwrap()?;
+            let head = list[0].clone();
+            let tail = &list[1..];
 
-            // TODO: Is there a better way to do this?
-            // e.g. use '(1 2 3)
-            // XXX: There needs a better way to lazily process symbols.
-            if head.dataty.is_quote() {
-                return self.bind(DataType::Quote(self.dataty.get_list()[1..].into()));
-            }
-
-            let tail: Vec<Expr> = iter.collect::<Result<Vec<Expr>, ProgramError>>()?;
-            return head.dataty.call_fn(&tail);
+            return head.eval(&symbol_table)?.call_fn(&tail, symbol_table);
         }
 
         // Resolve Symbol
 
-        if self.dataty.is_symbol() {
-            return self.symbol_table.lookup(&self.dataty);
+        if self.is_symbol() {
+            // TODO: Use symbol table reference
+            return symbol_table.lookup(&self);
         }
 
         Ok(self.clone())
+    }
+}
+
+pub(crate) struct EvalIter<'a> {
+    inner: &'a [Expr],
+    symbol_table: &'a SymbolTable,
+}
+
+impl<'a> Iterator for EvalIter<'a> {
+    type Item = LispResult<Expr>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        dbg!(self.inner);
+        if self.inner.len() == 0 {
+            None
+        } else {
+            let res = self.inner[0].eval(self.symbol_table);
+            self.inner = &self.inner[1..];
+            dbg!(&res);
+            if res.is_ok() {
+                Some(res.unwrap().eval(self.symbol_table))
+            } else {
+                Some(res)
+            }
+        }
     }
 }
 
@@ -343,10 +346,10 @@ impl SymbolTable {
         }
     }
 
-    pub(crate) fn lookup(&self, key: &DataType) -> LispResult<Expr> {
+    pub(crate) fn lookup(&self, key: &Expr) -> LispResult<Expr> {
         // Check Functions
         let symbol = match key {
-            DataType::Symbol(ref s) => s,
+            Expr::Symbol(ref s) => s,
             _ => return Err(ProgramError::CannotLookupNonSymbol),
         };
         for scope in self.locals.iter().rev() {
@@ -362,10 +365,63 @@ impl SymbolTable {
             .ok_or(ProgramError::UnknownSymbol)
     }
 
-    pub(crate) fn add_global_fn(&mut self, f: Function) {
+    pub(crate) fn add<'a>(
+        &'a mut self,
+        values: impl Iterator<Item = &'a [Expr]>,
+    ) -> LispResult<()> {
+        let mut new_layer = SymbolLookup::new();
+        for pair in values {
+            if pair.len() != 2 {
+                panic!("pairs len needs to be two");
+            }
+            let symbol = match pair[0] {
+                Expr::Symbol(ref s) => s,
+                _ => return Err(ProgramError::CannotLookupNonSymbol),
+            };
+            new_layer.insert(symbol.to_string(), pair[1].clone());
+        }
+        self.locals.push(new_layer);
+        Ok(())
+    }
+
+    pub(crate) fn add_global_fn(&self, f: Function) {
         let symbol = f.symbol.clone();
-        let expr = Expr::new(DataType::Function(f)); // TODO: Scope inheritance?
+        let expr = Expr::Function(f); // TODO: Scope inheritance?
         let mut guard = GLOBAL_SYMS.lock().unwrap();
         guard.insert(symbol, expr);
+    }
+
+    pub(crate) fn with_locals(&self, symbols: &[Expr], values: &[Expr]) -> LispResult<Self> {
+        let mut copy = self.clone();
+        let mut locals = SymbolLookup::new();
+        let mut symbol_iter = symbols.iter().cloned();
+        let mut values_iter = values.iter().cloned();
+        loop {
+            let symbol = if let Some(sym) = get_symbol(symbol_iter.next()) {
+                sym?
+            } else {
+                break;
+            };
+            if symbol == "&" {
+                let rest_sym = if let Some(sym) = get_symbol(symbol_iter.next()) {
+                    sym?
+                } else {
+                    return Err(ProgramError::NotEnoughArgs);
+                };
+                locals.insert(rest_sym, Expr::List(values_iter.collect()));
+                break;
+            }
+            let value = values_iter.next().unwrap();
+            locals.insert(symbol, value);
+        }
+        copy.locals.push(locals);
+        Ok(copy)
+    }
+}
+
+fn get_symbol(sym: Option<Expr>) -> Option<LispResult<String>> {
+    match sym {
+        Some(rest_sym) => Some(rest_sym.get_symbol_string()),
+        None => None,
     }
 }

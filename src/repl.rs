@@ -1,4 +1,4 @@
-use crate::symbols::{DataType, Expr, LispResult, ProgramError};
+use crate::symbols::{Expr, LispResult, ProgramError};
 
 fn find_matching(s: &str) -> LispResult<usize> {
     // s: (...)
@@ -55,19 +55,14 @@ fn read_int(s: &str) -> LispResult<(Expr, usize)> {
     let num: f64 = s[..end_pos]
         .parse::<f64>()
         .map_err(|_| ProgramError::FailedToParseInt)?;
-    Ok((Expr::new(DataType::Num(num)), end_pos + 1))
+    Ok((Expr::Num(num), end_pos + 1))
 }
 
 fn read_str(s: &str) -> LispResult<(Expr, usize)> {
     assert!(s.starts_with('"'));
     s[1..]
         .find('"')
-        .map(|end_pos| {
-            Ok((
-                Expr::new(DataType::String(s[1..=end_pos].into())),
-                end_pos + 2,
-            ))
-        })
+        .map(|end_pos| Ok((Expr::String(s[1..=end_pos].into()), end_pos + 2)))
         .unwrap_or(Err(ProgramError::FailedToParseString))
 }
 
@@ -76,13 +71,13 @@ fn read_word(s: &str) -> LispResult<(Expr, usize)> {
         return Err(ProgramError::UnexpectedEOF);
     }
     let end = s.find(' ').unwrap_or_else(|| s.len()); // TODO: Fix strings in words
-    Ok((Expr::new(DataType::Symbol(s[..end].into())), end + 1))
+    Ok((Expr::Symbol(s[..end].into()), end + 1))
 }
 
 pub(crate) fn read(s: &str) -> LispResult<Expr> {
     // assert!(s.starts_with('('));
     if s.is_empty() {
-        return Ok(Expr::nil());
+        return Ok(Expr::Nil);
     }
     let mut exprs = Vec::new();
     let mut ss = s;
@@ -142,7 +137,7 @@ pub(crate) fn read(s: &str) -> LispResult<Expr> {
         // let c = char_iter.next();
     }
 
-    Ok(Expr::list(exprs))
+    Ok(Expr::List(exprs))
 }
 
 #[inline]

@@ -1,8 +1,9 @@
 use crate::repl::read;
+use crate::symbols::SymbolTable;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
-pub(crate) fn read_cli() {
+pub(crate) fn read_cli(sym_table: &SymbolTable) {
     let mut rl = Editor::<()>::new();
     if rl.load_history("history.txt").is_err() {
         // TODO: Make the actual file
@@ -12,6 +13,9 @@ pub(crate) fn read_cli() {
         let readline = rl.readline(">>> ");
         match readline {
             Ok(line) => {
+                if line == "" {
+                    continue;
+                }
                 rl.add_history_entry(line.as_str());
                 let prog = match read(line.as_str()) {
                     Ok(p) => p,
@@ -21,7 +25,7 @@ pub(crate) fn read_cli() {
                     }
                 };
                 for expr in prog.top_level_iter() {
-                    let res = match expr.eval() {
+                    let res = match expr.eval(sym_table) {
                         Ok(p) => p,
                         Err(e) => {
                             println!("{:?}", e);
