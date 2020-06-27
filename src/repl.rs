@@ -123,7 +123,7 @@ pub(crate) fn read(s: &str) -> LispResult<Expr> {
             }
             sym => {
                 if !is_symbol_char(sym) {
-                    return Err(ProgramError::UnknownSymbol);
+                    return Err(ProgramError::InvalidCharacterInSymbol);
                 }
                 let (expr, new_pos) = read_word(ss)?;
                 exprs.push(expr);

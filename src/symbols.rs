@@ -1,9 +1,10 @@
+use core::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Expr {
     Num(f64),
     Symbol(String),
@@ -12,7 +13,7 @@ pub(crate) enum Expr {
     Nil,
     String(String),
     Quote(Vec<Expr>),
-    // Bool(bool),
+    Bool(bool),
 }
 
 impl fmt::Display for Expr {
@@ -38,6 +39,7 @@ impl fmt::Display for Expr {
                 write!(f, ")")?;
                 Ok(())
             }
+            Expr::Bool(b) => write!(f, "{}", b),
             Expr::List(l) => {
                 let mut first = true;
                 write!(f, "(")?;
@@ -83,6 +85,8 @@ impl Expr {
     pub(crate) fn get_list(&self) -> LispResult<&[Expr]> {
         if let Expr::List(l) = self {
             Ok(&l)
+        } else if let Expr::Nil = self {
+            Ok(&[])
         } else {
             Err(ProgramError::BadTypes)
         }
@@ -103,6 +107,15 @@ impl Expr {
             Err(ProgramError::BadTypes)
         }
     }
+
+    pub(crate) fn rename_function(self, new_name: String) -> LispResult<Expr> {
+        if let Expr::Function(mut f) = self {
+            f.symbol = new_name;
+            Ok(Expr::Function(f))
+        } else {
+            Err(ProgramError::BadTypes)
+        }
+    }
 }
 
 pub(crate) type X7FunctionPtr =
@@ -114,6 +127,13 @@ pub(crate) struct Function {
     minimum_args: usize,
     f: X7FunctionPtr,
     named_args: Vec<Expr>, // Expr::Symbol
+    eval_args: bool,
+}
+
+impl PartialEq for Function {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.f, &other.f)
+    }
 }
 
 impl fmt::Debug for Function {
@@ -129,12 +149,13 @@ impl fmt::Display for Function {
 }
 
 impl Function {
-    pub fn new(symbol: String, minimum_args: usize, f: X7FunctionPtr) -> Self {
+    pub fn new(symbol: String, minimum_args: usize, f: X7FunctionPtr, eval_args: bool) -> Self {
         Self {
             symbol,
             minimum_args,
             f,
             named_args: Vec::with_capacity(0),
+            eval_args,
         }
     }
 
@@ -143,23 +164,35 @@ impl Function {
         minimum_args: usize,
         f: X7FunctionPtr,
         named_args: Vec<Expr>,
+        eval_args: bool,
     ) -> Self {
         Self {
             symbol,
             minimum_args,
             f,
             named_args,
+            eval_args,
         }
     }
 
+    // TODO: Refactor this into something cleaner.
     fn call_fn(&self, args: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
         if self.minimum_args > args.len() {
-            Err(ProgramError::NotEnoughArgs)
-        } else {
-            if self.named_args.is_empty() {
-                (self.f)(args, symbol_table)
+            return Err(ProgramError::NotEnoughArgs);
+        }
+        if self.named_args.is_empty() {
+            if self.eval_args {
+                let args: Result<Vec<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
+                (self.f)(&args?, symbol_table)
             } else {
-                let new_sym = symbol_table.with_locals(&self.named_args, args)?;
+                (self.f)(args, symbol_table)
+            }
+        } else {
+            let new_sym = symbol_table.with_locals(&self.named_args, args)?;
+            if self.eval_args {
+                let args: Result<Vec<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
+                (self.f)(&args?, &new_sym)
+            } else {
                 (self.f)(args, &new_sym)
             }
         }
@@ -170,6 +203,7 @@ impl Function {
 pub enum ProgramError {
     BadTypes,
     CannotLookupNonSymbol,
+    InvalidCharacterInSymbol,
     // CannotStartExprWithNonSymbol,
     // CondBadConditionNotEven,
     DivisionByZero,
@@ -180,7 +214,7 @@ pub enum ProgramError {
     NotEnoughArgs,
     NotImplementedYet,
     UnexpectedEOF,
-    UnknownSymbol,
+    UnknownSymbol(String),
     WrongNumberOfArgs,
 }
 
@@ -279,8 +313,9 @@ impl Expr {
     }
 
     pub(crate) fn eval(&self, symbol_table: &SymbolTable) -> LispResult<Expr> {
+        // Eval List
+
         if self.is_list() {
-            // eval list
             let list = self.get_list()?;
             if list.is_empty() {
                 return Ok(Expr::List(Vec::with_capacity(0)));
@@ -318,7 +353,6 @@ impl<'a> Iterator for EvalIter<'a> {
         } else {
             let res = self.inner[0].eval(self.symbol_table);
             self.inner = &self.inner[1..];
-            dbg!(&res);
             if res.is_ok() {
                 Some(res.unwrap().eval(self.symbol_table))
             } else {
@@ -336,13 +370,13 @@ type SymbolLookup = HashMap<String, Expr>;
 
 #[derive(Clone, Debug)]
 pub(crate) struct SymbolTable {
-    locals: Vec<SymbolLookup>,
+    locals: RefCell<Vec<SymbolLookup>>,
 }
 
 impl SymbolTable {
     pub(crate) fn new() -> SymbolTable {
         SymbolTable {
-            locals: Vec::with_capacity(0),
+            locals: RefCell::new(Vec::with_capacity(0)),
         }
     }
 
@@ -352,7 +386,7 @@ impl SymbolTable {
             Expr::Symbol(ref s) => s,
             _ => return Err(ProgramError::CannotLookupNonSymbol),
         };
-        for scope in self.locals.iter().rev() {
+        for scope in self.locals.borrow().iter().rev() {
             if let Some(expr) = scope.get(symbol) {
                 return Ok(expr.clone());
             }
@@ -362,7 +396,7 @@ impl SymbolTable {
         guard
             .get(symbol)
             .cloned()
-            .ok_or(ProgramError::UnknownSymbol)
+            .ok_or(ProgramError::UnknownSymbol(symbol.to_string()))
     }
 
     pub(crate) fn add<'a>(
@@ -380,8 +414,20 @@ impl SymbolTable {
             };
             new_layer.insert(symbol.to_string(), pair[1].clone());
         }
-        self.locals.push(new_layer);
+        self.locals.borrow_mut().push(new_layer);
         Ok(())
+    }
+
+    pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {
+        let mut locals = self.locals.borrow_mut();
+        if locals.is_empty() {
+            locals.push(SymbolLookup::new());
+        }
+        locals
+            .last_mut()
+            .unwrap()
+            .insert(symbol.get_symbol_string()?, value.clone());
+        Ok(Expr::Nil)
     }
 
     pub(crate) fn add_global_fn(&self, f: Function) {
@@ -391,8 +437,13 @@ impl SymbolTable {
         guard.insert(symbol, expr);
     }
 
+    pub(crate) fn add_global_const(&self, symbol: String, value: Expr) {
+        let mut guard = GLOBAL_SYMS.lock().unwrap();
+        guard.insert(symbol, value);
+    }
+
     pub(crate) fn with_locals(&self, symbols: &[Expr], values: &[Expr]) -> LispResult<Self> {
-        let mut copy = self.clone();
+        let copy = self.clone();
         let mut locals = SymbolLookup::new();
         let mut symbol_iter = symbols.iter().cloned();
         let mut values_iter = values.iter().cloned();
@@ -414,7 +465,7 @@ impl SymbolTable {
             let value = values_iter.next().unwrap();
             locals.insert(symbol, value);
         }
-        copy.locals.push(locals);
+        copy.locals.borrow_mut().push(locals);
         Ok(copy)
     }
 }
