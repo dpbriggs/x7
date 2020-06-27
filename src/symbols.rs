@@ -19,7 +19,7 @@ pub(crate) enum Expr {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expr::Nil => write!(f, "Nil"),
+            Expr::Nil => write!(f, "()"),
             Expr::String(s) => write!(f, "\"{}\"", s),
             Expr::Num(n) => write!(f, "{}", n),
             Expr::Symbol(s) => write!(f, "{}", s),
@@ -58,6 +58,14 @@ impl fmt::Display for Expr {
 }
 
 impl Expr {
+    pub(crate) fn is_bool_true(&self) -> LispResult<bool> {
+        if let Expr::Bool(b) = self {
+            Ok(*b)
+        } else {
+            Err(ProgramError::BadTypes)
+        }
+    }
+
     pub(crate) fn is_even_list(&self) -> bool {
         if let Expr::List(l) = self {
             l.len() % 2 == 0
@@ -79,6 +87,14 @@ impl Expr {
             true
         } else {
             false
+        }
+    }
+
+    pub(crate) fn get_bool(&self) -> LispResult<bool> {
+        if let Expr::Bool(b) = self {
+            Ok(*b)
+        } else {
+            Err(ProgramError::BadTypes)
         }
     }
 
@@ -188,11 +204,13 @@ impl Function {
                 (self.f)(args, symbol_table)
             }
         } else {
-            let new_sym = symbol_table.with_locals(&self.named_args, args)?;
             if self.eval_args {
                 let args: Result<Vec<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
-                (self.f)(&args?, &new_sym)
+                let args = args?;
+                let new_sym = symbol_table.with_locals(&self.named_args, &args)?;
+                (self.f)(&args, &new_sym)
             } else {
+                let new_sym = symbol_table.with_locals(&self.named_args, args)?;
                 (self.f)(args, &new_sym)
             }
         }
@@ -205,7 +223,8 @@ pub enum ProgramError {
     CannotLookupNonSymbol,
     InvalidCharacterInSymbol,
     // CannotStartExprWithNonSymbol,
-    // CondBadConditionNotEven,
+    CondNoExecutionPath,
+    CondBadConditionNotEven,
     DivisionByZero,
     FailedToParseInt,
     FailedToParseString,
@@ -347,7 +366,6 @@ impl<'a> Iterator for EvalIter<'a> {
     type Item = LispResult<Expr>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        dbg!(self.inner);
         if self.inner.len() == 0 {
             None
         } else {

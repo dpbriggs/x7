@@ -1,3 +1,4 @@
+use crate::repl::read;
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 
 macro_rules! exact_len {
@@ -9,6 +10,29 @@ macro_rules! exact_len {
 }
 
 // ARITHMETIC
+
+fn or(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    for expr in exprs {
+        if expr.get_bool()? {
+            return Ok(Expr::Bool(true));
+        }
+    }
+    Ok(Expr::Bool(false))
+}
+
+fn and(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    for expr in exprs {
+        if !expr.get_bool()? {
+            return Ok(Expr::Bool(false));
+        }
+    }
+    Ok(Expr::Bool(true))
+}
+
+fn not(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    Ok(Expr::Bool(!exprs[0].get_bool()?))
+}
 
 fn eq_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let all_eq = exprs.windows(2).all(|x| x[0] == x[1]);
@@ -55,10 +79,6 @@ fn quote(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::Quote(exprs.into()))
 }
 
-fn list(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    Ok(Expr::List(exprs.into()))
-}
-
 fn apply(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.len() != 2 {
         return Err(ProgramError::WrongNumberOfArgs);
@@ -88,12 +108,22 @@ fn println(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
 }
 
 // TODO: Conditionals
-// fn cond(exprs: &[Expr]) -> LispResult<Expr> {
-//     if exprs.len() % 2 != 0 {
-//         return Err(ProgramError::CondBadConditionNotEven);
-//     }
-//     Ok(Expr::list(vec![]))
-// }
+fn cond(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+    if exprs.len() % 2 != 0 {
+        return Err(ProgramError::CondBadConditionNotEven);
+    }
+    for pair in exprs.chunks_exact(2) {
+        let (pred, body) = (&pair[0], &pair[1]);
+        if pred
+            .eval(symbol_table)? // argument lookup
+            .eval(symbol_table)? // eval arg
+            .is_bool_true()?
+        {
+            return body.eval(symbol_table);
+        }
+    }
+    Err(ProgramError::CondNoExecutionPath)
+}
 
 // FUNC
 
@@ -161,6 +191,41 @@ fn defn(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(func)
 }
 
+// LISTS
+
+fn list(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    Ok(Expr::List(exprs.into()))
+}
+
+fn cons(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let mut list: Vec<_> = exprs[1].get_list()?.into();
+    let mut res = Vec::with_capacity(list.len() + 1);
+    res.push(exprs[0].clone());
+    res.append(&mut list);
+    Ok(Expr::List(res))
+}
+
+fn head(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let list = exprs[0].get_list()?;
+    if list.is_empty() {
+        Ok(Expr::Nil)
+    } else {
+        Ok(list[0].clone())
+    }
+}
+
+fn tail(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let list = exprs[0].get_list()?;
+    if list.is_empty() {
+        Ok(Expr::Nil)
+    } else {
+        Ok(Expr::List(list[1..].into()))
+    }
+}
+
 use std::sync::Arc;
 
 macro_rules! make_stdlib_fns {
@@ -196,26 +261,62 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("/", 2, div_exprs, true),
         ("=", 1, eq_exprs, true),
         ("inc", 1, inc_exprs, true),
+        ("not", 1, not, true),
+        ("or", 1, or, true),
+        ("and", 1, and, true),
         // // MISC
         ("ident", 0, ident, true),
         ("quote", 0, quote, false),
         ("print", 1, print, true),
         ("println", 1, println, true),
         ("def", 1, def, false),
+        ("cond", 2, cond, false),
         // FUNC TOOLS
         ("map", 1, map, true),
         ("apply", 2, apply, true),
         ("reduce", 2, reduce, true),
-        // Data Structures
-        ("list", 0, list, true), // FUNDAMENTALS
+        // Functions
         ("fn", 0, func, false),
         ("defn", 3, defn, false),
-        ("bind", 2, bind, true)
+        ("bind", 2, bind, true),
+        // Lists
+        ("list", 0, list, true),
+        ("head", 1, head, true),
+        ("tail", 1, tail, true),
+        ("cons", 2, cons, true)
     );
     // syms
-    make_stdlib_consts!(
+    let syms = make_stdlib_consts!(
         syms,
         ("true", Expr::Bool(true)),
         ("false", Expr::Bool(false))
-    )
+    );
+    load_x7_stdlib(syms).unwrap()
+}
+
+use std::fs::File;
+use std::io;
+use std::io::prelude::*;
+
+// TODO: Modules
+// TODO: Descuff interpreter loading
+fn load_x7_stdlib(symbol_table: SymbolTable) -> io::Result<SymbolTable> {
+    let mut stdlib_str = String::new();
+    File::open("stdlib/base.x7")?.read_to_string(&mut stdlib_str)?;
+    let prog = match read(stdlib_str.as_str()) {
+        Ok(p) => p,
+        Err(e) => {
+            panic!("{:?}", e);
+        }
+    };
+    for expr in prog.top_level_iter() {
+        let res = match expr.eval(&symbol_table) {
+            Ok(p) => p,
+            Err(e) => {
+                panic!("{:?}", e);
+            }
+        };
+        println!("{}", res);
+    }
+    Ok(symbol_table)
 }
