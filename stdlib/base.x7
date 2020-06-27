@@ -1,0 +1,21 @@
+(defn not= (& args)
+  (not (apply = args)))
+
+(defn empty? (x)
+  (or (= x ()) (= x (list)) (= x "")))
+
+(defn non-empty? (x) (not (empty? x)))
+
+(defn if (true? then else)
+  (cond
+   true? then
+   true else))
+
+(defn filter (in? list)
+  (cond
+   (empty? list) ()
+   true (+ (cond
+               (in? (head list)) (head list)
+               true ())
+           (filter in? (tail list))
+           )))
