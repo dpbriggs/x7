@@ -218,7 +218,7 @@ impl Function {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ProgramError {
+pub(crate) enum ProgramError {
     BadTypes,
     CannotLookupNonSymbol,
     InvalidCharacterInSymbol,
@@ -228,7 +228,7 @@ pub enum ProgramError {
     DivisionByZero,
     FailedToParseInt,
     FailedToParseString,
-    NotAFunction,
+    NotAFunction(Expr),
     NotAList,
     NotEnoughArgs,
     NotImplementedYet,
@@ -237,7 +237,17 @@ pub enum ProgramError {
     WrongNumberOfArgs,
 }
 
-pub type LispResult<T> = Result<T, ProgramError>;
+pub(crate) type LispResult<T> = Result<T, ProgramError>;
+
+impl std::ops::Rem<&Expr> for Expr {
+    type Output = LispResult<Expr>;
+    fn rem(self, other: &Expr) -> LispResult<Expr> {
+        match (&self, &other) {
+            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l % r))),
+            _ => Err(ProgramError::BadTypes),
+        }
+    }
+}
 
 impl std::ops::Add<&Expr> for Expr {
     type Output = LispResult<Expr>;
@@ -311,7 +321,7 @@ impl Expr {
         if let Expr::Function(f) = self {
             f.call_fn(args, symbol_table)
         } else {
-            Err(ProgramError::NotAFunction)
+            Err(ProgramError::NotAFunction(self.clone()))
         }
     }
 

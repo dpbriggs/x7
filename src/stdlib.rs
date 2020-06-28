@@ -11,6 +11,11 @@ macro_rules! exact_len {
 
 // ARITHMETIC
 
+fn rem_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    exprs[0].clone() % &exprs[1]
+}
+
 fn or(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in exprs {
         if expr.get_bool()? {
@@ -114,11 +119,7 @@ fn cond(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
     }
     for pair in exprs.chunks_exact(2) {
         let (pred, body) = (&pair[0], &pair[1]);
-        if pred
-            .eval(symbol_table)? // argument lookup
-            .eval(symbol_table)? // eval arg
-            .is_bool_true()?
-        {
+        if pred.eval(symbol_table)?.is_bool_true()? {
             return body.eval(symbol_table);
         }
     }
@@ -258,6 +259,7 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("+", 1, add_exprs, true),
         ("-", 1, sub_exprs, true),
         ("*", 1, mult_exprs, true),
+        ("%", 2, rem_exprs, true),
         ("/", 2, div_exprs, true),
         ("=", 1, eq_exprs, true),
         ("inc", 1, inc_exprs, true),

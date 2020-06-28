@@ -11,11 +11,13 @@
    true? then
    true else))
 
-(defn filter (in? list)
+(defn is-even? (x) (= 0 (% x 2)))
+
+(defn filter (in? l)
   (cond
-   (empty? list) ()
-   true (+ (cond
-               (in? (head list)) (head list)
-               true ())
-           (filter in? (tail list))
-           )))
+   (empty? l) ()
+   (in? (head l)) (cons
+                   (head l)
+                   (filter in? (tail l)))
+   true (filter in? (tail l))))
+
