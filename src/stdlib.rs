@@ -11,6 +11,30 @@ macro_rules! exact_len {
 
 // ARITHMETIC
 
+fn lt_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let first = &exprs[0];
+    let rest = exprs[1..].iter().all(|e| first < e);
+    Ok(Expr::Bool(rest))
+}
+
+fn lte_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let first = &exprs[0];
+    let rest = exprs[1..].iter().all(|e| first <= e);
+    Ok(Expr::Bool(rest))
+}
+
+fn gt_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let first = &exprs[0];
+    let rest = exprs[1..].iter().all(|e| first > e);
+    Ok(Expr::Bool(rest))
+}
+
+fn gte_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let first = &exprs[0];
+    let rest = exprs[1..].iter().all(|e| first >= e);
+    Ok(Expr::Bool(rest))
+}
+
 fn rem_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     exprs[0].clone() % &exprs[1]
@@ -46,22 +70,22 @@ fn eq_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn add_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let init = exprs[0].clone();
-    exprs[1..].iter().try_fold(init, |acc, x| acc + &x)
+    exprs[1..].iter().try_fold(init, |acc, x| acc + x)
 }
 
 fn sub_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let init = exprs[0].clone();
-    exprs[1..].iter().try_fold(init, |acc, x| acc - &x)
+    exprs[1..].iter().try_fold(init, |acc, x| acc - x)
 }
 
 fn mult_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let init = exprs[0].clone();
-    exprs[1..].iter().try_fold(init, |acc, x| acc * &x)
+    exprs[1..].iter().try_fold(init, |acc, x| acc * x)
 }
 
 fn div_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let init = exprs[0].clone();
-    exprs[1..].iter().try_fold(init, |acc, x| acc / &x)
+    exprs[1..].iter().try_fold(init, |acc, x| acc / x)
 }
 
 fn inc_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -96,6 +120,15 @@ fn def(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
     symbol_table.add_local(&exprs[0], &exprs[1].eval(symbol_table)?)
 }
 
+fn exprs_do(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+    for expr in &exprs[0..exprs.len() - 1] {
+        if let Err(e) = expr.eval(symbol_table) {
+            println!("{:?}", e);
+        }
+    }
+    exprs[exprs.len() - 1].eval(symbol_table)
+}
+
 // PRINT
 
 fn print(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -112,7 +145,8 @@ fn println(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::Num(exprs.len() as f64))
 }
 
-// TODO: Conditionals
+// FUNC
+
 fn cond(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.len() % 2 != 0 {
         return Err(ProgramError::CondBadConditionNotEven);
@@ -125,8 +159,6 @@ fn cond(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
     }
     Err(ProgramError::CondNoExecutionPath)
 }
-
-// FUNC
 
 fn map(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
     // TODO: Performance fix this entire thing
@@ -160,8 +192,11 @@ fn bind(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
     if !symbols.is_even_list() {
         return Err(ProgramError::WrongNumberOfArgs);
     }
-    let mut sym_copy = symbol_table.clone();
-    sym_copy.add(symbols.get_list()?.chunks_exact(2))?;
+    let sym_copy = symbol_table.clone();
+    for pair in symbols.get_list()?.chunks_exact(2) {
+        let (l, r) = (&pair[0], &pair[1]);
+        sym_copy.add_local(l, &r.eval(&sym_copy)?)?;
+    }
     exprs[1].eval(&sym_copy)
 }
 
@@ -227,6 +262,34 @@ fn tail(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     }
 }
 
+fn range(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let num = exprs[0].get_num()?.trunc();
+    if num < 0.0 {
+        Err(ProgramError::Custom(format!(
+            "Cannot have a negative range {}",
+            num
+        )))
+    } else {
+        let list = (0..num as usize).map(|n| Expr::Num(n as f64)).collect();
+        Ok(Expr::List(list))
+    }
+}
+
+fn shuffle(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let mut list = exprs[0].get_list()?.to_vec();
+    use rand::seq::SliceRandom;
+    use rand::thread_rng;
+    list.shuffle(&mut thread_rng());
+    Ok(Expr::List(list))
+}
+
+fn len(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    Ok(Expr::Num(exprs[0].get_list()?.len() as f64))
+}
+
 use std::sync::Arc;
 
 macro_rules! make_stdlib_fns {
@@ -262,6 +325,10 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("%", 2, rem_exprs, true),
         ("/", 2, div_exprs, true),
         ("=", 1, eq_exprs, true),
+        ("<", 2, lt_exprs, true),
+        ("<=", 2, lte_exprs, true),
+        (">", 2, gt_exprs, true),
+        (">=", 2, gte_exprs, true),
         ("inc", 1, inc_exprs, true),
         ("not", 1, not, true),
         ("or", 1, or, true),
@@ -273,19 +340,23 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("println", 1, println, true),
         ("def", 1, def, false),
         ("cond", 2, cond, false),
+        ("shuffle", 1, shuffle, true),
         // FUNC TOOLS
         ("map", 1, map, true),
         ("apply", 2, apply, true),
+        ("do", 1, exprs_do, false),
         ("reduce", 2, reduce, true),
         // Functions
         ("fn", 0, func, false),
         ("defn", 3, defn, false),
-        ("bind", 2, bind, true),
+        ("bind", 2, bind, false),
         // Lists
         ("list", 0, list, true),
         ("head", 1, head, true),
         ("tail", 1, tail, true),
-        ("cons", 2, cons, true)
+        ("cons", 2, cons, true),
+        ("range", 1, range, true),
+        ("len", 1, len, true)
     );
     // syms
     let syms = make_stdlib_consts!(

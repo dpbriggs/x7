@@ -1,4 +1,5 @@
 use core::cell::RefCell;
+use core::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
@@ -58,6 +59,14 @@ impl fmt::Display for Expr {
 }
 
 impl Expr {
+    pub(crate) fn get_num(&self) -> LispResult<f64> {
+        if let Expr::Num(n) = self {
+            Ok(*n)
+        } else {
+            Err(ProgramError::BadTypes)
+        }
+    }
+
     pub(crate) fn is_bool_true(&self) -> LispResult<bool> {
         if let Expr::Bool(b) = self {
             Ok(*b)
@@ -199,20 +208,19 @@ impl Function {
         if self.named_args.is_empty() {
             if self.eval_args {
                 let args: Result<Vec<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
-                (self.f)(&args?, symbol_table)
+                return (self.f)(&args?, symbol_table);
             } else {
-                (self.f)(args, symbol_table)
+                return (self.f)(args, symbol_table);
             }
+        }
+        if self.eval_args {
+            let args: Result<Vec<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
+            let args = args?;
+            let new_sym = symbol_table.with_locals(&self.named_args, &args)?;
+            (self.f)(&args, &new_sym)
         } else {
-            if self.eval_args {
-                let args: Result<Vec<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
-                let args = args?;
-                let new_sym = symbol_table.with_locals(&self.named_args, &args)?;
-                (self.f)(&args, &new_sym)
-            } else {
-                let new_sym = symbol_table.with_locals(&self.named_args, args)?;
-                (self.f)(args, &new_sym)
-            }
+            let new_sym = symbol_table.with_locals(&self.named_args, args)?;
+            (self.f)(args, &new_sym)
         }
     }
 }
@@ -229,12 +237,13 @@ pub(crate) enum ProgramError {
     FailedToParseInt,
     FailedToParseString,
     NotAFunction(Expr),
-    NotAList,
+    // NotAList,
     NotEnoughArgs,
     NotImplementedYet,
     UnexpectedEOF,
     UnknownSymbol(String),
     WrongNumberOfArgs,
+    Custom(String),
 }
 
 pub(crate) type LispResult<T> = Result<T, ProgramError>;
@@ -260,6 +269,10 @@ impl std::ops::Add<&Expr> for Expr {
                 res.append(&mut r.clone());
                 Ok(Expr::List(res))
             }
+            // TODO: no clone
+            (Expr::List(l), Expr::Nil) => Ok(Expr::List(l.to_vec())),
+            (Expr::Nil, Expr::List(r)) => Ok(Expr::List(r.to_vec())),
+            (Expr::Nil, Expr::Nil) => Ok(Expr::Nil),
             _ => Err(ProgramError::BadTypes),
         }
     }
@@ -308,6 +321,16 @@ impl std::ops::Div<&Expr> for Expr {
     }
 }
 
+impl PartialOrd for Expr {
+    fn partial_cmp(&self, other: &Expr) -> Option<Ordering> {
+        match (self, other) {
+            (Expr::Num(l), Expr::Num(r)) => l.partial_cmp(r),
+            (Expr::String(l), Expr::String(r)) => l.partial_cmp(r),
+            _ => None,
+        }
+    }
+}
+
 impl Expr {
     pub(crate) fn top_level_iter(self) -> Vec<Expr> {
         if let Expr::List(l) = self {
@@ -325,21 +348,21 @@ impl Expr {
         }
     }
 
-    pub(crate) fn eval_iter<'a>(
-        &'a self,
-        symbol_table: &'a SymbolTable,
-        start: usize,
-    ) -> LispResult<EvalIter<'a>> {
-        if let Expr::List(l) = self {
-            let ei = EvalIter {
-                inner: &l[start..],
-                symbol_table,
-            };
-            Ok(ei)
-        } else {
-            Err(ProgramError::BadTypes)
-        }
-    }
+    // pub(crate) fn eval_iter<'a>(
+    //     &'a self,
+    //     symbol_table: &'a SymbolTable,
+    //     start: usize,
+    // ) -> LispResult<EvalIter<'a>> {
+    //     if let Expr::List(l) = self {
+    //         let ei = EvalIter {
+    //             inner: &l[start..],
+    //             symbol_table,
+    //         };
+    //         Ok(ei)
+    //     } else {
+    //         Err(ProgramError::BadTypes)
+    //     }
+    // }
 
     pub(crate) fn eval(&self, symbol_table: &SymbolTable) -> LispResult<Expr> {
         // Eval List
@@ -367,28 +390,28 @@ impl Expr {
     }
 }
 
-pub(crate) struct EvalIter<'a> {
-    inner: &'a [Expr],
-    symbol_table: &'a SymbolTable,
-}
+// pub(crate) struct EvalIter<'a> {
+//     inner: &'a [Expr],
+//     symbol_table: &'a SymbolTable,
+// }
 
-impl<'a> Iterator for EvalIter<'a> {
-    type Item = LispResult<Expr>;
+// impl<'a> Iterator for EvalIter<'a> {
+//     type Item = LispResult<Expr>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.inner.len() == 0 {
-            None
-        } else {
-            let res = self.inner[0].eval(self.symbol_table);
-            self.inner = &self.inner[1..];
-            if res.is_ok() {
-                Some(res.unwrap().eval(self.symbol_table))
-            } else {
-                Some(res)
-            }
-        }
-    }
-}
+//     fn next(&mut self) -> Option<Self::Item> {
+//         if self.inner.len() == 0 {
+//             None
+//         } else {
+//             let res = self.inner[0].eval(self.symbol_table);
+//             self.inner = &self.inner[1..];
+//             if res.is_ok() {
+//                 Some(res.unwrap().eval(self.symbol_table))
+//             } else {
+//                 Some(res)
+//             }
+//         }
+//     }
+// }
 
 use once_cell::sync::Lazy;
 
@@ -424,7 +447,7 @@ impl SymbolTable {
         guard
             .get(symbol)
             .cloned()
-            .ok_or(ProgramError::UnknownSymbol(symbol.to_string()))
+            .ok_or_else(|| ProgramError::UnknownSymbol(symbol.to_string()))
     }
 
     pub(crate) fn add<'a>(

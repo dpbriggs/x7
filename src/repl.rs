@@ -53,16 +53,24 @@ fn read_int(s: &str) -> LispResult<(Expr, usize)> {
             ' ' => {
                 break;
             }
-            _ => return Err(ProgramError::FailedToParseInt),
+            sym => {
+                if sym.is_ascii_whitespace() || sym == '\n' {
+                    break;
+                } else {
+                    return Err(ProgramError::FailedToParseInt);
+                }
+            }
         };
     }
     if periods_seen > 1 {
+        println!("here");
         return Err(ProgramError::FailedToParseInt);
     }
     let num: f64 = is_neg
-        * s[..end_pos]
-            .parse::<f64>()
-            .map_err(|_| ProgramError::FailedToParseInt)?;
+        * s[..end_pos].parse::<f64>().map_err(|e| {
+            println!("{}", e);
+            ProgramError::FailedToParseInt
+        })?;
     Ok((Expr::Num(num), end_pos + 1))
 }
 

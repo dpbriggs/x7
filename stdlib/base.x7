@@ -21,3 +21,25 @@
                    (filter in? (tail l)))
    true (filter in? (tail l))))
 
+(defn dot-product (l r)
+  (cond
+   (or (empty? l) (empty? r)) 0.0
+   true (+ (* (head l) (head r))
+           (dot-product (tail l) (tail r)))))
+
+(defn zip (l r)
+  (cond
+   (or (empty? l) (empty? r)) ()
+   true (cons
+         (list (head l) (head r))
+         (zip (tail r) (tail l)))))
+
+(defn quicksort (l)
+  (cond
+   (empty? l) l
+   true (bind
+         (pivot (head l)
+          rest  (tail l)
+          le    (filter (fn (x) (< x pivot)) rest)
+          ge    (filter (fn (x) (> x pivot)) rest))
+         (+ (quicksort le) (list pivot) (quicksort ge)))))
