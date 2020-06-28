@@ -154,7 +154,7 @@ pub(crate) fn read(s: &str) -> LispResult<Expr> {
         // let c = char_iter.next();
     }
 
-    Ok(Expr::List(exprs))
+    Ok(Expr::List(exprs.into()))
 }
 
 #[inline]

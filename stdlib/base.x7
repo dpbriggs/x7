@@ -40,6 +40,6 @@
    true (bind
          (pivot (head l)
           rest  (tail l)
-          le    (filter (fn (x) (< x pivot)) rest)
+          le    (filter (fn (x) (<= x pivot)) rest)
           ge    (filter (fn (x) (> x pivot)) rest))
          (+ (quicksort le) (list pivot) (quicksort ge)))))

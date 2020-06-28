@@ -1,5 +1,6 @@
 use core::cell::RefCell;
 use core::cmp::Ordering;
+use im::Vector;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
@@ -9,11 +10,11 @@ use std::sync::Mutex;
 pub(crate) enum Expr {
     Num(f64),
     Symbol(String),
-    List(Vec<Expr>),
+    List(Vector<Expr>),
     Function(Function),
     Nil,
     String(String),
-    Quote(Vec<Expr>),
+    Quote(Vector<Expr>),
     Bool(bool),
 }
 
@@ -107,11 +108,11 @@ impl Expr {
         }
     }
 
-    pub(crate) fn get_list(&self) -> LispResult<&[Expr]> {
+    pub(crate) fn get_list(&self) -> LispResult<Vector<Expr>> {
         if let Expr::List(l) = self {
-            Ok(&l)
+            Ok(l.clone())
         } else if let Expr::Nil = self {
-            Ok(&[])
+            Ok(Vector::new())
         } else {
             Err(ProgramError::BadTypes)
         }
@@ -144,7 +145,7 @@ impl Expr {
 }
 
 pub(crate) type X7FunctionPtr =
-    Arc<dyn for<'c> Fn(&'c [Expr], &'c SymbolTable) -> LispResult<Expr> + Sync + Send>;
+    Arc<dyn for<'c> Fn(Vector<Expr>, &'c SymbolTable) -> LispResult<Expr> + Sync + Send>;
 
 #[derive(Clone)]
 pub(crate) struct Function {
@@ -201,25 +202,26 @@ impl Function {
     }
 
     // TODO: Refactor this into something cleaner.
-    fn call_fn(&self, args: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+    fn call_fn(&self, args: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         if self.minimum_args > args.len() {
             return Err(ProgramError::NotEnoughArgs);
         }
         if self.named_args.is_empty() {
             if self.eval_args {
-                let args: Result<Vec<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
-                return (self.f)(&args?, symbol_table);
+                let args: Result<Vector<_>, _> =
+                    args.iter().map(|e| e.eval(symbol_table)).collect();
+                return (self.f)(args?, symbol_table);
             } else {
                 return (self.f)(args, symbol_table);
             }
         }
         if self.eval_args {
-            let args: Result<Vec<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
+            let args: Result<Vector<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
             let args = args?;
-            let new_sym = symbol_table.with_locals(&self.named_args, &args)?;
-            (self.f)(&args, &new_sym)
+            let new_sym = symbol_table.with_locals(&self.named_args, args.clone())?;
+            (self.f)(args, &new_sym)
         } else {
-            let new_sym = symbol_table.with_locals(&self.named_args, args)?;
+            let new_sym = symbol_table.with_locals(&self.named_args, args.clone())?;
             (self.f)(args, &new_sym)
         }
     }
@@ -266,12 +268,12 @@ impl std::ops::Add<&Expr> for Expr {
             (Expr::String(l), Expr::String(r)) => Ok(Expr::String(l.to_string() + r)),
             (Expr::List(l), Expr::List(r)) => {
                 let mut res = l.clone();
-                res.append(&mut r.clone());
+                res.append(r.clone());
                 Ok(Expr::List(res))
             }
             // TODO: no clone
-            (Expr::List(l), Expr::Nil) => Ok(Expr::List(l.to_vec())),
-            (Expr::Nil, Expr::List(r)) => Ok(Expr::List(r.to_vec())),
+            (Expr::List(l), Expr::Nil) => Ok(Expr::List(l.clone())),
+            (Expr::Nil, Expr::List(r)) => Ok(Expr::List(r.clone())),
             (Expr::Nil, Expr::Nil) => Ok(Expr::Nil),
             _ => Err(ProgramError::BadTypes),
         }
@@ -332,7 +334,7 @@ impl PartialOrd for Expr {
 }
 
 impl Expr {
-    pub(crate) fn top_level_iter(self) -> Vec<Expr> {
+    pub(crate) fn top_level_iter(self) -> Vector<Expr> {
         if let Expr::List(l) = self {
             l
         } else {
@@ -340,7 +342,11 @@ impl Expr {
         }
     }
 
-    pub(crate) fn call_fn(&self, args: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+    pub(crate) fn call_fn(
+        &self,
+        args: Vector<Expr>,
+        symbol_table: &SymbolTable,
+    ) -> LispResult<Expr> {
         if let Expr::Function(f) = self {
             f.call_fn(args, symbol_table)
         } else {
@@ -368,15 +374,15 @@ impl Expr {
         // Eval List
 
         if self.is_list() {
-            let list = self.get_list()?;
+            let mut list = self.get_list()?;
             if list.is_empty() {
-                return Ok(Expr::List(Vec::with_capacity(0)));
+                return Ok(Expr::List(Vec::with_capacity(0).into()));
             }
 
-            let head = list[0].clone();
-            let tail = &list[1..];
+            let head = list.pop_front().unwrap();
+            let tail = list;
 
-            return head.eval(&symbol_table)?.call_fn(&tail, symbol_table);
+            return head.eval(&symbol_table)?.call_fn(tail, symbol_table);
         }
 
         // Resolve Symbol
@@ -403,7 +409,7 @@ impl Expr {
 //             None
 //         } else {
 //             let res = self.inner[0].eval(self.symbol_table);
-//             self.inner = &self.inner[1..];
+//             self.inner = &self.inner.slice(1..);
 //             if res.is_ok() {
 //                 Some(res.unwrap().eval(self.symbol_table))
 //             } else {
@@ -450,25 +456,6 @@ impl SymbolTable {
             .ok_or_else(|| ProgramError::UnknownSymbol(symbol.to_string()))
     }
 
-    pub(crate) fn add<'a>(
-        &'a mut self,
-        values: impl Iterator<Item = &'a [Expr]>,
-    ) -> LispResult<()> {
-        let mut new_layer = SymbolLookup::new();
-        for pair in values {
-            if pair.len() != 2 {
-                panic!("pairs len needs to be two");
-            }
-            let symbol = match pair[0] {
-                Expr::Symbol(ref s) => s,
-                _ => return Err(ProgramError::CannotLookupNonSymbol),
-            };
-            new_layer.insert(symbol.to_string(), pair[1].clone());
-        }
-        self.locals.borrow_mut().push(new_layer);
-        Ok(())
-    }
-
     pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {
         let mut locals = self.locals.borrow_mut();
         if locals.is_empty() {
@@ -493,7 +480,7 @@ impl SymbolTable {
         guard.insert(symbol, value);
     }
 
-    pub(crate) fn with_locals(&self, symbols: &[Expr], values: &[Expr]) -> LispResult<Self> {
+    pub(crate) fn with_locals(&self, symbols: &[Expr], values: Vector<Expr>) -> LispResult<Self> {
         let copy = self.clone();
         let mut locals = SymbolLookup::new();
         let mut symbol_iter = symbols.iter().cloned();

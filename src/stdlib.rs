@@ -1,5 +1,6 @@
 use crate::repl::read;
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
+use im::{vector, Vector};
 
 macro_rules! exact_len {
     ($args:expr, $len:literal) => {
@@ -11,36 +12,36 @@ macro_rules! exact_len {
 
 // ARITHMETIC
 
-fn lt_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn lt_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let first = &exprs[0];
-    let rest = exprs[1..].iter().all(|e| first < e);
+    let rest = exprs.iter().skip(1).all(|e| first < e);
     Ok(Expr::Bool(rest))
 }
 
-fn lte_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn lte_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let first = &exprs[0];
-    let rest = exprs[1..].iter().all(|e| first <= e);
+    let rest = exprs.iter().skip(1).all(|e| first <= e);
     Ok(Expr::Bool(rest))
 }
 
-fn gt_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn gt_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let first = &exprs[0];
-    let rest = exprs[1..].iter().all(|e| first > e);
+    let rest = exprs.iter().skip(1).all(|e| first > e);
     Ok(Expr::Bool(rest))
 }
 
-fn gte_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn gte_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let first = &exprs[0];
-    let rest = exprs[1..].iter().all(|e| first >= e);
+    let rest = exprs.iter().skip(1).all(|e| first >= e);
     Ok(Expr::Bool(rest))
 }
 
-fn rem_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn rem_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     exprs[0].clone() % &exprs[1]
 }
 
-fn or(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn or(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in exprs {
         if expr.get_bool()? {
             return Ok(Expr::Bool(true));
@@ -49,7 +50,7 @@ fn or(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::Bool(false))
 }
 
-fn and(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn and(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in exprs {
         if !expr.get_bool()? {
             return Ok(Expr::Bool(false));
@@ -58,37 +59,38 @@ fn and(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::Bool(true))
 }
 
-fn not(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn not(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     Ok(Expr::Bool(!exprs[0].get_bool()?))
 }
 
-fn eq_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    let all_eq = exprs.windows(2).all(|x| x[0] == x[1]);
+fn eq_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let first = &exprs[0];
+    let all_eq = exprs.iter().all(|x| first == x);
     Ok(Expr::Bool(all_eq))
 }
 
-fn add_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn add_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let init = exprs[0].clone();
-    exprs[1..].iter().try_fold(init, |acc, x| acc + x)
+    exprs.iter().skip(1).try_fold(init, |acc, x| acc + x)
 }
 
-fn sub_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn sub_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let init = exprs[0].clone();
-    exprs[1..].iter().try_fold(init, |acc, x| acc - x)
+    exprs.iter().skip(1).try_fold(init, |acc, x| acc - x)
 }
 
-fn mult_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn mult_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let init = exprs[0].clone();
-    exprs[1..].iter().try_fold(init, |acc, x| acc * x)
+    exprs.iter().skip(1).try_fold(init, |acc, x| acc * x)
 }
 
-fn div_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn div_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let init = exprs[0].clone();
-    exprs[1..].iter().try_fold(init, |acc, x| acc / x)
+    exprs.iter().skip(1).try_fold(init, |acc, x| acc / x)
 }
 
-fn inc_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn inc_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.len() > 1 {
         Err(ProgramError::WrongNumberOfArgs)
     } else if let Expr::Num(n) = exprs[0] {
@@ -100,28 +102,28 @@ fn inc_exprs(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 // MISC
 
-fn ident(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    Ok(Expr::List(exprs.into()))
+fn ident(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    Ok(Expr::List(exprs))
 }
 
-fn quote(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    Ok(Expr::Quote(exprs.into()))
+fn quote(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    Ok(Expr::Quote(exprs))
 }
 
-fn apply(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn apply(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.len() != 2 {
         return Err(ProgramError::WrongNumberOfArgs);
     }
     exprs[0].call_fn(exprs[1].get_list()?, symbol_table)
 }
 
-fn def(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn def(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     symbol_table.add_local(&exprs[0], &exprs[1].eval(symbol_table)?)
 }
 
-fn exprs_do(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
-    for expr in &exprs[0..exprs.len() - 1] {
+fn exprs_do(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    for expr in exprs.clone().slice(..exprs.len() - 1).iter() {
         if let Err(e) = expr.eval(symbol_table) {
             println!("{:?}", e);
         }
@@ -131,15 +133,15 @@ fn exprs_do(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 // PRINT
 
-fn print(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    for expr in exprs {
+fn print(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    for expr in &exprs {
         print!("{}", expr);
     }
     Ok(Expr::Num(exprs.len() as f64))
 }
 
-fn println(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    for expr in exprs {
+fn println(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    for expr in &exprs {
         println!("{}", expr);
     }
     Ok(Expr::Num(exprs.len() as f64))
@@ -147,60 +149,83 @@ fn println(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 // FUNC
 
-fn cond(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn cond(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.len() % 2 != 0 {
         return Err(ProgramError::CondBadConditionNotEven);
     }
-    for pair in exprs.chunks_exact(2) {
-        let (pred, body) = (&pair[0], &pair[1]);
+    let mut iter = exprs.iter();
+    loop {
+        let pred = match iter.next() {
+            Some(s) => s,
+            None => break,
+        };
+        let body = iter.next().unwrap();
         if pred.eval(symbol_table)?.is_bool_true()? {
             return body.eval(symbol_table);
         }
     }
+    // for pair in exprs.iter(2) {
+    //     let (pred, body) = (&pair[0], &pair[1]);
+    //     if pred.eval(symbol_table)?.is_bool_true()? {
+    //         return body.eval(symbol_table);
+    //     }
+    // }
     Err(ProgramError::CondNoExecutionPath)
 }
 
-fn map(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn map(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     // TODO: Performance fix this entire thing
     if exprs.len() != 2 {
         return Err(ProgramError::WrongNumberOfArgs);
     }
     let f = &exprs[0];
-    let mut res = Vec::with_capacity(exprs.len() - 1);
-    for expr in exprs[1].get_list()? {
-        res.push(f.call_fn(&[expr.clone()], symbol_table)?);
+    let mut l = exprs[1].get_list()?;
+    for expr in l.iter_mut() {
+        let old = expr.clone();
+        *expr = f.call_fn(Vector::unit(old), symbol_table)?;
+        // res.push();
     }
-    Ok(Expr::List(res))
+    Ok(Expr::List(l))
 }
 
 /// reduce
 /// (f init coll)
-fn reduce(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.len() != 2 && exprs.len() != 3 {
         return Err(ProgramError::WrongNumberOfArgs);
     }
     let f = &exprs[0];
     let mut init = exprs[1].clone();
     for item in exprs[2].get_list()? {
-        init = f.call_fn(&[init, item.clone()], symbol_table)?;
+        init = f.call_fn(vector![init, item], symbol_table)?;
     }
     Ok(init)
 }
 
-fn bind(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn bind(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     let symbols = &exprs[0];
     if !symbols.is_even_list() {
         return Err(ProgramError::WrongNumberOfArgs);
     }
     let sym_copy = symbol_table.clone();
-    for pair in symbols.get_list()?.chunks_exact(2) {
-        let (l, r) = (&pair[0], &pair[1]);
+    let list = symbols.get_list()?;
+    let mut iter = list.iter();
+    loop {
+        let l = match iter.next() {
+            Some(s) => s,
+            None => break,
+        };
+        let r = iter.next().unwrap();
         sym_copy.add_local(l, &r.eval(&sym_copy)?)?;
     }
+    // for pair in symbols.get_list()? {
+    //     let (l, r) = (&pair[0], &pair[1]);
+    //     sym_copy.add_local(l, &r.eval(&sym_copy)?)?;
+    // }
     exprs[1].eval(&sym_copy)
 }
 
-fn func(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn func(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let arg_symbols = exprs[0].get_list()?;
     let min_args = match arg_symbols.iter().position(|e| e.symbol_matches("&")) {
@@ -208,41 +233,40 @@ fn func(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
         None => arg_symbols.len(),
     };
     let body = exprs[1].clone();
-    let f = Arc::new(move |_args: &[Expr], sym: &SymbolTable| body.eval(sym));
+    let f = Arc::new(move |_args: Vector<Expr>, sym: &SymbolTable| body.eval(sym));
     let f = Function::new_named_args(
         "AnonFn".to_string(),
         min_args,
         f,
-        arg_symbols.to_vec(),
+        arg_symbols.iter().cloned().collect(),
         true,
     );
     Ok(Expr::Function(f))
 }
 
-fn defn(exprs: &[Expr], symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 3);
     let name = &exprs[0];
-    let func = func(&exprs[1..], symbol_table)?.rename_function(name.get_symbol_string()?)?;
-    def(&[name.clone(), func.clone()], symbol_table)?;
+    let func =
+        func(exprs.clone().slice(1..), symbol_table)?.rename_function(name.get_symbol_string()?)?;
+    def(vector![name.clone(), func.clone()], symbol_table)?;
     Ok(func)
 }
 
 // LISTS
 
-fn list(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn list(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::List(exprs.into()))
 }
 
-fn cons(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn cons(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
-    let mut list: Vec<_> = exprs[1].get_list()?.into();
-    let mut res = Vec::with_capacity(list.len() + 1);
-    res.push(exprs[0].clone());
-    res.append(&mut list);
-    Ok(Expr::List(res))
+    let mut list = exprs[1].get_list()?;
+    list.push_front(exprs[0].clone());
+    Ok(Expr::List(list))
 }
 
-fn head(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn head(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let list = exprs[0].get_list()?;
     if list.is_empty() {
@@ -252,17 +276,17 @@ fn head(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     }
 }
 
-fn tail(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn tail(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    let list = exprs[0].get_list()?;
+    let mut list = exprs[0].get_list()?;
     if list.is_empty() {
         Ok(Expr::Nil)
     } else {
-        Ok(Expr::List(list[1..].into()))
+        Ok(Expr::List(list.slice(1..).into()))
     }
 }
 
-fn range(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let num = exprs[0].get_num()?.trunc();
     if num < 0.0 {
@@ -276,16 +300,16 @@ fn range(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
     }
 }
 
-fn shuffle(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn shuffle(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    let mut list = exprs[0].get_list()?.to_vec();
+    let mut list: Vec<_> = exprs[0].get_list()?.iter().cloned().collect();
     use rand::seq::SliceRandom;
     use rand::thread_rng;
     list.shuffle(&mut thread_rng());
-    Ok(Expr::List(list))
+    Ok(Expr::List(list.into()))
 }
 
-fn len(exprs: &[Expr], _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn len(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     Ok(Expr::Num(exprs[0].get_list()?.len() as f64))
 }
