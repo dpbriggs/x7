@@ -1,0 +1,16 @@
+#+TITLE: x7
+#+AUTHOR: David Briggs
+
+* The x7 Programming Language
+
+x7 is a lisp I built to better understand programming languages and interpreters.
+
+The standard library is being written in either x7 or rust for performance.
+
+** TODOs
+
+- [ ] Loading files / modules
+- [ ] Test suite in the x7 language
+  - [ ] (test res expr)
+
+
