@@ -43,3 +43,8 @@
           le    (filter (fn (x) (<= x pivot)) rest)
           ge    (filter (fn (x) (> x pivot)) rest))
          (+ (quicksort le) (list pivot) (quicksort ge)))))
+
+(defn test (msg expected exp)
+  (cond
+   (= expected exp) ()
+   true (panic msg)))

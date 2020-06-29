@@ -354,29 +354,13 @@ impl Expr {
         }
     }
 
-    // pub(crate) fn eval_iter<'a>(
-    //     &'a self,
-    //     symbol_table: &'a SymbolTable,
-    //     start: usize,
-    // ) -> LispResult<EvalIter<'a>> {
-    //     if let Expr::List(l) = self {
-    //         let ei = EvalIter {
-    //             inner: &l[start..],
-    //             symbol_table,
-    //         };
-    //         Ok(ei)
-    //     } else {
-    //         Err(ProgramError::BadTypes)
-    //     }
-    // }
-
     pub(crate) fn eval(&self, symbol_table: &SymbolTable) -> LispResult<Expr> {
         // Eval List
 
         if self.is_list() {
             let mut list = self.get_list()?;
             if list.is_empty() {
-                return Ok(Expr::List(Vec::with_capacity(0).into()));
+                return Ok(Expr::List(Vector::new()));
             }
 
             let head = list.pop_front().unwrap();
@@ -388,36 +372,12 @@ impl Expr {
         // Resolve Symbol
 
         if self.is_symbol() {
-            // TODO: Use symbol table reference
             return symbol_table.lookup(&self);
         }
 
         Ok(self.clone())
     }
 }
-
-// pub(crate) struct EvalIter<'a> {
-//     inner: &'a [Expr],
-//     symbol_table: &'a SymbolTable,
-// }
-
-// impl<'a> Iterator for EvalIter<'a> {
-//     type Item = LispResult<Expr>;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if self.inner.len() == 0 {
-//             None
-//         } else {
-//             let res = self.inner[0].eval(self.symbol_table);
-//             self.inner = &self.inner.slice(1..);
-//             if res.is_ok() {
-//                 Some(res.unwrap().eval(self.symbol_table))
-//             } else {
-//                 Some(res)
-//             }
-//         }
-//     }
-// }
 
 use once_cell::sync::Lazy;
 

@@ -131,6 +131,16 @@ fn exprs_do(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr>
     exprs[exprs.len() - 1].eval(symbol_table)
 }
 
+fn panic(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let msg = if let Expr::String(s) = &exprs[0] {
+        s.to_string()
+    } else {
+        format!("{}", exprs[0])
+    };
+    panic!(msg);
+}
+
 // PRINT
 
 fn print(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -365,6 +375,7 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("def", 1, def, false),
         ("cond", 2, cond, false),
         ("shuffle", 1, shuffle, true),
+        ("panic", 1, panic, true),
         // FUNC TOOLS
         ("map", 1, map, true),
         ("apply", 2, apply, true),
