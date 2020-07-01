@@ -2,3 +2,8 @@
   (cond
    (= expected exp) ()
    true (panic msg)))
+
+(defn float-eq (l r threshold)
+  (and
+   (<= l (+ r threshold))
+   (>= l (- r threshold))))

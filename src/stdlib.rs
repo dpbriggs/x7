@@ -1,5 +1,5 @@
 use crate::modules::load_x7_stdlib;
-use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
+use crate::symbols::{Expr, Function, LispResult, Num, ProgramError, SymbolTable};
 use im::{vector, Vector};
 
 macro_rules! exact_len {
@@ -147,14 +147,14 @@ fn print(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in &exprs {
         print!("{}", expr);
     }
-    Ok(Expr::Num(exprs.len() as f64))
+    Ok(Expr::Num(exprs.len() as Num))
 }
 
 fn println(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in &exprs {
         println!("{}", expr);
     }
-    Ok(Expr::Num(exprs.len() as f64))
+    Ok(Expr::Num(exprs.len() as Num))
 }
 
 fn type_of(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -302,7 +302,7 @@ fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
             num
         )))
     } else {
-        let list = (0..num as usize).map(|n| Expr::Num(n as f64)).collect();
+        let list = (0..num as usize).map(|n| Expr::Num(n as Num)).collect();
         Ok(Expr::List(list))
     }
 }
@@ -318,7 +318,14 @@ fn shuffle(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
 
 fn len(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    Ok(Expr::Num(exprs[0].get_list()?.len() as f64))
+    Ok(Expr::Num(exprs[0].get_list()?.len() as Num))
+}
+
+fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let mut list = exprs[0].full_order_list()?;
+    list.sort();
+    Ok(Expr::List(list))
 }
 
 use std::sync::Arc;
@@ -389,7 +396,8 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("tail", 1, tail, true),
         ("cons", 2, cons, true),
         ("range", 1, range, true),
-        ("len", 1, len, true)
+        ("len", 1, len, true),
+        ("sort", 1, sort, true)
     );
     // syms
     let syms = make_stdlib_consts!(

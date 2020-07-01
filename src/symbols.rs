@@ -6,9 +6,11 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+pub type Num = f64;
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Expr {
-    Num(f64),
+    Num(Num),
     Symbol(String),
     List(Vector<Expr>),
     Function(Function),
@@ -60,7 +62,26 @@ impl fmt::Display for Expr {
 }
 
 impl Expr {
-    pub(crate) fn get_num(&self) -> LispResult<f64> {
+    #[must_use]
+    pub(crate) fn full_order_list(&self) -> LispResult<Vector<Expr>> {
+        let list = self.get_list()?;
+        if list.is_empty() {
+            Ok(list)
+        } else {
+            let head = &list[0];
+            if !list.iter().skip(1).all(|e| match (head, e) {
+                (Expr::Num(_), Expr::Num(_)) => true,
+                (Expr::String(_), Expr::String(_)) => true,
+                _ => false,
+            }) {
+                Err(ProgramError::BadTypes) // only floats (sorta) + strings are totally ordered
+            } else {
+                Ok(list)
+            }
+        }
+    }
+
+    pub(crate) fn get_num(&self) -> LispResult<Num> {
         if let Expr::Num(n) = self {
             Ok(*n)
         } else {
@@ -330,6 +351,18 @@ impl PartialOrd for Expr {
             (Expr::Num(l), Expr::Num(r)) => l.partial_cmp(r),
             (Expr::String(l), Expr::String(r)) => l.partial_cmp(r),
             _ => None,
+        }
+    }
+}
+
+impl Eq for Expr {}
+
+impl Ord for Expr {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Expr::Num(l), Expr::Num(r)) => l.partial_cmp(r).unwrap(),
+            (Expr::String(l), Expr::String(r)) => l.cmp(r),
+            _ => panic!("bad types {:?} {:?}", self, other),
         }
     }
 }

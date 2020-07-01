@@ -1,4 +1,4 @@
-use crate::symbols::{Expr, LispResult, ProgramError};
+use crate::symbols::{Expr, LispResult, Num, ProgramError};
 
 use nom::bytes::complete::escaped;
 use nom::{
@@ -13,6 +13,7 @@ use nom::{
     sequence::{delimited, preceded},
     IResult, Parser,
 };
+
 #[inline]
 fn is_symbol_char(c: char) -> bool {
     match c {
@@ -59,7 +60,7 @@ fn parse_quote<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> 
 
 fn parse_num<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
     map_res(recognize_float, |digit_str: &str| {
-        digit_str.parse::<f64>().map(Expr::Num)
+        digit_str.parse::<Num>().map(Expr::Num)
     })(i)
 }
 
