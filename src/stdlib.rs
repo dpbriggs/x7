@@ -1,4 +1,4 @@
-use crate::repl::read;
+use crate::modules::load_x7_stdlib;
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use im::{vector, Vector};
 
@@ -157,6 +157,21 @@ fn println(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
     Ok(Expr::Num(exprs.len() as f64))
 }
 
+fn type_of(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let ty = match &exprs[0] {
+        Expr::Num(_) => "num",
+        Expr::String(_) => "str",
+        Expr::Quote(_) => "quote",
+        Expr::Bool(_) => "bool",
+        Expr::Function(_) => "func",
+        Expr::Symbol(_) => "symbol",
+        Expr::List(_) => "list",
+        Expr::Nil => "nil",
+    };
+    Ok(Expr::String(ty.into()))
+}
+
 // FUNC
 
 fn cond(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -164,22 +179,12 @@ fn cond(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         return Err(ProgramError::CondBadConditionNotEven);
     }
     let mut iter = exprs.iter();
-    loop {
-        let pred = match iter.next() {
-            Some(s) => s,
-            None => break,
-        };
+    while let Some(pred) = iter.next() {
         let body = iter.next().unwrap();
         if pred.eval(symbol_table)?.is_bool_true()? {
             return body.eval(symbol_table);
         }
     }
-    // for pair in exprs.iter(2) {
-    //     let (pred, body) = (&pair[0], &pair[1]);
-    //     if pred.eval(symbol_table)?.is_bool_true()? {
-    //         return body.eval(symbol_table);
-    //     }
-    // }
     Err(ProgramError::CondNoExecutionPath)
 }
 
@@ -220,18 +225,10 @@ fn bind(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     let sym_copy = symbol_table.clone();
     let list = symbols.get_list()?;
     let mut iter = list.iter();
-    loop {
-        let l = match iter.next() {
-            Some(s) => s,
-            None => break,
-        };
+    while let Some(l) = iter.next() {
         let r = iter.next().unwrap();
         sym_copy.add_local(l, &r.eval(&sym_copy)?)?;
     }
-    // for pair in symbols.get_list()? {
-    //     let (l, r) = (&pair[0], &pair[1]);
-    //     sym_copy.add_local(l, &r.eval(&sym_copy)?)?;
-    // }
     exprs[1].eval(&sym_copy)
 }
 
@@ -266,7 +263,7 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 // LISTS
 
 fn list(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    Ok(Expr::List(exprs.into()))
+    Ok(Expr::List(exprs))
 }
 
 fn cons(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -292,7 +289,7 @@ fn tail(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     if list.is_empty() {
         Ok(Expr::Nil)
     } else {
-        Ok(Expr::List(list.slice(1..).into()))
+        Ok(Expr::List(list.slice(1..)))
     }
 }
 
@@ -376,6 +373,7 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("cond", 2, cond, false),
         ("shuffle", 1, shuffle, true),
         ("panic", 1, panic, true),
+        ("type", 1, type_of, true),
         // FUNC TOOLS
         ("map", 1, map, true),
         ("apply", 2, apply, true),
@@ -399,32 +397,6 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("true", Expr::Bool(true)),
         ("false", Expr::Bool(false))
     );
-    load_x7_stdlib(syms).unwrap()
-}
-
-use std::fs::File;
-use std::io;
-use std::io::prelude::*;
-
-// TODO: Modules
-// TODO: Descuff interpreter loading
-fn load_x7_stdlib(symbol_table: SymbolTable) -> io::Result<SymbolTable> {
-    let mut stdlib_str = String::new();
-    File::open("stdlib/base.x7")?.read_to_string(&mut stdlib_str)?;
-    let prog = match read(stdlib_str.as_str()) {
-        Ok(p) => p,
-        Err(e) => {
-            panic!("{:?}", e);
-        }
-    };
-    for expr in prog.top_level_iter() {
-        let res = match expr.eval(&symbol_table) {
-            Ok(p) => p,
-            Err(e) => {
-                panic!("{:?}", e);
-            }
-        };
-        println!("{}", res);
-    }
-    Ok(symbol_table)
+    load_x7_stdlib(&syms).unwrap();
+    syms
 }

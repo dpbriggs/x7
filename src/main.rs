@@ -1,5 +1,6 @@
 mod cli;
-mod repl;
+mod modules;
+mod parser;
 mod stdlib;
 mod symbols;
 

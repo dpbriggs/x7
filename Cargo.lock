@@ -112,6 +112,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
+
+[[package]]
 name = "im"
 version = "15.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -130,6 +136,19 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
+
+[[package]]
+name = "lexical-core"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db65c6da02e61f55dae90a0ae427b2a5f6b3e8db09f58d10efab23af92592616"
+dependencies = [
+ "arrayvec",
+ "bitflags",
+ "cfg-if",
+ "ryu",
+ "static_assertions",
+]
 
 [[package]]
 name = "libc"
@@ -163,6 +182,17 @@ dependencies = [
  "cfg-if",
  "libc",
  "void",
+]
+
+[[package]]
+name = "nom"
+version = "6.0.0-alpha1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25020779544bf717b917323b42f23c9dbef1bd2b97b576df6484a0c8709705c6"
+dependencies = [
+ "lexical-core",
+ "memchr",
+ "version_check",
 ]
 
 [[package]]
@@ -276,6 +306,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ryu"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
+
+[[package]]
 name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -290,6 +326,12 @@ dependencies = [
  "bitmaps",
  "typenum",
 ]
+
+[[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "typenum"
@@ -359,7 +401,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 name = "x7"
 version = "0.1.0"
 dependencies = [
+ "glob",
  "im",
+ "nom",
  "once_cell",
  "rand",
  "rustyline",

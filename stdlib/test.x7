@@ -1,0 +1,4 @@
+(defn test (msg expected exp)
+  (cond
+   (= expected exp) ()
+   true (panic msg)))

@@ -84,14 +84,6 @@ impl Expr {
         }
     }
 
-    pub(crate) fn is_list(&self) -> bool {
-        if let Expr::List(_) = self {
-            true
-        } else {
-            false
-        }
-    }
-
     pub(crate) fn is_symbol(&self) -> bool {
         if let Expr::Symbol(_) = self {
             true
@@ -103,6 +95,14 @@ impl Expr {
     pub(crate) fn get_bool(&self) -> LispResult<bool> {
         if let Expr::Bool(b) = self {
             Ok(*b)
+        } else {
+            Err(ProgramError::BadTypes)
+        }
+    }
+
+    pub(crate) fn get_quote(&self) -> LispResult<Vector<Expr>> {
+        if let Expr::Quote(l) = self {
+            Ok(l.clone())
         } else {
             Err(ProgramError::BadTypes)
         }
@@ -231,20 +231,21 @@ impl Function {
 pub(crate) enum ProgramError {
     BadTypes,
     CannotLookupNonSymbol,
-    InvalidCharacterInSymbol,
+    // InvalidCharacterInSymbol,
     // CannotStartExprWithNonSymbol,
     CondNoExecutionPath,
     CondBadConditionNotEven,
     DivisionByZero,
-    FailedToParseInt,
-    FailedToParseString,
+    // FailedToParseInt,
+    // FailedToParseString,
     NotAFunction(Expr),
     // NotAList,
     NotEnoughArgs,
     NotImplementedYet,
-    UnexpectedEOF,
+    // UnexpectedEOF,
     UnknownSymbol(String),
     WrongNumberOfArgs,
+    FailedToParse(String),
     Custom(String),
 }
 
@@ -334,14 +335,6 @@ impl PartialOrd for Expr {
 }
 
 impl Expr {
-    pub(crate) fn top_level_iter(self) -> Vector<Expr> {
-        if let Expr::List(l) = self {
-            l
-        } else {
-            unreachable!()
-        }
-    }
-
     pub(crate) fn call_fn(
         &self,
         args: Vector<Expr>,
@@ -357,8 +350,7 @@ impl Expr {
     pub(crate) fn eval(&self, symbol_table: &SymbolTable) -> LispResult<Expr> {
         // Eval List
 
-        if self.is_list() {
-            let mut list = self.get_list()?;
+        if let Ok(mut list) = self.get_list() {
             if list.is_empty() {
                 return Ok(Expr::List(Vector::new()));
             }
@@ -367,6 +359,12 @@ impl Expr {
             let tail = list;
 
             return head.eval(&symbol_table)?.call_fn(tail, symbol_table);
+        }
+
+        // Eval quote
+
+        if let Ok(list) = self.get_quote() {
+            return Ok(Expr::List(list));
         }
 
         // Resolve Symbol
@@ -385,6 +383,7 @@ static GLOBAL_SYMS: Lazy<Mutex<HashMap<String, Expr>>> = Lazy::new(|| Mutex::new
 
 type SymbolLookup = HashMap<String, Expr>;
 
+// TODO: Debug should include stdlib
 #[derive(Clone, Debug)]
 pub(crate) struct SymbolTable {
     locals: RefCell<Vec<SymbolLookup>>,
