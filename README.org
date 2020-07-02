@@ -14,3 +14,7 @@ The standard library is being written in either x7 or rust for performance.
   - [ ] (test res expr)
 
 
+
+* Thanks
+
+A big thanks to the [[https://github.com/Geal/nom][nom]] people (Geal et all) for having an s_expression example for my parser!

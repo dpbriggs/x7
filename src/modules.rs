@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
+// TODO: Figure out best way to have the stdlib available
 fn stdlib_dir() -> io::Result<&'static str> {
     Ok("./stdlib")
 }
@@ -13,7 +14,6 @@ use glob::glob;
 
 pub(crate) fn load_x7_stdlib(symbol_table: &SymbolTable) -> Result<(), Box<dyn Error>> {
     let path = format!("{}/**/*.x7", stdlib_dir()?);
-    dbg!(&symbol_table);
     for entry in glob(&path)? {
         let entry = entry?;
         let mut strbuf = String::new();

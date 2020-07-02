@@ -1,10 +1,17 @@
 use crate::symbols::{Expr, LispResult, Num, ProgramError};
 
+// s-expression parser using nom.
+// Supports the usual constructs (quotes, numbers, strings, comments)
+
+// HUGE thanks to the nom people (Geal, adamnemecek, MarcMcCaskey, et all)
+// who had an s_expression example for me to work from.
+// https://github.com/Geal/nom/blob/master/examples/s_expression.rs
+
 use nom::bytes::complete::escaped;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    bytes::complete::take_while1,
+    bytes::complete::{take_till, take_while1},
     character::complete::{char, multispace0, none_of},
     combinator::{cut, map, map_res},
     error::{context, VerboseError},
@@ -20,6 +27,7 @@ fn is_symbol_char(c: char) -> bool {
         '(' | ')' => false,
         '"' => false,
         '\'' => false,
+        ';' => false,
         ' ' => false,
         sym => !sym.is_whitespace(),
     }
@@ -47,11 +55,17 @@ fn parse_bool<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
     ))(i)
 }
 
+fn ignored_input<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
+    let comment_parse = delimited(
+        preceded(multispace0, tag(";")),
+        take_till(|c| c == '\n'),
+        multispace0,
+    );
+    alt((comment_parse, multispace0))(i)
+}
+
 // TODO: Quote
 fn parse_quote<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
-    // this should look very straight-forward after all we've done:
-    // we find the `'` (quote) character, use cut to say that we're unambiguously
-    // looking for an s-expression of 0 or more expressions, and then parse them
     map(
         context("quote", preceded(tag("'"), cut(s_exp(many0(parse_expr))))),
         |exprs| Expr::Quote(exprs.into()),
@@ -70,8 +84,8 @@ where
 {
     delimited(
         char('('),
-        preceded(multispace0, inner),
-        context("closing paren", cut(preceded(multispace0, char(')')))),
+        preceded(ignored_input, inner),
+        context("closing paren", cut(preceded(ignored_input, char(')')))),
     )
 }
 
@@ -82,8 +96,8 @@ fn parse_list<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
 }
 
 fn parse_expr<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
-    preceded(
-        multispace0,
+    delimited(
+        ignored_input,
         alt((
             parse_list,
             parse_quote,
@@ -92,6 +106,7 @@ fn parse_expr<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
             parse_bool,
             parse_symbol,
         )),
+        ignored_input,
     )(i)
 }
 
@@ -113,6 +128,7 @@ impl<'a> Iterator for ExprIterator<'a> {
         if self.done || self.input.is_empty() {
             return None;
         }
+        // dbg!(self.input);
         let (rest, res) = match parse_expr(self.input) {
             Ok(r) => r,
             Err(e) => {
@@ -215,6 +231,9 @@ mod tests {
             ("", Expr::String("hello? world".into()))
         );
 
+        assert_eq!(parse_expr("; hello\n\n\n1").unwrap(), ("", Expr::Num(1.0)));
+        assert_eq!(parse_expr("1 ; hello").unwrap(), ("", Expr::Num(1.0)));
+
         use im::vector;
         assert_eq!(
             parse_expr("(+ 1 1)").unwrap(),
@@ -227,5 +246,20 @@ mod tests {
                 ])
             )
         )
+    }
+
+    #[test]
+    fn parse_ignored_input() {
+        assert_eq!(ignored_input("; hello\n"), Ok(("", " hello")));
+        assert_eq!(ignored_input("; hello"), Ok(("", " hello")));
+        assert_eq!(ignored_input(";hello"), Ok(("", "hello")));
+        assert_eq!(ignored_input(" ; hello"), Ok(("", " hello")));
+    }
+
+    #[test]
+    fn test_expr_iterator() {
+        let mut iter = ExprIterator::new("1 ; hello");
+        assert_eq!(iter.next(), Some(Ok(Expr::Num(1.0))));
+        assert_eq!(iter.next(), None);
     }
 }
