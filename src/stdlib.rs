@@ -1,3 +1,4 @@
+use crate::iterators::{NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
 use crate::symbols::{Expr, Function, LispResult, Num, ProgramError, SymbolTable};
 use im::{vector, Vector};
@@ -117,6 +118,49 @@ fn apply(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exprs[0].call_fn(exprs[1].get_list()?, symbol_table)
 }
 
+// fn inner_comp(exprs, es: Vector<Expr>, sym: &SymbolTable) -> LispResult<Expr> {
+//     let mut res: Vector<Expr> = es;
+//     for func in exprs.iter() {
+//         res = match func.call_fn(res, sym) {
+//             Ok(l) => match l.get_list() {
+//                 Ok(li) => li,
+//                 Err(e) => return Err(e),
+//             },
+//             Err(e) => return Err(e),
+//         }
+//     }
+//     return Ok(Expr::List(res));
+// }
+
+// XXX: Closure lifetime resolution is some magic shit.
+//      For some reason it compiles now no idea why  ¯\_(ツ)_/¯
+// #[inline(always)]
+// fn lifetimes_are_hard<F>(f: F) -> F
+// where
+//     F: for<'c> Fn(Vector<Expr>, &'c SymbolTable) -> LispResult<Expr> + Sync + Send,
+// {
+//     f
+// }
+
+fn comp<'c>(exprs: Vector<Expr>, _symbol_table: &'c SymbolTable) -> LispResult<Expr> {
+    let compose = move |es, sym: &SymbolTable| {
+        let mut res: Vector<Expr> = es;
+        for func in exprs.iter() {
+            dbg!(&res, func);
+            res = match func.call_fn(res, sym) {
+                Ok(l) => match l.get_list() {
+                    Ok(li) => li,
+                    Err(e) => return Err(e),
+                },
+                Err(e) => return Err(e),
+            }
+        }
+        return Ok(Expr::List(res));
+    };
+    let f = Function::new("AnonCompFn".into(), 1, Arc::new(compose), true);
+    Ok(Expr::Function(f))
+}
+
 fn def(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     symbol_table.add_local(&exprs[0], &exprs[1].eval(symbol_table)?)
@@ -168,6 +212,7 @@ fn type_of(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
         Expr::Symbol(_) => "symbol",
         Expr::List(_) => "list",
         Expr::Nil => "nil",
+        Expr::LazyIter(_) => "iterator",
     };
     Ok(Expr::String(ty.into()))
 }
@@ -203,15 +248,40 @@ fn map(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::List(l))
 }
 
+fn filter(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    if exprs.len() == 1 {
+        // TODO: Transducer case
+        // return Transducer::new(|exprs, sym| filter(&exprs[0]))
+        return Ok(Expr::Nil);
+    }
+    exact_len!(exprs, 2);
+    let f = &exprs[0];
+    let l = exprs[1].get_list()?;
+    let mut res = Vector::new();
+    for expr in l {
+        if f.call_fn(Vector::unit(expr.clone()), symbol_table)?
+            .get_bool()?
+        {
+            res.push_back(expr);
+        }
+    }
+    Ok(Expr::List(res))
+}
+
 /// reduce
 /// (f init coll)
 fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.len() != 2 && exprs.len() != 3 {
         return Err(ProgramError::WrongNumberOfArgs);
     }
+    let (mut init, list) = if exprs.len() == 2 {
+        let (mut head, tail) = exprs[1].get_list()?.split_at(1);
+        (head.pop_front().ok_or(ProgramError::NotEnoughArgs)?, tail)
+    } else {
+        (exprs[1].clone(), exprs[2].get_list()?)
+    };
     let f = &exprs[0];
-    let mut init = exprs[1].clone();
-    for item in exprs[2].get_list()? {
+    for item in list {
         init = f.call_fn(vector![init, item], symbol_table)?;
     }
     Ok(init)
@@ -294,6 +364,9 @@ fn tail(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 }
 
 fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    if exprs.is_empty() {
+        return NaturalNumbers::new();
+    }
     exact_len!(exprs, 1);
     let num = exprs[0].get_num()?.trunc();
     if num < 0.0 {
@@ -305,6 +378,19 @@ fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         let list = (0..num as usize).map(|n| Expr::Num(n as Num)).collect();
         Ok(Expr::List(list))
     }
+}
+
+fn take(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let num = exprs[0].get_num()? as usize;
+    let iter = exprs[1].get_iterator()?;
+    Take::new(num, iter)
+}
+
+fn doall(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    use crate::iterators::LazyIter;
+    exprs[0].get_iterator()?.eval(symbol_table)
 }
 
 fn shuffle(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -383,19 +469,24 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("type", 1, type_of, true),
         // FUNC TOOLS
         ("map", 1, map, true),
+        ("filter", 1, filter, true),
         ("apply", 2, apply, true),
         ("do", 1, exprs_do, false),
+        ("comp", 1, comp, true),
         ("reduce", 2, reduce, true),
         // Functions
         ("fn", 0, func, false),
         ("defn", 3, defn, false),
         ("bind", 2, bind, false),
+        // Iterators
+        ("take", 2, take, true),
+        ("doall", 1, doall, true),
         // Lists
         ("list", 0, list, true),
         ("head", 1, head, true),
         ("tail", 1, tail, true),
         ("cons", 2, cons, true),
-        ("range", 1, range, true),
+        ("range", 0, range, true),
         ("len", 1, len, true),
         ("sort", 1, sort, true)
     );

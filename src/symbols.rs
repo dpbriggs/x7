@@ -1,3 +1,4 @@
+use crate::iterators::IterType;
 use core::cell::RefCell;
 use core::cmp::Ordering;
 use im::Vector;
@@ -8,7 +9,7 @@ use std::sync::Mutex;
 
 pub type Num = f64;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub(crate) enum Expr {
     Num(Num),
     Symbol(String),
@@ -18,6 +19,24 @@ pub(crate) enum Expr {
     String(String),
     Quote(Vector<Expr>),
     Bool(bool),
+    LazyIter(IterType),
+}
+
+impl PartialEq for Expr {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Expr::Num(l), Expr::Num(r)) => l.eq(r),
+            (Expr::Symbol(l), Expr::Symbol(r)) => l.eq(r),
+            (Expr::String(l), Expr::String(r)) => l.eq(r),
+            (Expr::List(l), Expr::List(r)) => l.eq(r),
+            (Expr::Function(l), Expr::Function(r)) => l.eq(r),
+            (Expr::Quote(l), Expr::Quote(r)) => l.eq(r),
+            (Expr::Bool(l), Expr::Bool(r)) => l.eq(r),
+            (Expr::LazyIter(_), Expr::LazyIter(_)) => false,
+            (Expr::Nil, Expr::Nil) => true,
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for Expr {
@@ -29,6 +48,7 @@ impl fmt::Display for Expr {
             Expr::Symbol(s) => write!(f, "{}", s),
             // DataType::Bool(b) => write!(f, "{}", b),
             Expr::Function(ff) => write!(f, "{}", ff),
+            Expr::LazyIter(i) => write!(f, "{}", i),
             Expr::Quote(l) => {
                 write!(f, "'")?;
                 let mut first = true;
@@ -44,6 +64,7 @@ impl fmt::Display for Expr {
                 Ok(())
             }
             Expr::Bool(b) => write!(f, "{}", b),
+            // Expr::LazyIter(i) => write!(f, "{}", i),
             Expr::List(l) => {
                 let mut first = true;
                 write!(f, "(")?;
@@ -113,6 +134,14 @@ impl Expr {
         }
     }
 
+    pub(crate) fn get_iterator(&self) -> LispResult<IterType> {
+        if let Expr::LazyIter(l) = self {
+            Ok(l.clone())
+        } else {
+            Err(ProgramError::BadTypes)
+        }
+    }
+
     pub(crate) fn get_bool(&self) -> LispResult<bool> {
         if let Expr::Bool(b) = self {
             Ok(*b)
@@ -166,7 +195,7 @@ impl Expr {
 }
 
 pub(crate) type X7FunctionPtr =
-    Arc<dyn for<'c> Fn(Vector<Expr>, &'c SymbolTable) -> LispResult<Expr> + Sync + Send>;
+    Arc<dyn Fn(Vector<Expr>, &SymbolTable) -> LispResult<Expr> + Sync + Send>;
 
 #[derive(Clone)]
 pub(crate) struct Function {
@@ -223,7 +252,11 @@ impl Function {
     }
 
     // TODO: Refactor this into something cleaner.
-    fn call_fn(&self, args: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    pub(crate) fn call_fn(
+        &self,
+        args: Vector<Expr>,
+        symbol_table: &SymbolTable,
+    ) -> LispResult<Expr> {
         if self.minimum_args > args.len() {
             return Err(ProgramError::NotEnoughArgs);
         }

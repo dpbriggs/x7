@@ -20,14 +20,6 @@
 
 ;; Func Tools
 
-(defn filter (in? l)
-  (cond
-   (empty? l) ()
-   (in? (head l)) (cons
-                   (head l)
-                   (filter in? (tail l)))
-   true (filter in? (tail l))))
-
 (defn zip (l r)
   (cond
    (or (empty? l) (empty? r)) ()
@@ -52,3 +44,12 @@
           le    (filter (fn (x) (<= x pivot)) rest)
           ge    (filter (fn (x) (> x pivot)) rest))
          (+ (quicksort le) (list pivot) (quicksort ge)))))
+
+;; (defn comp (& fns)
+;;   (fn (lns)
+;;       (reduce
+;;        (fn (acc x) (x acc))
+;;        lns
+;;        fns)))
+
+(take 5 (filter is-even? (range)))
