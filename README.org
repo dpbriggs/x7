@@ -1,4 +1,3 @@
-#+TITLE: x7
 #+AUTHOR: David Briggs
 
 * The x7 Programming Language
