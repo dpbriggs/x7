@@ -1,4 +1,4 @@
-use crate::iterators::{NaturalNumbers, Take};
+use crate::iterators::{LazyMap, NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
 use crate::symbols::{Expr, Function, LispResult, Num, ProgramError, SymbolTable};
 use im::{vector, Vector};
@@ -235,17 +235,35 @@ fn cond(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn map(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     // TODO: Performance fix this entire thing
-    if exprs.len() != 2 {
-        return Err(ProgramError::WrongNumberOfArgs);
-    }
+    exact_len!(exprs, 2);
     let f = &exprs[0];
+    if let Ok(iter) = exprs[1].get_iterator() {
+        return LazyMap::new(iter, f.get_function()?);
+    }
     let mut l = exprs[1].get_list()?;
     for expr in l.iter_mut() {
         let old = expr.clone();
         *expr = f.call_fn(Vector::unit(old), symbol_table)?;
-        // res.push();
     }
     Ok(Expr::List(l))
+}
+
+// Like map, but doesn't produce a list.
+fn foreach(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let f = &exprs[0];
+    if let Ok(iter) = exprs[1].get_iterator() {
+        while let Some(x) = iter.next(symbol_table) {
+            f.call_fn(Vector::unit(x?), symbol_table)?;
+        }
+    } else if let Ok(list) = exprs[1].get_list() {
+        for x in list.iter() {
+            f.call_fn(Vector::unit(x.clone()), symbol_table)?;
+        }
+    } else {
+        return Err(ProgramError::BadTypes);
+    };
+    Ok(Expr::Nil)
 }
 
 fn filter(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -271,6 +289,7 @@ fn filter(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 /// reduce
 /// (f init coll)
 fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    dbg!(&exprs);
     if exprs.len() != 2 && exprs.len() != 3 {
         return Err(ProgramError::WrongNumberOfArgs);
     }
@@ -334,6 +353,15 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn list(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::List(exprs))
+}
+
+fn nth(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let index: usize = exprs[0].get_num()? as usize;
+    exprs[1]
+        .get_list()?
+        .get(index)
+        .cloned()
+        .ok_or(ProgramError::BadTypes)
 }
 
 fn cons(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -469,6 +497,7 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("type", 1, type_of, true),
         // FUNC TOOLS
         ("map", 1, map, true),
+        ("foreach", 2, foreach, true),
         ("filter", 1, filter, true),
         ("apply", 2, apply, true),
         ("do", 1, exprs_do, false),
@@ -483,18 +512,13 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("doall", 1, doall, true),
         // Lists
         ("list", 0, list, true),
+        ("nth", 2, nth, true),
         ("head", 1, head, true),
         ("tail", 1, tail, true),
         ("cons", 2, cons, true),
         ("range", 0, range, true),
         ("len", 1, len, true),
         ("sort", 1, sort, true)
-    );
-    // syms
-    let syms = make_stdlib_consts!(
-        syms,
-        ("true", Expr::Bool(true)),
-        ("false", Expr::Bool(false))
     );
     load_x7_stdlib(&syms).unwrap();
     syms

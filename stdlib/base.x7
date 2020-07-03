@@ -45,6 +45,12 @@
           ge    (filter (fn (x) (> x pivot)) rest))
          (+ (quicksort le) (list pivot) (quicksort ge)))))
 
+(defn fib (x)
+    (cond
+     (< x 2) x
+     true (+ (fib (- x 1)) (fib (- x 2)))))
+
+
 ;; (defn comp (& fns)
 ;;   (fn (lns)
 ;;       (reduce
@@ -52,4 +58,11 @@
 ;;        lns
 ;;        fns)))
 
-(take 5 (filter is-even? (range)))
+;; (take 5 (filter is-even? (range)))
+
+
+
+;; (reduce
+;;  (fn (x) (list (nth 1 (nth 0 x)) (+ (nth 0 (nth 0 x)) (nth 1 (nth 0 x))) ))
+;;  (list 0 1)
+;;  (list 1 2 3))

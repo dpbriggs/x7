@@ -45,7 +45,7 @@ impl LazyIter for IterType {
 // impl<T: IterType> Clone for
 
 #[derive(Clone)]
-struct LazyMap {
+pub(crate) struct LazyMap {
     inner: IterType,
     f: Function,
 }
@@ -59,9 +59,14 @@ impl LazyIter for LazyMap {
     fn name(&self) -> &'static str {
         "Map"
     }
-
     fn clone(&self) -> IterType {
         Box::new(Clone::clone(self))
+    }
+}
+
+impl LazyMap {
+    pub(crate) fn new(inner: IterType, f: Function) -> LispResult<Expr> {
+        Ok(Expr::LazyIter(Box::new(LazyMap { inner, f })))
     }
 }
 

@@ -134,6 +134,14 @@ impl Expr {
         }
     }
 
+    pub(crate) fn get_function(&self) -> LispResult<Function> {
+        if let Expr::Function(f) = self {
+            Ok(f.clone())
+        } else {
+            Err(ProgramError::BadTypes)
+        }
+    }
+
     pub(crate) fn get_iterator(&self) -> LispResult<IterType> {
         if let Expr::LazyIter(l) = self {
             Ok(l.clone())
