@@ -18,6 +18,7 @@ pub(crate) enum Expr {
     Nil,
     String(String),
     Quote(Vector<Expr>),
+    Tuple(Vector<Expr>),
     Bool(bool),
     LazyIter(IterType),
 }
@@ -29,6 +30,7 @@ impl PartialEq for Expr {
             (Expr::Symbol(l), Expr::Symbol(r)) => l.eq(r),
             (Expr::String(l), Expr::String(r)) => l.eq(r),
             (Expr::List(l), Expr::List(r)) => l.eq(r),
+            (Expr::Tuple(l), Expr::Tuple(r)) => l.eq(r),
             (Expr::Function(l), Expr::Function(r)) => l.eq(r),
             (Expr::Quote(l), Expr::Quote(r)) => l.eq(r),
             (Expr::Bool(l), Expr::Bool(r)) => l.eq(r),
@@ -64,8 +66,20 @@ impl fmt::Display for Expr {
                 Ok(())
             }
             Expr::Bool(b) => write!(f, "{}", b),
-            // Expr::LazyIter(i) => write!(f, "{}", i),
             Expr::List(l) => {
+                let mut first = true;
+                write!(f, "(")?;
+                for item in l {
+                    if !first {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", item)?;
+                    first = false;
+                }
+                write!(f, ")")?;
+                Ok(())
+            }
+            Expr::Tuple(l) => {
                 let mut first = true;
                 write!(f, "(")?;
                 for item in l {
@@ -126,6 +140,14 @@ impl Expr {
         }
     }
 
+    pub(crate) fn is_tuple(&self) -> bool {
+        if let Expr::Tuple(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
     pub(crate) fn is_symbol(&self) -> bool {
         if let Expr::Symbol(_) = self {
             true
@@ -171,6 +193,8 @@ impl Expr {
             Ok(l.clone())
         } else if let Expr::Nil = self {
             Ok(Vector::new())
+        } else if let Expr::Tuple(l) = self {
+            Ok(l.clone())
         } else {
             Err(ProgramError::BadTypes)
         }
@@ -422,6 +446,12 @@ impl Expr {
     }
 
     pub(crate) fn eval(&self, symbol_table: &SymbolTable) -> LispResult<Expr> {
+        // Tuple bypass
+
+        if self.is_tuple() {
+            return Ok(self.clone());
+        }
+
         // Eval List
 
         if let Ok(mut list) = self.get_list() {

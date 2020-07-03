@@ -146,7 +146,6 @@ fn comp<'c>(exprs: Vector<Expr>, _symbol_table: &'c SymbolTable) -> LispResult<E
     let compose = move |es, sym: &SymbolTable| {
         let mut res: Vector<Expr> = es;
         for func in exprs.iter() {
-            dbg!(&res, func);
             res = match func.call_fn(res, sym) {
                 Ok(l) => match l.get_list() {
                     Ok(li) => li,
@@ -213,6 +212,7 @@ fn type_of(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
         Expr::List(_) => "list",
         Expr::Nil => "nil",
         Expr::LazyIter(_) => "iterator",
+        Expr::Tuple(_) => "tuple",
     };
     Ok(Expr::String(ty.into()))
 }
@@ -289,7 +289,6 @@ fn filter(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 /// reduce
 /// (f init coll)
 fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
-    dbg!(&exprs);
     if exprs.len() != 2 && exprs.len() != 3 {
         return Err(ProgramError::WrongNumberOfArgs);
     }
@@ -353,6 +352,10 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn list(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::List(exprs))
+}
+
+fn tuple(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    Ok(Expr::Tuple(exprs))
 }
 
 fn nth(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -512,6 +515,7 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("doall", 1, doall, true),
         // Lists
         ("list", 0, list, true),
+        ("tuple", 0, tuple, true),
         ("nth", 2, nth, true),
         ("head", 1, head, true),
         ("tail", 1, tail, true),
