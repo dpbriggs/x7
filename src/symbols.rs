@@ -1,5 +1,5 @@
 use crate::iterators::IterType;
-use bigdecimal::{BigDecimal, FromPrimitive, One, ToPrimitive, Zero};
+use bigdecimal::{BigDecimal, ToPrimitive, Zero};
 use core::cell::RefCell;
 use core::cmp::Ordering;
 use im::Vector;
@@ -98,7 +98,6 @@ impl fmt::Display for Expr {
 }
 
 impl Expr {
-    #[must_use]
     pub(crate) fn full_order_list(&self) -> LispResult<Vector<Expr>> {
         let list = self.get_list()?;
         if list.is_empty() {
@@ -539,10 +538,10 @@ impl SymbolTable {
         guard.insert(symbol, expr);
     }
 
-    pub(crate) fn add_global_const(&self, symbol: String, value: Expr) {
-        let mut guard = GLOBAL_SYMS.lock().unwrap();
-        guard.insert(symbol, value);
-    }
+    // pub(crate) fn add_global_const(&self, symbol: String, value: Expr) {
+    //     let mut guard = GLOBAL_SYMS.lock().unwrap();
+    //     guard.insert(symbol, value);
+    // }
 
     pub(crate) fn with_locals(&self, symbols: &[Expr], values: Vector<Expr>) -> LispResult<Self> {
         let copy = self.clone();

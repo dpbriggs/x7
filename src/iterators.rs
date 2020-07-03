@@ -1,4 +1,4 @@
-use crate::symbols::{Expr, Function, LispResult, Num, SymbolTable};
+use crate::symbols::{Expr, Function, LispResult, SymbolTable};
 use im::Vector;
 use std::fmt;
 use std::ops::Deref;
@@ -65,7 +65,7 @@ impl LazyIter for LazyMap {
 }
 
 impl LazyMap {
-    pub(crate) fn new(inner: IterType, f: Function) -> LispResult<Expr> {
+    pub(crate) fn lisp_res(inner: IterType, f: Function) -> LispResult<Expr> {
         Ok(Expr::LazyIter(Box::new(LazyMap { inner, f })))
     }
 }
@@ -85,7 +85,7 @@ impl Clone for NaturalNumbers {
 }
 
 impl NaturalNumbers {
-    pub(crate) fn new() -> LispResult<Expr> {
+    pub(crate) fn lisp_res() -> LispResult<Expr> {
         Ok(Expr::LazyIter(Box::new(NaturalNumbers {
             counter: AtomicUsize::new(0),
         })))
@@ -115,7 +115,7 @@ pub(crate) struct Take {
 }
 
 impl Take {
-    pub(crate) fn new(amount: usize, inner: IterType) -> LispResult<Expr> {
+    pub(crate) fn lisp_res(amount: usize, inner: IterType) -> LispResult<Expr> {
         Ok(Expr::LazyIter(Box::new(Take {
             amount: AtomicUsize::new(amount),
             inner,

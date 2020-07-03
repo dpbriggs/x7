@@ -1,20 +1,8 @@
 use crate::iterators::{LazyMap, NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
-use crate::symbols::{Expr, Function, LispResult, Num, ProgramError, SymbolTable};
+use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use bigdecimal::{BigDecimal, FromPrimitive, One, ToPrimitive};
 use im::{vector, Vector};
-
-macro_rules! num {
-    ($n:expr) => {
-        Expr::Num(BigDecimal::from_usize($n).unwrap())
-    };
-}
-
-macro_rules! num_f {
-    ($n:expr) => {
-        Expr::Num(BigDecimal::from_f64($n).unwrap())
-    };
-}
 
 macro_rules! exact_len {
     ($args:expr, $len:literal) => {
@@ -167,7 +155,7 @@ fn comp<'c>(exprs: Vector<Expr>, _symbol_table: &'c SymbolTable) -> LispResult<E
                 Err(e) => return Err(e),
             }
         }
-        return Ok(Expr::List(res));
+        Ok(Expr::List(res))
     };
     let f = Function::new("AnonCompFn".into(), 1, Arc::new(compose), true);
     Ok(Expr::Function(f))
@@ -251,7 +239,7 @@ fn map(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let f = &exprs[0];
     if let Ok(iter) = exprs[1].get_iterator() {
-        return LazyMap::new(iter, f.get_function()?);
+        return LazyMap::lisp_res(iter, f.get_function()?);
     }
     let mut l = exprs[1].get_list()?;
     for expr in l.iter_mut() {
@@ -412,7 +400,7 @@ fn tail(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.is_empty() {
-        return NaturalNumbers::new();
+        return NaturalNumbers::lisp_res();
     }
     exact_len!(exprs, 1);
     let num = exprs[0]
@@ -432,7 +420,7 @@ fn take(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let num = exprs[0].get_num()?.to_usize().unwrap();
     let iter = exprs[1].get_iterator()?;
-    Take::new(num, iter)
+    Take::lisp_res(num, iter)
 }
 
 fn doall(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -483,16 +471,16 @@ macro_rules! make_stdlib_fns {
 	  };
 }
 
-macro_rules! make_stdlib_consts {
-    ($syms:expr, $(($sym:literal, $value:expr)),*) => {
-        {
-            $(
-                $syms.add_global_const($sym.into(), $value);
-            )*
-        $syms
-        }
-    }
-}
+// macro_rules! make_stdlib_consts {
+//     ($syms:expr, $(($sym:literal, $value:expr)),*) => {
+//         {
+//             $(
+//                 $syms.add_global_const($sym.into(), $value);
+//             )*
+//         $syms
+//         }
+//     }
+// }
 
 #[allow(clippy::let_and_return)]
 pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
