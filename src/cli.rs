@@ -34,21 +34,6 @@ pub(crate) fn read_cli(sym_table: &SymbolTable) {
                         }
                     }
                 }
-                // let prog = match read(line.as_str()) {
-                //     Ok(p) => p,
-                //     Err(e) => {
-                //         println!("{:?}", e);
-                //         continue;
-                //     }
-                // };
-                // dbg!(&prog);
-                // match prog.eval(sym_table) {
-                //     Ok(p) => println!("{}", p),
-                //     Err(e) => {
-                //         println!("{:?}", e);
-                //         continue;
-                //     }
-                // };
             }
             Err(ReadlineError::Interrupted) => {
                 println!("Bye :]");

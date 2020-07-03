@@ -313,6 +313,8 @@ impl Function {
     }
 }
 
+impl std::error::Error for ProgramError {}
+
 #[derive(Debug, PartialEq)]
 pub(crate) enum ProgramError {
     BadTypes,
@@ -333,6 +335,12 @@ pub(crate) enum ProgramError {
     WrongNumberOfArgs,
     FailedToParse(String),
     Custom(String),
+}
+
+impl fmt::Display for ProgramError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 pub(crate) type LispResult<T> = Result<T, ProgramError>;

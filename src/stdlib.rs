@@ -483,7 +483,7 @@ macro_rules! make_stdlib_fns {
 // }
 
 #[allow(clippy::let_and_return)]
-pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
+pub(crate) fn create_stdlib_symbol_table(opts: &crate::Options) -> SymbolTable {
     let syms = make_stdlib_fns!(
         // ARITHMETIC
         ("+", 1, add_exprs, true),
@@ -536,6 +536,6 @@ pub(crate) fn create_stdlib_symbol_table() -> SymbolTable {
         ("len", 1, len, true),
         ("sort", 1, sort, true)
     );
-    load_x7_stdlib(&syms).unwrap();
+    load_x7_stdlib(opts, &syms).unwrap();
     syms
 }

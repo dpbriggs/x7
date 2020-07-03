@@ -12,8 +12,8 @@ The standard library is being written in either x7 or rust for performance.
 - [ ] Loading files / modules
 - [ ] Test suite in the x7 language
   - [ ] (test res expr)
-- [ ] Iterators
-  - [ ] Have a basic shell now
+- [X] Iterators
+  - [X] Have a basic shell now
 
 
 

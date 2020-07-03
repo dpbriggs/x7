@@ -1,5 +1,6 @@
 use crate::parser::read;
 use crate::symbols::SymbolTable;
+use crate::Options;
 use std::error::Error;
 use std::fs::File;
 use std::io;
@@ -12,7 +13,10 @@ fn stdlib_dir() -> io::Result<&'static str> {
 
 use glob::glob;
 
-pub(crate) fn load_x7_stdlib(symbol_table: &SymbolTable) -> Result<(), Box<dyn Error>> {
+pub(crate) fn load_x7_stdlib(
+    opts: &Options,
+    symbol_table: &SymbolTable,
+) -> Result<(), Box<dyn Error>> {
     let path = format!("{}/**/*.x7", stdlib_dir()?);
     for entry in glob(&path)? {
         let entry = entry?;
@@ -27,7 +31,11 @@ pub(crate) fn load_x7_stdlib(symbol_table: &SymbolTable) -> Result<(), Box<dyn E
                 }
             };
             match prog.eval(symbol_table) {
-                Ok(p) => println!("{}", p),
+                Ok(p) => {
+                    if !opts.hide_loading_stdlib {
+                        println!("{}", p);
+                    }
+                }
                 Err(e) => {
                     println!("{:?}", e);
                     continue;
@@ -36,4 +44,14 @@ pub(crate) fn load_x7_stdlib(symbol_table: &SymbolTable) -> Result<(), Box<dyn E
         }
     }
     Ok(())
+}
+
+pub(crate) fn run_file(file_name: &str, symbol_table: &SymbolTable) -> Result<i32, Box<dyn Error>> {
+    let mut strbuf = String::new();
+    File::open(file_name)?.read_to_string(&mut strbuf)?;
+    for expr in read(strbuf.as_str()) {
+        let prog = expr?;
+        prog.eval(symbol_table)?;
+    }
+    Ok(0)
 }

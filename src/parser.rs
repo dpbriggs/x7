@@ -148,7 +148,7 @@ pub(crate) fn read(s: &str) -> ExprIterator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bigdecimal::{BigDecimal, FromPrimitive, One, ToPrimitive};
+    use bigdecimal::{BigDecimal, FromPrimitive};
 
     macro_rules! num_f {
         ($n:expr) => {
