@@ -44,12 +44,3 @@
           le    (filter (fn (x) (<= x pivot)) rest)
           ge    (filter (fn (x) (> x pivot)) rest))
          (+ (quicksort le) (list pivot) (quicksort ge)))))
-
-(defn fib-step (x)
-  (tuple (nth 1 x) (+ (nth 0 x) (nth 1 x))))
-
-(defn fib (num)
-  (nth 0 (reduce
-         fib-step
-         (tuple 0 1)
-         (range num))))

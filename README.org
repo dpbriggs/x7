@@ -7,6 +7,38 @@ x7 is a lisp I built to better understand programming languages and interpreters
 
 The standard library is being written in either x7 or rust for performance.
 
+** Example
+
+*** Fibonacci Numbers
+
+We can print the first hundred fibonacci numbers in 50 milliseconds:
+
+#+begin_src lisp
+  ;; fib.x7
+  ;; Run with: x7 fib.x7
+
+  ;; Map (l, r) -> (r, l + r)
+
+  (defn fib-step (x)
+    (tuple (nth 1 x) (+ (nth 0 x) (nth 1 x))))
+
+  ;; Reduce (0 1) `num` times using fib-step to
+  ;; generates the `num`'th fibonacci number
+
+  (defn fib (num)
+    (nth 0 (reduce
+           fib-step
+           (tuple 0 1)
+           (range num))))
+
+  ;; Print the first hundred fibonacci numbers,
+  ;; using iterators
+
+  (foreach
+   (fn (x) (println x))
+   (take 100 (map fib (range))))
+#+end_src
+
 ** TODOs
 
 - [ ] Loading files / modules
@@ -14,7 +46,6 @@ The standard library is being written in either x7 or rust for performance.
   - [ ] (test res expr)
 - [X] Iterators
   - [X] Have a basic shell now
-
 
 
 * Thanks
