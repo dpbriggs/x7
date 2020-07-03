@@ -97,7 +97,7 @@ impl LazyIter for NaturalNumbers {
         let res = self.counter.fetch_add(1, Ordering::SeqCst);
         // let res: usize = *self.counter.borrow();
         // *self.counter.borrow_mut() += 1;
-        Some(Ok(Expr::Num(res as Num)))
+        Some(Ok(Expr::Num((res as u64).into())))
     }
 
     fn name(&self) -> &'static str {

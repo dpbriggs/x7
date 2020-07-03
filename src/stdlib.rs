@@ -1,7 +1,20 @@
 use crate::iterators::{LazyMap, NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
 use crate::symbols::{Expr, Function, LispResult, Num, ProgramError, SymbolTable};
+use bigdecimal::{BigDecimal, FromPrimitive, One, ToPrimitive};
 use im::{vector, Vector};
+
+macro_rules! num {
+    ($n:expr) => {
+        Expr::Num(BigDecimal::from_usize($n).unwrap())
+    };
+}
+
+macro_rules! num_f {
+    ($n:expr) => {
+        Expr::Num(BigDecimal::from_f64($n).unwrap())
+    };
+}
 
 macro_rules! exact_len {
     ($args:expr, $len:literal) => {
@@ -94,8 +107,8 @@ fn div_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Exp
 fn inc_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.len() > 1 {
         Err(ProgramError::WrongNumberOfArgs)
-    } else if let Expr::Num(n) = exprs[0] {
-        Ok(Expr::Num(n + 1.0))
+    } else if let Expr::Num(n) = &exprs[0] {
+        Ok(Expr::Num(n + bigdecimal::BigDecimal::one()))
     } else {
         Err(ProgramError::BadTypes)
     }
@@ -190,14 +203,14 @@ fn print(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in &exprs {
         print!("{}", expr);
     }
-    Ok(Expr::Num(exprs.len() as Num))
+    Ok(Expr::Num((exprs.len() as u64).into()))
 }
 
 fn println(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in &exprs {
         println!("{}", expr);
     }
-    Ok(Expr::Num(exprs.len() as Num))
+    Ok(Expr::Num((exprs.len() as u64).into()))
 }
 
 fn type_of(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -359,7 +372,10 @@ fn tuple(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 }
 
 fn nth(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    let index: usize = exprs[0].get_num()? as usize;
+    let index = exprs[0]
+        .get_num()?
+        .to_usize()
+        .ok_or(ProgramError::BadTypes)?;
     exprs[1]
         .get_list()?
         .get(index)
@@ -399,21 +415,22 @@ fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         return NaturalNumbers::new();
     }
     exact_len!(exprs, 1);
-    let num = exprs[0].get_num()?.trunc();
-    if num < 0.0 {
-        Err(ProgramError::Custom(format!(
+    let num = exprs[0]
+        .get_num()?
+        .to_usize()
+        .ok_or(ProgramError::Custom(format!(
             "Cannot have a negative range {}",
-            num
-        )))
-    } else {
-        let list = (0..num as usize).map(|n| Expr::Num(n as Num)).collect();
-        Ok(Expr::List(list))
-    }
+            exprs[0].get_num()?
+        )))?;
+    let list = (0..num)
+        .map(|n| Expr::Num(BigDecimal::from_usize(n).unwrap()))
+        .collect();
+    Ok(Expr::List(list))
 }
 
 fn take(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
-    let num = exprs[0].get_num()? as usize;
+    let num = exprs[0].get_num()?.to_usize().unwrap();
     let iter = exprs[1].get_iterator()?;
     Take::new(num, iter)
 }
@@ -433,9 +450,16 @@ fn shuffle(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
     Ok(Expr::List(list.into()))
 }
 
+macro_rules! num {
+    ($n:expr) => {
+        Expr::Num(BigDecimal::from_usize($n).unwrap())
+    };
+}
+
 fn len(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    Ok(Expr::Num(exprs[0].get_list()?.len() as Num))
+    Ok(num!(exprs[0].get_list()?.len()))
+    // Ok(Expr::Num(exprs[0].get_list()?.len() as Num))
 }
 
 fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {

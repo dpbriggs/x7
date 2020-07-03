@@ -1,4 +1,5 @@
 use crate::iterators::IterType;
+use bigdecimal::{BigDecimal, FromPrimitive, One, ToPrimitive, Zero};
 use core::cell::RefCell;
 use core::cmp::Ordering;
 use im::Vector;
@@ -7,7 +8,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-pub type Num = f64;
+pub type Num = BigDecimal;
 
 #[derive(Clone, Debug)]
 pub(crate) enum Expr {
@@ -118,7 +119,7 @@ impl Expr {
 
     pub(crate) fn get_num(&self) -> LispResult<Num> {
         if let Expr::Num(n) = self {
-            Ok(*n)
+            Ok(n.clone())
         } else {
             Err(ProgramError::BadTypes)
         }
@@ -383,8 +384,8 @@ impl std::ops::Mul<&Expr> for Expr {
         match (&self, &other) {
             (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l * r))),
             (Expr::String(l), Expr::Num(r)) => {
-                if *r >= 0.0 {
-                    Ok(Expr::String(l.to_string().repeat(r.trunc() as usize)))
+                if *r >= BigDecimal::zero() {
+                    Ok(Expr::String(l.to_string().repeat(r.to_usize().unwrap())))
                 } else {
                     Err(ProgramError::NotImplementedYet)
                 }
@@ -399,7 +400,7 @@ impl std::ops::Div<&Expr> for Expr {
     fn div(self, other: &Expr) -> LispResult<Expr> {
         match (&self, &other) {
             (Expr::Num(l), Expr::Num(r)) => {
-                if *r == 0.0 {
+                if *r == BigDecimal::zero() {
                     Err(ProgramError::DivisionByZero)
                 } else {
                     Ok(Expr::Num(l / r))

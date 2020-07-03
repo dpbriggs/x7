@@ -148,13 +148,21 @@ pub(crate) fn read(s: &str) -> ExprIterator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bigdecimal::{BigDecimal, FromPrimitive, One, ToPrimitive};
+
+    macro_rules! num_f {
+        ($n:expr) => {
+            Expr::Num(BigDecimal::from_f64($n).unwrap())
+        };
+    }
+
     #[test]
     fn parse_floats() {
-        assert_eq!(parse_num("1").unwrap(), ("", Expr::Num(1.0)));
-        assert_eq!(parse_num("1.0").unwrap(), ("", Expr::Num(1.0)));
-        assert_eq!(parse_num("1.1").unwrap(), ("", Expr::Num(1.1)));
-        assert_eq!(parse_num("-1.1").unwrap(), ("", Expr::Num(-1.1)));
-        assert_eq!(parse_num("-0.1").unwrap(), ("", Expr::Num(-0.1)));
+        assert_eq!(parse_num("1").unwrap(), ("", num_f!(1.0)));
+        assert_eq!(parse_num("1.0").unwrap(), ("", num_f!(1.0)));
+        assert_eq!(parse_num("1.1").unwrap(), ("", num_f!(1.1)));
+        assert_eq!(parse_num("-1.1").unwrap(), ("", num_f!(-1.1)));
+        assert_eq!(parse_num("-0.1").unwrap(), ("", num_f!(-0.1)));
     }
 
     macro_rules! test_symbol {
@@ -204,7 +212,7 @@ mod tests {
 
     #[test]
     fn parse_ex() {
-        assert_eq!(parse_expr("1").unwrap(), ("", Expr::Num(1.0)));
+        assert_eq!(parse_expr("1").unwrap(), ("", num_f!(1.0)));
         assert_eq!(
             parse_expr(r#""hello? world""#).unwrap(),
             ("", Expr::String("hello? world".into()))
@@ -231,19 +239,15 @@ mod tests {
             ("", Expr::String("hello? world".into()))
         );
 
-        assert_eq!(parse_expr("; hello\n\n\n1").unwrap(), ("", Expr::Num(1.0)));
-        assert_eq!(parse_expr("1 ; hello").unwrap(), ("", Expr::Num(1.0)));
+        assert_eq!(parse_expr("; hello\n\n\n1").unwrap(), ("", num_f!(1.0)));
+        assert_eq!(parse_expr("1 ; hello").unwrap(), ("", num_f!(1.0)));
 
         use im::vector;
         assert_eq!(
             parse_expr("(+ 1 1)").unwrap(),
             (
                 "",
-                Expr::List(vector![
-                    Expr::Symbol("+".into()),
-                    Expr::Num(1.0),
-                    Expr::Num(1.0)
-                ])
+                Expr::List(vector![Expr::Symbol("+".into()), num_f!(1.0), num_f!(1.0)])
             )
         )
     }
@@ -259,7 +263,7 @@ mod tests {
     #[test]
     fn test_expr_iterator() {
         let mut iter = ExprIterator::new("1 ; hello");
-        assert_eq!(iter.next(), Some(Ok(Expr::Num(1.0))));
+        assert_eq!(iter.next(), Some(Ok(num_f!(1.0))));
         assert_eq!(iter.next(), None);
     }
 }
