@@ -366,7 +366,11 @@ impl std::ops::Add<&Expr> for Expr {
                 res.append(r.clone());
                 Ok(Expr::List(res))
             }
-            // TODO: no clone
+            (Expr::Tuple(l), Expr::Tuple(r)) => {
+                let mut res = l.clone();
+                res.append(r.clone());
+                Ok(Expr::Tuple(res))
+            }
             (Expr::List(l), Expr::Nil) => Ok(Expr::List(l.clone())),
             (Expr::Nil, Expr::List(r)) => Ok(Expr::List(r.clone())),
             (Expr::Nil, Expr::Nil) => Ok(Expr::Nil),
