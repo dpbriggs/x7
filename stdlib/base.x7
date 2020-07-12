@@ -44,3 +44,21 @@
           le    (filter (fn (x) (<= x pivot)) rest)
           ge    (filter (fn (x) (> x pivot)) rest))
          (+ (quicksort le) (list pivot) (quicksort ge)))))
+
+(defn fib-step (x)
+  (tuple (nth 1 x) (+ (nth 0 x) (nth 1 x))))
+
+;; Reduce (0 1) `num` times using fib-step to
+;; generate the `num`'th fibonacci number
+
+(defn fib (num)
+  (nth 0 (reduce
+          fib-step
+          (tuple 0 1)
+          (range num))))
+
+;; Print one hundred fibonacci numbers
+;;
+;; Note: (take 100 (map fib (range)))
+;; is an iterator which maps to Rust's iterators which
+;; makes them very fast.

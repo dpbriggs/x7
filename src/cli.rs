@@ -3,8 +3,18 @@ use crate::parser::read;
 use crate::symbols::SymbolTable;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
+use structopt::StructOpt;
 
-pub(crate) fn read_cli(sym_table: &SymbolTable) {
+#[derive(Debug, StructOpt)]
+#[structopt(name = "x7", about = "x7 Programming Language")]
+pub struct Options {
+    #[structopt(short = "l", long)]
+    pub hide_loading_stdlib: bool,
+
+    pub files: Vec<String>,
+}
+
+pub fn read_cli(sym_table: &SymbolTable) {
     let mut rl = Editor::<()>::new();
     if rl.load_history("history.txt").is_err() {
         // TODO: Make the actual file

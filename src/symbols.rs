@@ -45,7 +45,7 @@ impl PartialEq for Expr {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expr::Nil => write!(f, "()"),
+            Expr::Nil => write!(f, "nil"),
             Expr::String(s) => write!(f, "\"{}\"", s),
             Expr::Num(n) => write!(f, "{}", n),
             Expr::Symbol(s) => write!(f, "{}", s),
@@ -292,6 +292,7 @@ impl Function {
         if self.minimum_args > args.len() {
             return Err(ProgramError::NotEnoughArgs);
         }
+
         if self.named_args.is_empty() {
             if self.eval_args {
                 let args: Result<Vector<_>, _> =
@@ -301,15 +302,24 @@ impl Function {
                 return (self.f)(args, symbol_table);
             }
         }
-        if self.eval_args {
+
+        let args = if self.eval_args {
             let args: Result<Vector<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
             let args = args?;
-            let new_sym = symbol_table.with_locals(&self.named_args, args.clone())?;
-            (self.f)(args, &new_sym)
+            args
         } else {
-            let new_sym = symbol_table.with_locals(&self.named_args, args.clone())?;
-            (self.f)(args, &new_sym)
-        }
+            args
+        };
+        let new_sym = symbol_table.with_locals(&self.named_args, args.clone())?;
+        (self.f)(args, &new_sym)
+
+        // if self.eval_args {
+        //     let args: Result<Vector<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
+        //     let args = args?;
+        //     // args get dropped
+        // }
+        // let new_sym = symbol_table.with_locals(&self.named_args, args.clone())?;
+        // (self.f)(args, &new_sym)
     }
 }
 
@@ -501,7 +511,7 @@ type SymbolLookup = HashMap<String, Expr>;
 
 // TODO: Debug should include stdlib
 #[derive(Clone, Debug)]
-pub(crate) struct SymbolTable {
+pub struct SymbolTable {
     locals: RefCell<Vec<SymbolLookup>>,
 }
 
@@ -566,6 +576,7 @@ impl SymbolTable {
             } else {
                 break;
             };
+
             if symbol == "&" {
                 let rest_sym = if let Some(sym) = get_symbol(symbol_iter.next()) {
                     sym?
@@ -575,6 +586,7 @@ impl SymbolTable {
                 locals.insert(rest_sym, Expr::List(values_iter.collect()));
                 break;
             }
+
             let value = values_iter.next().unwrap();
             locals.insert(symbol, value);
         }
@@ -582,6 +594,9 @@ impl SymbolTable {
         Ok(copy)
     }
 }
+
+// (fn foo (x & rest) ...)
+// (foo 1 2 3 4) // x: 1, rest: '(2 3 4)
 
 fn get_symbol(sym: Option<Expr>) -> Option<LispResult<String>> {
     match sym {

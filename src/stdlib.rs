@@ -1,3 +1,4 @@
+use crate::cli::Options;
 use crate::iterators::{LazyMap, NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
@@ -110,6 +111,11 @@ fn ident(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn quote(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::Quote(exprs))
+}
+
+fn eval(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    exprs[0].eval(symbol_table)
 }
 
 fn apply(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -235,7 +241,6 @@ fn cond(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 }
 
 fn map(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
-    // TODO: Performance fix this entire thing
     exact_len!(exprs, 2);
     let f = &exprs[0];
     if let Ok(iter) = exprs[1].get_iterator() {
@@ -483,7 +488,7 @@ macro_rules! make_stdlib_fns {
 // }
 
 #[allow(clippy::let_and_return)]
-pub(crate) fn create_stdlib_symbol_table(opts: &crate::Options) -> SymbolTable {
+pub fn create_stdlib_symbol_table(opts: &Options) -> SymbolTable {
     let syms = make_stdlib_fns!(
         // ARITHMETIC
         ("+", 1, add_exprs, true),
@@ -505,6 +510,7 @@ pub(crate) fn create_stdlib_symbol_table(opts: &crate::Options) -> SymbolTable {
         ("quote", 0, quote, false),
         ("print", 1, print, true),
         ("println", 1, println, true),
+        ("eval", 1, eval, true),
         ("def", 1, def, false),
         ("cond", 2, cond, false),
         ("shuffle", 1, shuffle, true),
