@@ -42,8 +42,6 @@ impl LazyIter for IterType {
     }
 }
 
-// impl<T: IterType> Clone for
-
 #[derive(Clone)]
 pub(crate) struct LazyMap {
     inner: IterType,

@@ -11,9 +11,9 @@
 
 ;; Control Flow
 
-(defn if (true? then else)
+(defn if (pred? then else)
   (cond
-   true? then
+   pred? then
    true else))
 
 (defn is-even? (x) (= 0 (% x 2)))

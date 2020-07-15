@@ -7,6 +7,7 @@ use std::io;
 use std::io::prelude::*;
 
 // TODO: Figure out best way to have the stdlib available
+// $X7_PATH?
 fn stdlib_dir() -> io::Result<&'static str> {
     Ok("./stdlib")
 }

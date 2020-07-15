@@ -246,7 +246,12 @@ impl PartialEq for Function {
 
 impl fmt::Debug for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "AnonFn<{}, {}>", self.symbol, self.minimum_args)
+        write!(f, "Fn<{}, {}, [ ", self.symbol, self.minimum_args)?;
+        for arg in &self.named_args {
+            let sym = arg.get_symbol_string().unwrap_or_else(|_| "??".into());
+            write!(f, "{} ", sym)?;
+        }
+        write!(f, "]>")
     }
 }
 
