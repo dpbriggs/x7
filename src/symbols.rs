@@ -531,7 +531,7 @@ impl SymbolTable {
         guard
             .get(symbol)
             .cloned()
-            .ok_or_else(|| anyhow!("Unknown Symbol: {}", symbol.to_string()))
+            .ok_or_else(|| anyhow!("Unknown Symbol {}", symbol.to_string()))
     }
 
     pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {
@@ -557,6 +557,15 @@ impl SymbolTable {
     //     let mut guard = GLOBAL_SYMS.lock().unwrap();
     //     guard.insert(symbol, value);
     // }
+
+    pub(crate) fn get_all_symbols(&self) -> Vec<String> {
+        let guard = GLOBAL_SYMS.lock().unwrap();
+        let mut ret: Vec<String> = guard.keys().cloned().collect();
+        for layer in self.locals.borrow().iter() {
+            ret.append(&mut layer.keys().cloned().collect());
+        }
+        ret
+    }
 
     pub(crate) fn with_locals(&self, symbols: &[Expr], values: Vector<Expr>) -> LispResult<Self> {
         let copy = self.clone();

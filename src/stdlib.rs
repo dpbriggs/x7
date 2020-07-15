@@ -132,19 +132,16 @@ fn apply(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exprs[0].call_fn(exprs[1].get_list()?, symbol_table)
 }
 
-// fn inner_comp(exprs, es: Vector<Expr>, sym: &SymbolTable) -> LispResult<Expr> {
-//     let mut res: Vector<Expr> = es;
-//     for func in exprs.iter() {
-//         res = match func.call_fn(res, sym) {
-//             Ok(l) => match l.get_list() {
-//                 Ok(li) => li,
-//                 Err(e) => return Err(e),
-//             },
-//             Err(e) => return Err(e),
-//         }
-//     }
-//     return Ok(Expr::List(res));
-// }
+fn all_symbols(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 0);
+    Ok(Expr::List(
+        symbol_table
+            .get_all_symbols()
+            .into_iter()
+            .map(Expr::Symbol)
+            .collect(),
+    ))
+}
 
 // XXX: Closure lifetime resolution is some magic shit.
 //      For some reason it compiles now no idea why  ¯\_(ツ)_/¯
@@ -532,6 +529,7 @@ pub fn create_stdlib_symbol_table(opts: &Options) -> SymbolTable {
         ("shuffle", 1, shuffle, true),
         ("panic", 1, panic, true),
         ("type", 1, type_of, true),
+        ("all-symbols", 0, all_symbols, true),
         // FUNC TOOLS
         ("map", 1, map, true),
         ("foreach", 2, foreach, true),

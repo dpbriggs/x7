@@ -65,8 +65,12 @@ pub fn read_cli(sym_table: &SymbolTable) {
 fn report_error(err: anyhow::Error) {
     let first = err.chain().last().unwrap();
     println!("Error: {}\n", first);
-    println!("Stacktrace:");
+    let mut print_stackstace = true;
     for e in err.chain().rev().skip(1) {
+        if print_stackstace {
+            println!("Stacktrace:");
+        }
+        print_stackstace = false;
         println!("  - {}", e)
     }
 }
