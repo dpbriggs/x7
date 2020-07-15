@@ -65,10 +65,10 @@ impl fmt::Display for Expr {
             // DataType::Bool(b) => write!(f, "{}", b),
             Expr::Function(ff) => write!(f, "{}", ff),
             Expr::LazyIter(i) => write!(f, "{}", i),
-            Expr::Quote(l) => write!(f, "'({})", l.iter().map(|e| format!("{}", e)).join(" ")),
+            Expr::Quote(l) => write!(f, "'({})", l.iter().join(" ")),
             Expr::Bool(b) => write!(f, "{}", b),
-            Expr::List(l) => write!(f, "({})", l.iter().map(|e| format!("{}", e)).join(" ")),
-            Expr::Tuple(l) => write!(f, "({})", l.iter().map(|e| format!("{}", e)).join(" ")),
+            Expr::List(l) => write!(f, "({})", l.iter().join(" ")),
+            Expr::Tuple(l) => write!(f, "({})", l.iter().join(" ")),
         }
     }
 }
@@ -270,9 +270,8 @@ impl Function {
 
         if self.named_args.is_empty() {
             if self.eval_args {
-                let args: Result<Vector<_>, _> =
-                    args.iter().map(|e| e.eval(symbol_table)).collect();
-                let args = args?;
+                let args: Vector<_> = args.iter().map(|e| e.eval(symbol_table)).try_collect()?;
+                // let args = args?;
                 return (self.f)(args.clone(), symbol_table).with_context(|| {
                     format!("Error in {}, with args {}", &self, format_args(&args))
                 });
@@ -282,22 +281,18 @@ impl Function {
         }
 
         let args = if self.eval_args {
-            let args: Result<Vector<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
-            args?
+            let args: Vector<_> = args.iter().map(|e| e.eval(symbol_table)).try_collect()?;
+            args
         } else {
             args
         };
+
+        // Add local variables to symbol table
         let new_sym = symbol_table.with_locals(&self.named_args, args.clone())?;
+
+        // Call the function
         (self.f)(args.clone(), &new_sym)
             .with_context(|| format!("Error in {}, with args {}", &self, format_args(&args)))
-
-        // if self.eval_args {
-        //     let args: Result<Vector<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
-        //     let args = args?;
-        //     // args get dropped
-        // }
-        // let new_sym = symbol_table.with_locals(&self.named_args, args.clone())?;
-        // (self.f)(args, &new_sym)
     }
 }
 
@@ -605,10 +600,5 @@ fn get_symbol(sym: Option<Expr>) -> Option<LispResult<String>> {
 
 fn format_args(args: &Vector<Expr>) -> String {
     // let mut res = String::new();
-    format!(
-        "{}{}{}",
-        "(",
-        args.iter().map(|x| format!("{}", x)).join(" "),
-        ")"
-    )
+    format!("{}{}{}", "(", args.iter().join(" "), ")")
 }
