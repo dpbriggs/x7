@@ -39,7 +39,7 @@ pub fn read_cli(sym_table: &SymbolTable) {
                     match prog.eval(sym_table) {
                         Ok(p) => println!("{}", p),
                         Err(e) => {
-                            println!("{:?}", e);
+                            report_error(e);
                             continue;
                         }
                     }
@@ -60,4 +60,13 @@ pub fn read_cli(sym_table: &SymbolTable) {
         }
     }
     rl.save_history("history.txt").unwrap();
+}
+
+fn report_error(err: anyhow::Error) {
+    let first = err.chain().last().unwrap();
+    println!("Error: {}\n", first);
+    println!("Stacktrace:");
+    for e in err.chain().rev().skip(1) {
+        println!("  - {}", e)
+    }
 }

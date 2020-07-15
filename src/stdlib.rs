@@ -2,14 +2,22 @@ use crate::cli::Options;
 use crate::iterators::{LazyMap, NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
+use anyhow::{anyhow, bail, ensure, Context};
 use bigdecimal::{BigDecimal, FromPrimitive, One, ToPrimitive};
 use im::{vector, Vector};
 
+// macro_rules! bad_types {
+//     ($fmt:expr, $($arg:tt)*) => {
+//         bail!(ProgramError::WrongNumberOfArgs(format!($fmt, $($arg)*)))
+//     };
+//     ($fmt:expr, $lit:literal) => {
+//         bail!(ProgramError::WrongNumberOfArgs($lit.into()))
+//     };
+// }
+
 macro_rules! exact_len {
     ($args:expr, $len:literal) => {
-        if $args.len() != $len {
-            return Err(ProgramError::WrongNumberOfArgs);
-        }
+        ensure!($args.len() == $len, ProgramError::WrongNumberOfArgs($len))
     };
 }
 
@@ -94,13 +102,14 @@ fn div_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Exp
 }
 
 fn inc_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    if exprs.len() > 1 {
-        Err(ProgramError::WrongNumberOfArgs)
-    } else if let Expr::Num(n) = &exprs[0] {
-        Ok(Expr::Num(n + bigdecimal::BigDecimal::one()))
-    } else {
-        Err(ProgramError::BadTypes)
-    }
+    exact_len!(exprs, 1);
+    let n = &exprs[0].get_num().with_context(|| {
+        format!(
+            "inc_exprs operates on num types, but was given {}",
+            &exprs[0]
+        )
+    })?;
+    Ok(Expr::Num(n + bigdecimal::BigDecimal::one()))
 }
 
 // MISC
@@ -119,9 +128,7 @@ fn eval(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 }
 
 fn apply(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
-    if exprs.len() != 2 {
-        return Err(ProgramError::WrongNumberOfArgs);
-    }
+    exact_len!(exprs, 2);
     exprs[0].call_fn(exprs[1].get_list()?, symbol_table)
 }
 
@@ -227,9 +234,7 @@ fn type_of(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
 // FUNC
 
 fn cond(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
-    if exprs.len() % 2 != 0 {
-        return Err(ProgramError::CondBadConditionNotEven);
-    }
+    ensure!(exprs.len() % 2 == 0, ProgramError::CondBadConditionNotEven);
     let mut iter = exprs.iter();
     while let Some(pred) = iter.next() {
         let body = iter.next().unwrap();
@@ -237,7 +242,7 @@ fn cond(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
             return body.eval(symbol_table);
         }
     }
-    Err(ProgramError::CondNoExecutionPath)
+    bail!(ProgramError::CondNoExecutionPath)
 }
 
 fn map(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -267,7 +272,7 @@ fn foreach(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> 
             f.call_fn(Vector::unit(x.clone()), symbol_table)?;
         }
     } else {
-        return Err(ProgramError::BadTypes);
+        bail!(ProgramError::BadTypes)
     };
     Ok(Expr::Nil)
 }
@@ -295,12 +300,21 @@ fn filter(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 /// reduce
 /// (f init coll)
 fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
-    if exprs.len() != 2 && exprs.len() != 3 {
-        return Err(ProgramError::WrongNumberOfArgs);
-    }
+    ensure!(
+        exprs.len() == 2 || exprs.len() == 3,
+        anyhow!(
+            "reduce requires 2 or 3 arguments, {} was given",
+            exprs.len()
+        )
+    );
     let (mut init, list) = if exprs.len() == 2 {
-        let (mut head, tail) = exprs[1].get_list()?.split_at(1);
-        (head.pop_front().ok_or(ProgramError::NotEnoughArgs)?, tail)
+        let list = exprs[1].get_list()?;
+        ensure!(
+            !list.len() == 0,
+            "Attempted to reduce without initial argument using an empty list"
+        );
+        let (mut head, tail) = list.split_at(1);
+        (head.pop_front().unwrap(), tail)
     } else {
         (exprs[1].clone(), exprs[2].get_list()?)
     };
@@ -313,11 +327,13 @@ fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn bind(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     let symbols = &exprs[0];
-    if !symbols.is_even_list() {
-        return Err(ProgramError::WrongNumberOfArgs);
-    }
     let sym_copy = symbol_table.clone();
     let list = symbols.get_list()?;
+    ensure!(
+        list.len() % 2 == 0,
+        anyhow!("Error: bind requires an even list of expressions, but was given a list of length {}. List given was: {}", list.len(), symbols)
+    );
+
     let mut iter = list.iter();
     while let Some(l) = iter.next() {
         let r = iter.next().unwrap();
@@ -373,7 +389,7 @@ fn nth(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         .get_list()?
         .get(index)
         .cloned()
-        .ok_or(ProgramError::BadTypes)
+        .ok_or_else(|| anyhow::anyhow!(ProgramError::BadTypes))
 }
 
 fn cons(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {

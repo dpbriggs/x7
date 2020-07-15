@@ -128,12 +128,13 @@ impl<'a> Iterator for ExprIterator<'a> {
         if self.done || self.input.is_empty() {
             return None;
         }
-        // dbg!(self.input);
         let (rest, res) = match parse_expr(self.input) {
             Ok(r) => r,
             Err(e) => {
                 self.done = true;
-                return Some(Err(ProgramError::FailedToParse(e.to_string())));
+                return Some(Err(anyhow::Error::new(ProgramError::FailedToParse(
+                    e.to_string(),
+                ))));
             }
         };
         self.input = rest;
@@ -263,7 +264,9 @@ mod tests {
     #[test]
     fn test_expr_iterator() {
         let mut iter = ExprIterator::new("1 ; hello");
-        assert_eq!(iter.next(), Some(Ok(num_f!(1.0))));
-        assert_eq!(iter.next(), None);
+        let next = iter.next();
+        assert!(next.is_some());
+        assert_eq!(next.unwrap().unwrap(), num_f!(1.0));
+        assert!(iter.next().is_none());
     }
 }

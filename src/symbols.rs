@@ -1,12 +1,25 @@
 use crate::iterators::IterType;
+use anyhow::{anyhow, bail, Context};
 use bigdecimal::{BigDecimal, ToPrimitive, Zero};
 use core::cell::RefCell;
 use core::cmp::Ordering;
 use im::Vector;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::Mutex;
+
+macro_rules! bad_types {
+    ($custom:expr) => {
+        Err(anyhow!(ProgramError::BadTypes)).with_context(|| $custom)
+    };
+
+    ($expected:expr, $given:expr) => {
+        Err(anyhow!(ProgramError::BadTypes))
+            .with_context(|| format!("Error: Expected {}, but was given {}", $expected, $given))
+    };
+}
 
 pub type Num = BigDecimal;
 
@@ -52,47 +65,10 @@ impl fmt::Display for Expr {
             // DataType::Bool(b) => write!(f, "{}", b),
             Expr::Function(ff) => write!(f, "{}", ff),
             Expr::LazyIter(i) => write!(f, "{}", i),
-            Expr::Quote(l) => {
-                write!(f, "'")?;
-                let mut first = true;
-                write!(f, "(")?;
-                for item in l {
-                    if !first {
-                        write!(f, " ")?;
-                    }
-                    write!(f, "{}", item)?;
-                    first = false;
-                }
-                write!(f, ")")?;
-                Ok(())
-            }
+            Expr::Quote(l) => write!(f, "'({})", l.iter().map(|e| format!("{}", e)).join(" ")),
             Expr::Bool(b) => write!(f, "{}", b),
-            Expr::List(l) => {
-                let mut first = true;
-                write!(f, "(")?;
-                for item in l {
-                    if !first {
-                        write!(f, " ")?;
-                    }
-                    write!(f, "{}", item)?;
-                    first = false;
-                }
-                write!(f, ")")?;
-                Ok(())
-            }
-            Expr::Tuple(l) => {
-                let mut first = true;
-                write!(f, "(")?;
-                for item in l {
-                    if !first {
-                        write!(f, " ")?;
-                    }
-                    write!(f, "{}", item)?;
-                    first = false;
-                }
-                write!(f, ")")?;
-                Ok(())
-            }
+            Expr::List(l) => write!(f, "({})", l.iter().map(|e| format!("{}", e)).join(" ")),
+            Expr::Tuple(l) => write!(f, "({})", l.iter().map(|e| format!("{}", e)).join(" ")),
         }
     }
 }
@@ -109,7 +85,8 @@ impl Expr {
                 (Expr::String(_), Expr::String(_)) => true,
                 _ => false,
             }) {
-                Err(ProgramError::BadTypes) // only floats (sorta) + strings are totally ordered
+                // only floats (sorta) + strings are totally ordered
+                bad_types!("list of identically typed, ordered elements", &self)
             } else {
                 Ok(list)
             }
@@ -120,7 +97,7 @@ impl Expr {
         if let Expr::Num(n) = self {
             Ok(n.clone())
         } else {
-            Err(ProgramError::BadTypes)
+            bad_types!("num", &self)
         }
     }
 
@@ -128,15 +105,7 @@ impl Expr {
         if let Expr::Bool(b) = self {
             Ok(*b)
         } else {
-            Err(ProgramError::BadTypes)
-        }
-    }
-
-    pub(crate) fn is_even_list(&self) -> bool {
-        if let Expr::List(l) = self {
-            l.len() % 2 == 0
-        } else {
-            false
+            bad_types!("bool", &self)
         }
     }
 
@@ -160,7 +129,7 @@ impl Expr {
         if let Expr::Function(f) = self {
             Ok(f.clone())
         } else {
-            Err(ProgramError::BadTypes)
+            bad_types!("func", &self)
         }
     }
 
@@ -168,7 +137,7 @@ impl Expr {
         if let Expr::LazyIter(l) = self {
             Ok(l.clone())
         } else {
-            Err(ProgramError::BadTypes)
+            bad_types!("iterator", &self)
         }
     }
 
@@ -176,7 +145,8 @@ impl Expr {
         if let Expr::Bool(b) = self {
             Ok(*b)
         } else {
-            Err(ProgramError::BadTypes)
+            bad_types!("bool", &self)
+            // Err(ProgramError::BadTypes).with_context(|| format!("{} is not a bool!", &self))
         }
     }
 
@@ -184,7 +154,7 @@ impl Expr {
         if let Expr::Quote(l) = self {
             Ok(l.clone())
         } else {
-            Err(ProgramError::BadTypes)
+            bad_types!("quote", &self)
         }
     }
 
@@ -196,7 +166,7 @@ impl Expr {
         } else if let Expr::Tuple(l) = self {
             Ok(l.clone())
         } else {
-            Err(ProgramError::BadTypes)
+            bad_types!("list", &self)
         }
     }
 
@@ -212,7 +182,7 @@ impl Expr {
         if let Expr::Symbol(s) = self {
             Ok(s.clone())
         } else {
-            Err(ProgramError::BadTypes)
+            bad_types!("symbol", &self)
         }
     }
 
@@ -221,7 +191,7 @@ impl Expr {
             f.symbol = new_name;
             Ok(Expr::Function(f))
         } else {
-            Err(ProgramError::BadTypes)
+            bad_types!("function", &self)
         }
     }
 }
@@ -295,14 +265,17 @@ impl Function {
         symbol_table: &SymbolTable,
     ) -> LispResult<Expr> {
         if self.minimum_args > args.len() {
-            return Err(ProgramError::NotEnoughArgs);
+            bail!(ProgramError::NotEnoughArgs(self.minimum_args));
         }
 
         if self.named_args.is_empty() {
             if self.eval_args {
                 let args: Result<Vector<_>, _> =
                     args.iter().map(|e| e.eval(symbol_table)).collect();
-                return (self.f)(args?, symbol_table);
+                let args = args?;
+                return (self.f)(args.clone(), symbol_table).with_context(|| {
+                    format!("Error in {}, with args {}", &self, format_args(&args))
+                });
             } else {
                 return (self.f)(args, symbol_table);
             }
@@ -310,13 +283,13 @@ impl Function {
 
         let args = if self.eval_args {
             let args: Result<Vector<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
-            let args = args?;
-            args
+            args?
         } else {
             args
         };
         let new_sym = symbol_table.with_locals(&self.named_args, args.clone())?;
-        (self.f)(args, &new_sym)
+        (self.f)(args.clone(), &new_sym)
+            .with_context(|| format!("Error in {}, with args {}", &self, format_args(&args)))
 
         // if self.eval_args {
         //     let args: Result<Vector<_>, _> = args.iter().map(|e| e.eval(symbol_table)).collect();
@@ -330,9 +303,11 @@ impl Function {
 
 impl std::error::Error for ProgramError {}
 
+// use thiserror::Error;
+
 #[derive(Debug, PartialEq)]
 pub(crate) enum ProgramError {
-    BadTypes,
+    BadTypes, // context
     CannotLookupNonSymbol,
     // InvalidCharacterInSymbol,
     // CannotStartExprWithNonSymbol,
@@ -343,11 +318,11 @@ pub(crate) enum ProgramError {
     // FailedToParseString,
     NotAFunction(Expr),
     // NotAList,
-    NotEnoughArgs,
-    NotImplementedYet,
+    NotEnoughArgs(usize),
+    // NotImplementedYet,
+    ExpectedRestSymbol,
     // UnexpectedEOF,
-    UnknownSymbol(String),
-    WrongNumberOfArgs,
+    WrongNumberOfArgs(usize),
     FailedToParse(String),
     Custom(String),
 }
@@ -358,14 +333,17 @@ impl fmt::Display for ProgramError {
     }
 }
 
-pub(crate) type LispResult<T> = Result<T, ProgramError>;
+pub(crate) type LispResult<T> = anyhow::Result<T>;
 
 impl std::ops::Rem<&Expr> for Expr {
     type Output = LispResult<Expr>;
     fn rem(self, other: &Expr) -> LispResult<Expr> {
         match (&self, &other) {
             (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l % r))),
-            _ => Err(ProgramError::BadTypes),
+            _ => bad_types!(format!(
+                "Remainder requires left and right are num types, was given {} % {}",
+                &self, &other
+            )),
         }
     }
 }
@@ -389,7 +367,10 @@ impl std::ops::Add<&Expr> for Expr {
             (Expr::List(l), Expr::Nil) => Ok(Expr::List(l.clone())),
             (Expr::Nil, Expr::List(r)) => Ok(Expr::List(r.clone())),
             (Expr::Nil, Expr::Nil) => Ok(Expr::Nil),
-            _ => Err(ProgramError::BadTypes),
+            _ => bad_types!(format!(
+                "Addition between these types doesn't make sense: {} + {}",
+                &self, other
+            )),
         }
     }
 }
@@ -399,7 +380,10 @@ impl std::ops::Sub<&Expr> for Expr {
     fn sub(self, other: &Expr) -> LispResult<Expr> {
         match (&self, &other) {
             (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l - r))),
-            _ => Err(ProgramError::BadTypes),
+            _ => bad_types!(format!(
+                "Subtraction between these types doesn't make sense: {} - {}",
+                &self, other
+            )),
         }
     }
 }
@@ -413,10 +397,16 @@ impl std::ops::Mul<&Expr> for Expr {
                 if *r >= BigDecimal::zero() {
                     Ok(Expr::String(l.to_string().repeat(r.to_usize().unwrap())))
                 } else {
-                    Err(ProgramError::NotImplementedYet)
+                    bad_types!(format!(
+                        "Repeating a string negative times doesn't make sense: {} * {}",
+                        &self, other
+                    ))
                 }
             }
-            _ => Err(ProgramError::BadTypes),
+            _ => bad_types!(format!(
+                "Multiplication between these types doesn't make sense: {} * {}",
+                &self, other
+            )),
         }
     }
 }
@@ -427,12 +417,15 @@ impl std::ops::Div<&Expr> for Expr {
         match (&self, &other) {
             (Expr::Num(l), Expr::Num(r)) => {
                 if *r == BigDecimal::zero() {
-                    Err(ProgramError::DivisionByZero)
+                    bail!(ProgramError::DivisionByZero);
                 } else {
                     Ok(Expr::Num(l / r))
                 }
             }
-            _ => Err(ProgramError::BadTypes),
+            _ => bad_types!(format!(
+                "Division between these types doesn't make sense: {} / {}",
+                &self, other
+            )),
         }
     }
 }
@@ -468,7 +461,7 @@ impl Expr {
         if let Expr::Function(f) = self {
             f.call_fn(args, symbol_table)
         } else {
-            Err(ProgramError::NotAFunction(self.clone()))
+            bail!(ProgramError::NotAFunction(self.clone()));
         }
     }
 
@@ -531,7 +524,7 @@ impl SymbolTable {
         // Check Functions
         let symbol = match key {
             Expr::Symbol(ref s) => s,
-            _ => return Err(ProgramError::CannotLookupNonSymbol),
+            _ => bail!(ProgramError::CannotLookupNonSymbol),
         };
         for scope in self.locals.borrow().iter().rev() {
             if let Some(expr) = scope.get(symbol) {
@@ -543,7 +536,7 @@ impl SymbolTable {
         guard
             .get(symbol)
             .cloned()
-            .ok_or_else(|| ProgramError::UnknownSymbol(symbol.to_string()))
+            .ok_or_else(|| anyhow!("Unknown Symbol: {}", symbol.to_string()))
     }
 
     pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {
@@ -586,7 +579,7 @@ impl SymbolTable {
                 let rest_sym = if let Some(sym) = get_symbol(symbol_iter.next()) {
                     sym?
                 } else {
-                    return Err(ProgramError::NotEnoughArgs);
+                    bail!(ProgramError::ExpectedRestSymbol);
                 };
                 locals.insert(rest_sym, Expr::List(values_iter.collect()));
                 break;
@@ -608,4 +601,14 @@ fn get_symbol(sym: Option<Expr>) -> Option<LispResult<String>> {
         Some(rest_sym) => Some(rest_sym.get_symbol_string()),
         None => None,
     }
+}
+
+fn format_args(args: &Vector<Expr>) -> String {
+    // let mut res = String::new();
+    format!(
+        "{}{}{}",
+        "(",
+        args.iter().map(|x| format!("{}", x)).join(" "),
+        ")"
+    )
 }
