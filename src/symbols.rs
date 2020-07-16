@@ -16,14 +16,20 @@ macro_rules! bad_types {
     };
 
     ($expected:expr, $given:expr) => {
-        Err(anyhow!(ProgramError::BadTypes))
-            .with_context(|| format!("Error: Expected {}, but was given {}", $expected, $given))
+        Err(anyhow!(ProgramError::BadTypes)).with_context(|| {
+            format!(
+                "Error: Expected {}, but got type '{}': {:?}",
+                $expected,
+                $given.get_type_str(),
+                $given
+            )
+        })
     };
 }
 
 pub type Num = BigDecimal;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(crate) enum Expr {
     Num(Num),
     Symbol(String),
@@ -55,20 +61,36 @@ impl PartialEq for Expr {
     }
 }
 
-impl fmt::Display for Expr {
+fn debug_join(exprs: &Vector<Expr>) -> String {
+    exprs
+        .iter()
+        .map(|s| format!("{:?}", s))
+        .collect::<Vec<String>>()
+        .join(" ")
+}
+
+impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Expr::Nil => write!(f, "nil"),
             Expr::String(s) => write!(f, "\"{}\"", s),
             Expr::Num(n) => write!(f, "{}", n),
             Expr::Symbol(s) => write!(f, "{}", s),
-            // DataType::Bool(b) => write!(f, "{}", b),
             Expr::Function(ff) => write!(f, "{}", ff),
             Expr::LazyIter(i) => write!(f, "{}", i),
-            Expr::Quote(l) => write!(f, "'({})", l.iter().join(" ")),
+            Expr::Quote(l) => write!(f, "'({})", debug_join(l)),
             Expr::Bool(b) => write!(f, "{}", b),
-            Expr::List(l) => write!(f, "({})", l.iter().join(" ")),
-            Expr::Tuple(l) => write!(f, "({})", l.iter().join(" ")),
+            Expr::List(l) => write!(f, "({})", debug_join(l)),
+            Expr::Tuple(l) => write!(f, "(tuple {})", debug_join(l)),
+        }
+    }
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expr::String(s) => write!(f, "{}", s),
+            rest => write!(f, "{:?}", rest),
         }
     }
 }
@@ -93,11 +115,42 @@ impl Expr {
         }
     }
 
+    pub(crate) fn get_type_str(&self) -> &'static str {
+        match self {
+            Expr::Num(_) => "num",
+            Expr::String(_) => "str",
+            Expr::Quote(_) => "quote",
+            Expr::Bool(_) => "bool",
+            Expr::Function(_) => "func",
+            Expr::Symbol(_) => "symbol",
+            Expr::List(_) => "list",
+            Expr::Nil => "nil",
+            Expr::LazyIter(_) => "iterator",
+            Expr::Tuple(_) => "tuple",
+        }
+    }
+
     pub(crate) fn get_num(&self) -> LispResult<Num> {
         if let Expr::Num(n) = self {
             Ok(n.clone())
         } else {
             bad_types!("num", &self)
+        }
+    }
+
+    pub(crate) fn get_usize(&self) -> LispResult<usize> {
+        let res = self.get_num()?.to_usize().ok_or(anyhow!(
+            "Cannot represent {} as it needs to fit in a usize",
+            self.get_num()?
+        ))?;
+        Ok(res)
+    }
+
+    pub(crate) fn get_string(&self) -> LispResult<String> {
+        if let Expr::String(s) = self {
+            Ok(s.clone())
+        } else {
+            bad_types!("string", &self)
         }
     }
 
@@ -210,6 +263,9 @@ pub(crate) struct Function {
 
 impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
+        // TODO: See if this is an issue. This should only appear in
+        // one code generation unit (i.e. this crate), so it should be safe.
+        #[allow(clippy::vtable_address_comparisons)]
         Arc::ptr_eq(&self.f, &other.f)
     }
 }
@@ -265,7 +321,13 @@ impl Function {
         symbol_table: &SymbolTable,
     ) -> LispResult<Expr> {
         if self.minimum_args > args.len() {
-            bail!(ProgramError::NotEnoughArgs(self.minimum_args));
+            bail!(anyhow!(
+                "Too few args supplied for {}. Expected {}, was given {} of length {}",
+                &self,
+                self.minimum_args,
+                args.iter().join(" "),
+                args.len()
+            ));
         }
 
         if self.named_args.is_empty() {
@@ -313,13 +375,13 @@ pub(crate) enum ProgramError {
     // FailedToParseString,
     NotAFunction(Expr),
     // NotAList,
-    NotEnoughArgs(usize),
+    // NotEnoughArgs(usize),
     // NotImplementedYet,
     ExpectedRestSymbol,
     // UnexpectedEOF,
     WrongNumberOfArgs(usize),
     FailedToParse(String),
-    Custom(String),
+    // Custom(String),
 }
 
 impl fmt::Display for ProgramError {
@@ -390,7 +452,9 @@ impl std::ops::Mul<&Expr> for Expr {
             (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l * r))),
             (Expr::String(l), Expr::Num(r)) => {
                 if *r >= BigDecimal::zero() {
-                    Ok(Expr::String(l.to_string().repeat(r.to_usize().unwrap())))
+                    Ok(Expr::String(
+                        l.to_string().repeat(Expr::Num(r.clone()).get_usize()?),
+                    ))
                 } else {
                     bad_types!(format!(
                         "Repeating a string negative times doesn't make sense: {} * {}",
@@ -499,6 +563,7 @@ impl Expr {
 use once_cell::sync::Lazy;
 
 static GLOBAL_SYMS: Lazy<Mutex<HashMap<String, Expr>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static CANONICAL_DOC_ORDER: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Default::default());
 
 type SymbolLookup = HashMap<String, Expr>;
 
@@ -506,12 +571,14 @@ type SymbolLookup = HashMap<String, Expr>;
 #[derive(Clone, Debug)]
 pub struct SymbolTable {
     locals: RefCell<Vec<SymbolLookup>>,
+    docs: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl SymbolTable {
     pub(crate) fn new() -> SymbolTable {
         SymbolTable {
             locals: RefCell::new(Vec::with_capacity(0)),
+            docs: Default::default(),
         }
     }
 
@@ -553,18 +620,14 @@ impl SymbolTable {
         guard.insert(symbol, expr);
     }
 
-    // pub(crate) fn add_global_const(&self, symbol: String, value: Expr) {
-    //     let mut guard = GLOBAL_SYMS.lock().unwrap();
-    //     guard.insert(symbol, value);
-    // }
+    pub(crate) fn add_doc_item(&self, symbol: String, doc: String) {
+        let mut guard = self.docs.lock().unwrap();
+        guard.insert(symbol, doc);
+    }
 
-    pub(crate) fn get_all_symbols(&self) -> Vec<String> {
-        let guard = GLOBAL_SYMS.lock().unwrap();
-        let mut ret: Vec<String> = guard.keys().cloned().collect();
-        for layer in self.locals.borrow().iter() {
-            ret.append(&mut layer.keys().cloned().collect());
-        }
-        ret
+    pub(crate) fn get_doc_item(&self, symbol: &str) -> Option<String> {
+        let guard = self.docs.lock().unwrap();
+        guard.get(symbol).cloned()
     }
 
     pub(crate) fn with_locals(&self, symbols: &[Expr], values: Vector<Expr>) -> LispResult<Self> {
@@ -572,6 +635,8 @@ impl SymbolTable {
         let mut locals = SymbolLookup::new();
         let mut symbol_iter = symbols.iter().cloned();
         let mut values_iter = values.iter().cloned();
+        // TODO: Find nicer way to express argument collapsing.
+        #[allow(clippy::while_let_loop)]
         loop {
             let symbol = if let Some(sym) = get_symbol(symbol_iter.next()) {
                 sym?
@@ -595,6 +660,16 @@ impl SymbolTable {
         copy.locals.borrow_mut().push(locals);
         Ok(copy)
     }
+
+    pub(crate) fn push_canonical_doc_item(item: String) {
+        let mut guard = CANONICAL_DOC_ORDER.lock().unwrap();
+        guard.push(item);
+    }
+    pub(crate) fn get_canonical_doc_order() -> Vec<String> {
+        let guard = CANONICAL_DOC_ORDER.lock().unwrap();
+        let ret = (*guard).clone();
+        ret
+    }
 }
 
 // (fn foo (x & rest) ...)
@@ -609,5 +684,5 @@ fn get_symbol(sym: Option<Expr>) -> Option<LispResult<String>> {
 
 fn format_args(args: &Vector<Expr>) -> String {
     // let mut res = String::new();
-    format!("{}{}{}", "(", args.iter().join(" "), ")")
+    format!("{}{}{}", "(", debug_join(args), ")")
 }

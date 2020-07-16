@@ -1,41 +1,58 @@
 ;; Test if a sequence is not equal to each other
-(defn not= (& args)
+(defn not=
+  "Test if a sequence is not equal to each other.
+Example:
+(not= 1 1 2) ; false
+"
+  (& args)
   (not (apply = args)))
 
 ;; Test if a collection is empty
-(defn empty? (x)
+(defn empty?
+  "Test if a collection is empty."
+  (x)
   (or (= x ()) (= x (list)) (= x "")))
 
 ;; Test if a collection is non-empty
-(defn non-empty? (x) (not (empty? x)))
+
+(defn non-empty?
+  "Test if a collection is non-empty."
+  (x)
+  (not (empty? x)))
 
 ;; Control Flow
 
-(defn if (pred? then else)
+(defn if
+  "if-gate control flow. If `pred?' is true, take `then' branch, otherwise, take the `else' branch."
+  (pred? then else)
   (cond
    pred? then
    true else))
 
-(defn is-even? (x) (= 0 (% x 2)))
-
-;; Func Tools
-
-(defn zip (l r)
-  (cond
-   (or (empty? l) (empty? r)) ()
-   true (cons
-         (list (head l) (head r))
-         (zip (tail r) (tail l)))))
+(defn is-even?
+  "Test if the given item is even."
+  (x)
+  (= 0 (% x 2)))
 
 ;; Random
 
-(defn dot-product (l r)
+(defn dot-product
+  "Dot product two vectors.
+Example:
+(dot-product '(1 2 3) '(4 5 6)) ; 32
+"
+  (l r)
   (cond
-   (or (empty? l) (empty? r)) 0.0
+   (or (empty? l) (empty? r)) 0
    true (+ (* (head l) (head r))
            (dot-product (tail l) (tail r)))))
 
-(defn quicksort (l)
+(defn quicksort
+  "Sort a list using quicksort.
+Example:
+(quicksort '(3 1 2)) ; (1 2 3)
+"
+  (l)
   (cond
    (empty? l) l
    true (bind
@@ -51,14 +68,10 @@
 ;; Reduce (0 1) `num` times using fib-step to
 ;; generate the `num`'th fibonacci number
 
-(defn fib (num)
+(defn fib
+  "Find the `num'th Fibonacci number."
+  (num)
   (nth 0 (reduce
           fib-step
           (tuple 0 1)
           (range num))))
-
-;; Print one hundred fibonacci numbers
-;;
-;; Note: (take 100 (map fib (range)))
-;; is an iterator which maps to Rust's iterators which
-;; makes them very fast.

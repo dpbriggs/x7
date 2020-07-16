@@ -1,9 +1,9 @@
-use std::error::Error;
+use crate::cli::report_error;
 use structopt::StructOpt;
 
 use x7::{cli, modules, stdlib};
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), i32> {
     let opt = cli::Options::from_args();
     let sym_table = stdlib::create_stdlib_symbol_table(&opt);
     if opt.files.is_empty() {
@@ -11,7 +11,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     } else {
         // TODO Load File
         for f in opt.files {
-            modules::run_file(&f, &sym_table)?;
+            if let Err(e) = modules::run_file(&f, &sym_table) {
+                report_error(&e);
+                return Err(1);
+            }
         }
     }
     Ok(())

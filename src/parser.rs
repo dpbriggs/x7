@@ -64,7 +64,13 @@ fn ignored_input<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a s
     alt((comment_parse, multispace0))(i)
 }
 
-// TODO: Quote
+fn parse_tuple<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
+    map(
+        context("quote", preceded(tag("^"), cut(s_exp(many0(parse_expr))))),
+        |exprs| Expr::Tuple(exprs.into()),
+    )(i)
+}
+
 fn parse_quote<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
     map(
         context("quote", preceded(tag("'"), cut(s_exp(many0(parse_expr))))),
@@ -101,6 +107,7 @@ fn parse_expr<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
         alt((
             parse_list,
             parse_quote,
+            parse_tuple,
             parse_string,
             parse_num,
             parse_bool,

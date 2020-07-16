@@ -26,8 +26,8 @@ pub(crate) fn load_x7_stdlib(
         for expr in read(strbuf.as_str()) {
             let prog = match expr {
                 Ok(prog) => prog,
-                Err(e) => {
-                    println!("{:?}", e);
+                Err(_) => {
+                    // println!("{:?}", e);
                     continue;
                 }
             };
@@ -47,7 +47,7 @@ pub(crate) fn load_x7_stdlib(
     Ok(())
 }
 
-pub fn run_file(file_name: &str, symbol_table: &SymbolTable) -> Result<i32, Box<dyn Error>> {
+pub fn run_file(file_name: &str, symbol_table: &SymbolTable) -> Result<i32, anyhow::Error> {
     let mut strbuf = String::new();
     File::open(file_name)?.read_to_string(&mut strbuf)?;
     for expr in read(strbuf.as_str()) {
