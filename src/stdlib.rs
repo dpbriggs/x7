@@ -7,6 +7,8 @@ use bigdecimal::{BigDecimal, FromPrimitive, One};
 use im::{vector, Vector};
 use itertools::Itertools;
 
+/// Macro to check if we have the right number of args,
+/// and throw a nice error if we don't.
 macro_rules! exact_len {
     ($args:expr, $len:literal) => {
         ensure!($args.len() == $len, ProgramError::WrongNumberOfArgs($len))
@@ -18,7 +20,11 @@ macro_rules! exact_len {
                 is_ok_len = is_ok_len || $args.len() == $len;
             )*
                 if !is_ok_len {
-                    bail!(anyhow!(format!("Wrong number of args!")));
+                    let mut expected_args = String::new();
+                    $(
+                        expected_args.push_str(&format!("{} ", $len));
+                    )*
+                    bail!(anyhow!(format!("Wrong number of args! Expected {}, but received {}", expected_args, $args.len())));
                 }
         }
     };
@@ -685,11 +691,6 @@ Example:
   (= input 3)  (print \"input is 3\")
   (= input 10) (print \"input is 10\")
   true         (print \"hit base case, input is: \" input))
-"),
-        ("shuffle", 1, shuffle, true, "Shuffle (randomize) a given list.
-Example:
->>> (shuffle (range 10))
-(6 3 2 9 4 0 1 8 5 7)
 "),
         ("if", 3, if_gate, false, "Branching control flow construct. Given pred?, then, and else, if pred? is true, return then, otherwise, else.
 Note: Does not evaluate branches not taken.
