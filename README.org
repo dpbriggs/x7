@@ -6,7 +6,61 @@ x7 is a lisp I built to better understand programming languages and interpreters
 
 The standard library is being written in either x7 or rust for performance.
 
-** Example
+** Features
+*** Usual Lispy Goodness
+
+You have brackets. Lots of brackets. And lists. And functions.
+
+*** Speedy Iterators
+
+Certain constructs like =(range)= and =map= are backed by Rust iterators, making them pretty fast.
+
+*** Self-documenting
+
+The goal is to have every function describe itself, so you can live in the repl.
+
+Use the =doc= function on a symbol to see it's documentation:
+
+#+begin_src elisp
+>>> (print (doc foreach))
+Eagerly apply the given function to a sequence or list.
+Example:
+(foreach
+  (fn (x) (println x))
+  (range 20)) ; prints 0 to 20. Returns ().
+
+(foreach
+  (fn (x) (println x))
+  (take 5 (map (fn (x) (* x x x x x x)) (range)))) ; prints 0, 1, 64, 729, 4096
+#+end_src
+
+The general goal is to be as helpful as possible. So stacktraces include more
+information than you'd usually get, such as arguments.
+
+For example, the following program will fail:
+
+#+begin_src elisp
+(defn bottom (x) (% x 2))
+(defn middle (x) (bottom x))
+(defn top () (middle "a"))
+(top)
+#+end_src
+
+And give this helpful stacktrace:
+
+#+begin_example
+Error: BadTypes
+
+Stacktrace:
+  - Remainder requires left and right are num types, was given "a" % 2
+  - Error in Fn<%, 2, [ ]>, with args ("a" 2)
+  - Error in Fn<bottom, 1, [ x ]>, with args ("a")
+  - Error in Fn<middle, 1, [ x ]>, with args ("a")
+  - Error in Fn<top, 0, [ ]>, with args ()
+#+end_src
+#+end_example
+
+** Examples
 
 *** Fibonacci Numbers
 
@@ -34,10 +88,10 @@ We can print the first hundred fibonacci numbers in 50 milliseconds:
   ;;
   ;; Note: (take 100 (map fib (range)))
   ;; is an iterator which maps to Rust's iterators which
-  ;; makes them very fast.
+  ;; makes them very fast. No weird intermediate allocations.
 
   (foreach
-   (fn (x) (println x))
+   println
    (take 100 (map fib (range))))
 #+end_src
 
@@ -63,6 +117,121 @@ Outputs:
 83621143489848422977
 135301852344706746049
 218922995834555169026
+#+end_example
+
+** Language Description
+
+x7 is a quirky lisp which sort of evolved naturally. It has the following data-types:
+
+#+begin_src rust
+pub(crate) enum Expr {
+    Num(Num),
+    Symbol(String),
+    List(Vector<Expr>),
+    Function(Function),
+    Nil,
+    String(String),
+    Quote(Vector<Expr>),
+    Tuple(Vector<Expr>),
+    Bool(bool),
+    LazyIter(IterType),
+}
+#+end_src
+
+*** =Num=
+
+Numbers in x7 are arbitrary precision =BigDecimal= types backed by the =bigdecimal= crate.
+
+Example:
+#+begin_example
+0
+0.0
+1.1
+1000000000000000000
+#+end_example
+
+*** =Symbol=
+
+Symbols are references to some object in the symbol table. They can't contain quotes or brackets.
+
+Example:
+#+begin_example
++
+sort
+doc
+#+end_example
+
+*** =List=
+
+A list is a sequential collection of values. When evaluated, the first argument is called as a function
+with the rest of the elements as arguments.
+
+Example:
+#+begin_example
+(+ 1 2)
+(println "hello world!")
+#+end_example
+
+*** =Function=
+
+A function is a type defined by the =fn= or =defn= keywords. They accept a variable number
+of arguments and carry a local scope. Variables shadow each other, but be aware that functions
+don't currently close over values.
+
+Example:
+#+begin_src elisp
+(defn is-odd?
+  (x)
+  (= 1 (% x 2))) ; add function is-odd? to symbol table
+
+(map
+  (fn (num) (* num num)) ; anon func
+  (range 20))
+  
+(defn not=
+  (& args) ; excess variables can be captured into a list
+  (not (apply = args)))
+#+end_src
+
+*** Nil
+
+Null type. Usually equal to an empty list.
+
+*** String
+
+A UTF-8 string of characters between two quotes: "hello world!"
+
+*** Quote
+
+An unevaluated list. When evaluated, it turns into a list.
+
+Has special syntax: ='(1 2 3)=
+And a keyword: =(quote 1 2 3)=
+
+*** Tuple
+
+Same thing as a list, but always evals to itself.
+
+Has special syntax: =^(1 2 3)=
+And a keyword: =(tuple 1 2 3)=
+
+*** LazyIter
+
+A sequence of values backed by a Rust iterator. These are useful for working
+with infinite sequences.
+
+Currently, =map=, =filter=, =take=, and =range= can yield lazy iterators.
+
+They are evaluated with =doall= to make a list or =foreach= to operate on it.
+
+Example:
+
+#+begin_example
+(doall (take 5 (map inc (range)))) ; (1 2 3 4 5)
+; Or
+(foreach
+  println
+  (take 5 (map inc (range)))) ; prints one through five
 #+end_example
 
 ** Standard Library Reference

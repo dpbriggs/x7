@@ -398,7 +398,7 @@ impl std::ops::Rem<&Expr> for Expr {
         match (&self, &other) {
             (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l % r))),
             _ => bad_types!(format!(
-                "Remainder requires left and right are num types, was given {} % {}",
+                "Remainder requires left and right are num types, was given {:?} % {:?}",
                 &self, &other
             )),
         }
