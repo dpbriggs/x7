@@ -13,5 +13,4 @@
 
 (foreach
  pretty-print
- (bind (all-syms (all-symbols))
-       (zip all-syms (map doc all-syms))))
+ (zip (all-symbols) (map doc (all-symbols))))

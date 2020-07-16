@@ -20,15 +20,6 @@ Example:
   (x)
   (not (empty? x)))
 
-;; Control Flow
-
-(defn if
-  "if-gate control flow. If `pred?' is true, take `then' branch, otherwise, take the `else' branch."
-  (pred? then else)
-  (cond
-   pred? then
-   true else))
-
 (defn is-even?
   "Test if the given item is even."
   (x)

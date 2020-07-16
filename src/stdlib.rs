@@ -239,6 +239,15 @@ fn cond(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     bail!(ProgramError::CondNoExecutionPath)
 }
 
+fn if_gate(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 3);
+    if exprs[0].eval(symbol_table)?.get_bool()? {
+        exprs[1].eval(symbol_table)
+    } else {
+        exprs[2].eval(symbol_table)
+    }
+}
+
 fn map(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let f = &exprs[0];
@@ -523,7 +532,7 @@ pub fn create_stdlib_symbol_table(opts: &Options) -> SymbolTable {
             1,
             add_exprs,
             true,
-            "Add two items together. Concatenates strings and lists.
+            "Add two items together. Concatenates strings, lists, and tuples.
 Example: (+ 1 1 1) ; 3
 Example: (+ \"Hello \" \"World\") ; \"Hello World\"
 "
@@ -604,7 +613,7 @@ Example: (> 10 0 1 2 3 4) ; true"
             gte_exprs,
             true,
             "Test if the first item is greater than or equal to the rest.
-Example: (>= 10 10 5); true"
+Example: (>= 10 10 5) ; true"
         ),
         ("inc", 1, inc_exprs, true, "Increment the given number."),
         (
@@ -682,6 +691,19 @@ Example:
 >>> (shuffle (range 10))
 (6 3 2 9 4 0 1 8 5 7)
 "),
+        ("if", 3, if_gate, false, "Branching control flow construct. Given pred?, then, and else, if pred? is true, return then, otherwise, else.
+Note: Does not evaluate branches not taken.
+Example:
+(def input 10)
+(if (= input 10)
+  (print \"input is 10!\")
+  (print \":[ input is not 10\"))
+"),
+        ("shuffle", 1, shuffle, true, "Shuffle (randomize) a given list.
+Example:
+>>> (shuffle (range 10))
+(6 3 2 9 4 0 1 8 5 7)
+"),
         ("panic", 1, panic, true, "Abort the program printing the given message.
 
 Example: (panic \"goodbye\") ; kills program
@@ -737,7 +759,7 @@ Example:
         // Functions
         ("fn", 0, func, false, "Create a anonymous function.
 Example:
-(fn (x) (* x 2)) ;
+(fn (x) (* x 2)) ; Fn<AnonFn, 1, [ x ]>
 "),
         ("defn", 3, defn, false, "Define a function and add it to the symbol table. Supports doc strings.
 Example:
