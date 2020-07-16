@@ -79,9 +79,9 @@ with the script below, which =org-mode= pastes into the list below:
    (do
        (println "*** =" sym "=")
        (println "")
-       (println "#+BEGIN_EXAMPLE")
+       (println "#+BEGIN_SRC")
        (println docu)
-       (println "#+END_EXAMPLE")
+       (println "#+END_SRC")
        (println ""))))
 
 (foreach
@@ -95,6 +95,512 @@ with the script below, which =org-mode= pastes into the list below:
 #+end_src
 
 #+RESULTS:
+*** =+=
+
+#+BEGIN_SRC elisp
+Add two items together. Concatenates strings and lists.
+Example: (+ 1 1 1) ; 3
+Example: (+ "Hello " "World") ; "Hello World"
+
+#+END_SRC
+
+*** =-=
+
+#+BEGIN_SRC elisp
+Subtracts all items from the first. Only works with Nums.
+Example: (- 2 1 1) ; 0
+
+#+END_SRC
+
+*** =*=
+
+#+BEGIN_SRC elisp
+Multiply all items against the first. Works with Nums and (String Num*)
+Example: (* 1 2 3) ; 6
+         (* "abc" 3) ; "abcabcabc"
+
+#+END_SRC
+
+*** =%=
+
+#+BEGIN_SRC elisp
+Take the remainder of the first item against the second.
+Example: (% 4 2) ; 0
+#+END_SRC
+
+*** =/=
+
+#+BEGIN_SRC elisp
+Divide the first element by the rest.
+Example: (/ 8 2 2 2) ; 1
+
+#+END_SRC
+
+*** ===
+
+#+BEGIN_SRC elisp
+Test if all items are equal.
+Example: (= 1 1) ; true
+         (= 1) ; true
+
+#+END_SRC
+
+*** =<=
+
+#+BEGIN_SRC elisp
+Test if the first item is strictly smaller than the rest.
+Example: (< 0 1 2) ; true
+#+END_SRC
+
+*** =<==
+
+#+BEGIN_SRC elisp
+Test if the first item is smaller or equal to the rest.
+Example: (<= 0 0 0.05 1) ; true
+#+END_SRC
+
+*** =>=
+
+#+BEGIN_SRC elisp
+Test if the first item is strictly greater than the rest.
+Example: (> 10 0 1 2 3 4) ; true
+#+END_SRC
+
+*** =>==
+
+#+BEGIN_SRC elisp
+Test if the first item is greater than or equal to the rest.
+Example: (>= 10 10 5); true
+#+END_SRC
+
+*** =inc=
+
+#+BEGIN_SRC elisp
+Increment the given number.
+#+END_SRC
+
+*** =not=
+
+#+BEGIN_SRC elisp
+Invert the bool. true becomes false and vice-versa.
+#+END_SRC
+
+*** =or=
+
+#+BEGIN_SRC elisp
+logical or.
+#+END_SRC
+
+*** =and=
+
+#+BEGIN_SRC elisp
+logical and.
+#+END_SRC
+
+*** =ident=
+
+#+BEGIN_SRC elisp
+Identity function. Returns what you give it.
+#+END_SRC
+
+*** =quote=
+
+#+BEGIN_SRC elisp
+Transforms the given input into a quote. Usually you will want to use the '(1 2 3) syntax.
+#+END_SRC
+
+*** =print=
+
+#+BEGIN_SRC elisp
+Print the given argument WITHOUT a newline.
+#+END_SRC
+
+*** =println=
+
+#+BEGIN_SRC elisp
+Print the given argument WITH a newline.
+#+END_SRC
+
+*** =eval=
+
+#+BEGIN_SRC elisp
+Eval an expression.
+Example (in repl):
+>>> '(+ 1 2)
+(+ 1 2)
+>>> (eval '(+ 1 2))
+3
+#+END_SRC
+
+*** =def=
+
+#+BEGIN_SRC elisp
+Associate a given symbol with a value. Overwrites local variables.
+Example:
+>>> (def a 3)
+>>> a
+3
+
+#+END_SRC
+
+*** =cond=
+
+#+BEGIN_SRC elisp
+Branching control flow construct. Given an even list of [pred then], if `pred` is true, return `then`.
+Example:
+(def input 10)
+(cond
+  (= input 3)  (print "input is 3")
+  (= input 10) (print "input is 10")
+  true         (print "hit base case, input is: " input))
+
+#+END_SRC
+
+*** =shuffle=
+
+#+BEGIN_SRC elisp
+Shuffle (randomize) a given list.
+Example:
+>>> (shuffle (range 10))
+(6 3 2 9 4 0 1 8 5 7)
+
+#+END_SRC
+
+*** =panic=
+
+#+BEGIN_SRC elisp
+Abort the program printing the given message.
+
+Example: (panic "goodbye") ; kills program
+
+Your console will print the following:
+
+thread 'main' panicked at 'goodbye', src/stdlib.rs:216:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+... and the interpreter will stop.
+
+#+END_SRC
+
+*** =type=
+
+#+BEGIN_SRC elisp
+Return the type of the argument as a string.
+Example: (type "hello") ; str
+#+END_SRC
+
+*** =doc=
+
+#+BEGIN_SRC elisp
+Return the documentation of a symbol as a string.
+Example: (doc doc) ; Return the documentation of a symbol as a...
+#+END_SRC
+
+*** =all-symbols=
+
+#+BEGIN_SRC elisp
+Return all symbols defined in the interpreter.
+#+END_SRC
+
+*** =map=
+
+#+BEGIN_SRC elisp
+Apply a function to each element of a sequence and return a list.
+Example: (map inc '(1 2 3)) ; (2 3 4)
+
+#+END_SRC
+
+*** =foreach=
+
+#+BEGIN_SRC elisp
+Eagerly apply the given function to a sequence or list.
+Example:
+(foreach
+  (fn (x) (println x))
+  (range 20)) ; prints 0 to 20. Returns ().
+
+(foreach
+  (fn (x) (println x))
+  (take 5 (map (fn (x) (* x x x x x x)) (range)))) ; prints 0, 1, 64, 729, 4096
+
+#+END_SRC
+
+*** =filter=
+
+#+BEGIN_SRC elisp
+Retain elements in a sequence according to a predicate.
+Example:
+(defn is-odd (x) (= 1 (% x 2)))
+(filter is-odd (range 20)) ; outputs (1 3 5 7 9 11 13 15 17 19)
+
+#+END_SRC
+
+*** =apply=
+
+#+BEGIN_SRC elisp
+Apply a function to a given list.
+(def my-list '(1 2 3))
+(apply + my-list) ; outputs 6
+
+#+END_SRC
+
+*** =do=
+
+#+BEGIN_SRC elisp
+Evaluate a sequence of expressions and return the last one.
+Example:
+(defn complex-fn (x)
+  (do
+    (print "current state: " x)
+    (+ x x)))
+
+#+END_SRC
+
+*** =comp=
+
+#+BEGIN_SRC elisp
+Compose given functions and return a new function. NOT IMPLEMENTED YET!
+#+END_SRC
+
+*** =reduce=
+
+#+BEGIN_SRC elisp
+Reduce (fold) a given sequence using the given function. Reduce is multi-arity, and will accept an `init` parameter.
+Example:
+(reduce + '(1 2 3)) ; 6
+(reduce + 100 '(1 2 3)) ; 106
+
+#+END_SRC
+
+*** =fn=
+
+#+BEGIN_SRC elisp
+Create a anonymous function.
+Example:
+(fn (x) (* x 2)) ;
+
+#+END_SRC
+
+*** =defn=
+
+#+BEGIN_SRC elisp
+Define a function and add it to the symbol table. Supports doc strings.
+Example:
+(defn is-odd? (x) (= 1 (% x 2)))
+(defn get-odd-numbers
+  "Extract the odd numbers out of the given sequence `x`"
+  (x)
+  (filter is-odd? x)) ; for fun, try (doc get-odd-numbers)
+
+#+END_SRC
+
+*** =bind=
+
+#+BEGIN_SRC elisp
+Bind symbol-value pairs, adding them to the symbol table.
+Example:
+(defn quicksort
+  "Sort a list."
+  (l)
+  (cond
+   (empty? l) l
+   true (bind
+         (pivot (head l)
+          rest  (tail l)
+          le    (filter (fn (x) (<= x pivot)) rest)
+          ge    (filter (fn (x) (> x pivot)) rest))
+         (+ (quicksort le) (list pivot) (quicksort ge)))))
+
+#+END_SRC
+
+*** =take=
+
+#+BEGIN_SRC elisp
+Take the first `n` items from a list or sequence.
+Example:
+(take 2 '(1 2 3)) ; (1 2)
+(take 5 (range)) ; lazy seq of (0 1 2 3 4)
+(doall (take 5 (range))) ; (0 1 2 3 4)
+
+#+END_SRC
+
+*** =doall=
+
+#+BEGIN_SRC elisp
+Evaluate a sequence, collecting the results into a list.
+Example:
+(doall (take 5 (range))) ; (0 1 2 3 4)
+
+#+END_SRC
+
+*** =list=
+
+#+BEGIN_SRC elisp
+Create a list from the given elements.
+Example:
+(list 1 2 3) ; (1 2 3)
+
+#+END_SRC
+
+*** =tuple=
+
+#+BEGIN_SRC elisp
+Create a list from the given elements.
+(tuple 1 2 3) ; (tuple 1 2 3)
+;; It's usually easier to use the tuple syntax:
+^(1 2 3) ; (tuple 1 2 3)
+
+#+END_SRC
+
+*** =nth=
+
+#+BEGIN_SRC elisp
+Extract the nth item from a list or tuple. Throws error if this fails.
+Example
+(nth 0 ^(1 2 3)) ; 1
+(nth 1 '(1 2 3)) ; 2
+
+#+END_SRC
+
+*** =head=
+
+#+BEGIN_SRC elisp
+Get the first item in a list.
+Example:
+(head ()) ; nil
+(head (1 2 3)) ; 1
+
+#+END_SRC
+
+*** =tail=
+
+#+BEGIN_SRC elisp
+Get all items after the first in a list or tuple.
+(tail '(1 2 3)) ; (2 3)
+(tail ^()) ; nil
+
+#+END_SRC
+
+*** =cons=
+
+#+BEGIN_SRC elisp
+Push an item to the front of a list.
+Example:
+(cons 1 '()) ; (1)
+(cons 1 '(2 3)) ; (1 2 3)
+
+#+END_SRC
+
+*** =range=
+
+#+BEGIN_SRC elisp
+Generate a range of numbers. It accepts 0, 1, or 2 arguments. No arguments
+yields an infinite range, one arg stops the range at that arg, and two args denote start..end.
+Example:
+(range) ; infinite range
+(range 5) ; (0 1 2 3 4)
+(range 5 10); (5 6 7 8 9)
+
+#+END_SRC
+
+*** =len=
+
+#+BEGIN_SRC elisp
+Get the number of items in a list or tuple.
+Example:
+(len '(0 0 0)) ; 3
+(len '()) ; 0
+
+#+END_SRC
+
+*** =zip=
+
+#+BEGIN_SRC elisp
+Zip two lists together into a list of tuples.
+#+END_SRC
+
+*** =len=
+
+#+BEGIN_SRC elisp
+Get the number of items in a list or tuple.
+Example:
+(len '(0 0 0)) ; 3
+(len '()) ; 0
+
+#+END_SRC
+
+*** =sort=
+
+#+BEGIN_SRC elisp
+Sort a given homogeneously typed list in ascending order. Returns an error if types are all not the same.
+Example:
+(sort '(3 7 0 5 4 8 1 2 6 9)) ; (0 1 2 3 4 5 6 7 8 9)
+
+#+END_SRC
+
+*** =not==
+
+#+BEGIN_SRC elisp
+Test if a sequence is not equal to each other.
+Example:
+(not= 1 1 2) ; false
+
+#+END_SRC
+
+*** =empty?=
+
+#+BEGIN_SRC elisp
+Test if a collection is empty.
+#+END_SRC
+
+*** =non-empty?=
+
+#+BEGIN_SRC elisp
+Test if a collection is non-empty.
+#+END_SRC
+
+*** =if=
+
+#+BEGIN_SRC elisp
+if-gate control flow. If `pred?' is true, take `then' branch, otherwise, take the `else' branch.
+#+END_SRC
+
+*** =is-even?=
+
+#+BEGIN_SRC elisp
+Test if the given item is even.
+#+END_SRC
+
+*** =dot-product=
+
+#+BEGIN_SRC elisp
+Dot product two vectors.
+Example:
+(dot-product '(1 2 3) '(4 5 6)) ; 32
+
+#+END_SRC
+
+*** =quicksort=
+
+#+BEGIN_SRC elisp
+Sort a list using quicksort.
+Example:
+(quicksort '(3 1 2)) ; (1 2 3)
+
+#+END_SRC
+
+*** =fib=
+
+#+BEGIN_SRC elisp
+Find the `num'th Fibonacci number.
+#+END_SRC
+
+*** =pretty-print=
+
+#+BEGIN_SRC elisp
+Format doc strings into something org-mode will agree with.
+#+END_SRC
+
 *** =+=
 
 #+BEGIN_EXAMPLE

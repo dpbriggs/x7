@@ -6,9 +6,9 @@
    (do
        (println "*** =" sym "=")
        (println "")
-       (println "#+BEGIN_EXAMPLE")
+       (println "#+BEGIN_SRC elisp")
        (println docu)
-       (println "#+END_EXAMPLE")
+       (println "#+END_SRC")
        (println ""))))
 
 (foreach
