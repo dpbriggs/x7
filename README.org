@@ -70,7 +70,7 @@ Outputs:
 The x7 language has self-documenting features. The standard library reference is generated
 with the script below, which =org-mode= pastes into the list below:
 
-#+begin_src lisp
+#+begin_src elisp
 (defn pretty-print
   "Format doc strings into something org-mode will agree with."
   (x)
@@ -79,7 +79,7 @@ with the script below, which =org-mode= pastes into the list below:
    (do
        (println "*** =" sym "=")
        (println "")
-       (println "#+BEGIN_SRC")
+       (println "#+BEGIN_SRC elisp") ; better github syntax colouring
        (println docu)
        (println "#+END_SRC")
        (println ""))))
