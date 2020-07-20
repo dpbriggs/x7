@@ -141,9 +141,15 @@ fn apply(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exprs[0].call_fn(exprs[1].get_list()?, symbol_table)
 }
 
-fn all_symbols(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn err(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let msg = exprs[0].get_string()?;
+    Err(anyhow!(msg))
+}
+
+fn all_symbols(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 0);
-    let all_syms = SymbolTable::get_canonical_doc_order();
+    let all_syms = symbol_table.get_canonical_doc_order();
     Ok(Expr::List(all_syms.into_iter().map(Expr::Symbol).collect()))
 }
 
@@ -387,7 +393,7 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 
     // If given docs, add it to the symbol table
     if let Some(doc) = doc {
-        SymbolTable::push_canonical_doc_item(sym_name.clone());
+        symbol_table.push_canonical_doc_item(sym_name.clone());
         symbol_table.add_doc_item(sym_name, doc);
     }
 
@@ -518,13 +524,14 @@ use std::sync::Arc;
 macro_rules! make_stdlib_fns {
 	  ( $(($sym:literal, $minargs:expr, $func:ident, $eval_args:expr, $doc:literal)),* ) => {
         {
-            let syms = SymbolTable::new();
+            let mut globals = Vec::new();
+            let mut docs = Vec::new();
             $(
-		            syms.add_global_fn(Function::new($sym.into(), $minargs, Arc::new($func), $eval_args));
-                SymbolTable::push_canonical_doc_item($sym.into());
-                syms.add_doc_item($sym.into(), $doc.into());
+                let f = Function::new($sym.into(), $minargs, Arc::new($func), $eval_args);
+                globals.push(($sym.into(), Expr::Function(f)));
+                docs.push(($sym.into(), $doc.into()));
             )*
-            syms
+            SymbolTable::with_globals(globals, docs)
         }
 	  };
 }
@@ -720,6 +727,8 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 Example: (type \"hello\") ; str"),
         ("doc", 1, doc, false, "Return the documentation of a symbol as a string.
 Example: (doc doc) ; Return the documentation of a symbol as a..."),
+        ("err", 1, err, true, "Return an error with a message string.
+Example: (err \"Something bad happened!\") ; return an error"),
         ("all-symbols", 0, all_symbols, true, "Return all symbols defined in the interpreter."),
         // FUNC TOOLS
         ("map", 1, map, true, "Apply a function to each element of a sequence and return a list.

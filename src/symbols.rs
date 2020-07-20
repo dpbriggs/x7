@@ -8,7 +8,6 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 macro_rules! bad_types {
     ($custom:expr) => {
@@ -504,7 +503,7 @@ impl Eq for Expr {}
 impl Ord for Expr {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Expr::Num(l), Expr::Num(r)) => l.partial_cmp(r).unwrap(),
+            (Expr::Num(l), Expr::Num(r)) => l.cmp(r),
             (Expr::String(l), Expr::String(r)) => l.cmp(r),
             _ => panic!("bad types {:?} {:?}", self, other),
         }
@@ -560,25 +559,43 @@ impl Expr {
     }
 }
 
-use once_cell::sync::Lazy;
-
-static GLOBAL_SYMS: Lazy<Mutex<HashMap<String, Expr>>> = Lazy::new(|| Mutex::new(HashMap::new()));
-static CANONICAL_DOC_ORDER: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Default::default());
-
 type SymbolLookup = HashMap<String, Expr>;
+use std::rc::Rc;
+
+#[derive(Debug, Clone, Default)]
+struct Doc {
+    docs: HashMap<String, String>,
+    order: Vec<String>,
+}
+
+impl Doc {
+    fn with_globals(v: Vec<(String, String)>) -> Self {
+        let mut docs = HashMap::new();
+        for (name, doc) in v.iter().cloned() {
+            docs.insert(name, doc);
+        }
+        let order = v.into_iter().map(|(name, _)| name).collect();
+        Doc { docs, order }
+    }
+}
 
 // TODO: Debug should include stdlib
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct SymbolTable {
-    locals: RefCell<Vec<SymbolLookup>>,
-    docs: Arc<Mutex<HashMap<String, String>>>,
+    globals: Rc<RefCell<SymbolLookup>>,
+    locals: Rc<RefCell<SymbolLookup>>,
+    docs: Rc<RefCell<Doc>>,
 }
 
 impl SymbolTable {
-    pub(crate) fn new() -> SymbolTable {
+    pub(crate) fn with_globals(
+        globals: Vec<(String, Expr)>,
+        doc_order: Vec<(String, String)>,
+    ) -> SymbolTable {
         SymbolTable {
-            locals: RefCell::new(Vec::with_capacity(0)),
-            docs: Default::default(),
+            globals: Rc::new(RefCell::new(globals.into_iter().collect())),
+            locals: Default::default(),
+            docs: Rc::new(RefCell::new(Doc::with_globals(doc_order))),
         }
     }
 
@@ -588,14 +605,12 @@ impl SymbolTable {
             Expr::Symbol(ref s) => s,
             _ => bail!(ProgramError::CannotLookupNonSymbol),
         };
-        for scope in self.locals.borrow().iter().rev() {
-            if let Some(expr) = scope.get(symbol) {
-                return Ok(expr.clone());
-            }
+        if let Some(expr) = self.locals.borrow().get(symbol) {
+            return Ok(expr.clone());
         }
         // Check global scope
-        let guard = GLOBAL_SYMS.lock().unwrap();
-        guard
+        self.globals
+            .borrow()
             .get(symbol)
             .cloned()
             .ok_or_else(|| anyhow!("Unknown Symbol {}", symbol.to_string()))
@@ -603,36 +618,20 @@ impl SymbolTable {
 
     pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {
         let mut locals = self.locals.borrow_mut();
-        if locals.is_empty() {
-            locals.push(SymbolLookup::new());
-        }
-        locals
-            .last_mut()
-            .unwrap()
-            .insert(symbol.get_symbol_string()?, value.clone());
+        locals.insert(symbol.get_symbol_string()?, value.clone());
         Ok(Expr::Nil)
     }
 
-    pub(crate) fn add_global_fn(&self, f: Function) {
-        let symbol = f.symbol.clone();
-        let expr = Expr::Function(f); // TODO: Scope inheritance?
-        let mut guard = GLOBAL_SYMS.lock().unwrap();
-        guard.insert(symbol, expr);
-    }
-
     pub(crate) fn add_doc_item(&self, symbol: String, doc: String) {
-        let mut guard = self.docs.lock().unwrap();
-        guard.insert(symbol, doc);
+        self.docs.borrow_mut().docs.insert(symbol, doc);
     }
 
     pub(crate) fn get_doc_item(&self, symbol: &str) -> Option<String> {
-        let guard = self.docs.lock().unwrap();
-        guard.get(symbol).cloned()
+        self.docs.borrow().docs.get(symbol).cloned()
     }
 
     pub(crate) fn with_locals(&self, symbols: &[Expr], values: Vector<Expr>) -> LispResult<Self> {
         let copy = self.clone();
-        let mut locals = SymbolLookup::new();
         let mut symbol_iter = symbols.iter().cloned();
         let mut values_iter = values.iter().cloned();
         // TODO: Find nicer way to express argument collapsing.
@@ -650,25 +649,24 @@ impl SymbolTable {
                 } else {
                     bail!(ProgramError::ExpectedRestSymbol);
                 };
-                locals.insert(rest_sym, Expr::List(values_iter.collect()));
+                copy.locals
+                    .borrow_mut()
+                    .insert(rest_sym, Expr::List(values_iter.collect()));
                 break;
             }
 
             let value = values_iter.next().unwrap();
-            locals.insert(symbol, value);
+            copy.locals.borrow_mut().insert(symbol, value);
         }
-        copy.locals.borrow_mut().push(locals);
         Ok(copy)
     }
 
-    pub(crate) fn push_canonical_doc_item(item: String) {
-        let mut guard = CANONICAL_DOC_ORDER.lock().unwrap();
-        guard.push(item);
+    pub(crate) fn push_canonical_doc_item(&self, item: String) {
+        self.docs.borrow_mut().order.push(item);
     }
-    pub(crate) fn get_canonical_doc_order() -> Vec<String> {
-        let guard = CANONICAL_DOC_ORDER.lock().unwrap();
-        let ret = (*guard).clone();
-        ret
+
+    pub(crate) fn get_canonical_doc_order(&self) -> Vec<String> {
+        self.docs.borrow().order.clone()
     }
 }
 

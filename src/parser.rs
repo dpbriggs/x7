@@ -65,9 +65,14 @@ fn ignored_input<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a s
 }
 
 fn parse_tuple<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
+    let make_tuple = |exprs: Vec<_>| {
+        let mut tuple_list = im::vector![Expr::Symbol("tuple".into())];
+        tuple_list.append(exprs.into());
+        Expr::List(tuple_list)
+    };
     map(
         context("quote", preceded(tag("^"), cut(s_exp(many0(parse_expr))))),
-        |exprs| Expr::Tuple(exprs.into()),
+        make_tuple,
     )(i)
 }
 
