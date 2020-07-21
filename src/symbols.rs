@@ -27,8 +27,9 @@ macro_rules! bad_types {
 }
 
 pub type Num = BigDecimal;
+pub(crate) type Dict = im::HashMap<Expr, Expr>;
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub(crate) enum Expr {
     Num(Num),
     Symbol(String),
@@ -40,6 +41,7 @@ pub(crate) enum Expr {
     Tuple(Vector<Expr>),
     Bool(bool),
     LazyIter(IterType),
+    Dict(Dict),
 }
 
 impl PartialEq for Expr {
@@ -55,6 +57,7 @@ impl PartialEq for Expr {
             (Expr::Bool(l), Expr::Bool(r)) => l.eq(r),
             (Expr::LazyIter(_), Expr::LazyIter(_)) => false,
             (Expr::Nil, Expr::Nil) => true,
+            (Expr::Dict(l), Expr::Dict(r)) => l.eq(r),
             _ => false,
         }
     }
@@ -81,6 +84,7 @@ impl fmt::Debug for Expr {
             Expr::Bool(b) => write!(f, "{}", b),
             Expr::List(l) => write!(f, "({})", debug_join(l)),
             Expr::Tuple(l) => write!(f, "(tuple {})", debug_join(l)),
+            Expr::Dict(l) => write!(f, "{:?}", l),
         }
     }
 }
@@ -126,6 +130,7 @@ impl Expr {
             Expr::Nil => "nil",
             Expr::LazyIter(_) => "iterator",
             Expr::Tuple(_) => "tuple",
+            Expr::Dict(_) => "map",
         }
     }
 
@@ -153,12 +158,33 @@ impl Expr {
         }
     }
 
+    pub(crate) fn get_dict(&self) -> LispResult<Dict> {
+        if let Expr::Dict(d) = self {
+            Ok(d.clone())
+        } else {
+            bad_types!("dict", &self)
+        }
+    }
+
     pub(crate) fn is_bool_true(&self) -> LispResult<bool> {
         if let Expr::Bool(b) = self {
             Ok(*b)
         } else {
             bad_types!("bool", &self)
         }
+    }
+
+    pub(crate) fn len(&self) -> LispResult<usize> {
+        let len = match self {
+            Expr::List(l) => l.len(),
+            Expr::Tuple(l) => l.len(),
+            Expr::Quote(l) => l.len(),
+            Expr::Dict(m) => m.len(),
+            Expr::String(s) => s.len(),
+            Expr::Symbol(s) => s.len(),
+            _ => return bad_types!("collection", &self),
+        };
+        Ok(len)
     }
 
     pub(crate) fn is_tuple(&self) -> bool {
@@ -258,6 +284,17 @@ pub(crate) struct Function {
     f: X7FunctionPtr,
     named_args: Vec<Expr>, // Expr::Symbol
     eval_args: bool,
+}
+
+use std::hash::{Hash, Hasher};
+
+impl Hash for Function {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.symbol.hash(state);
+        self.minimum_args.hash(state);
+        self.named_args.hash(state);
+        self.eval_args.hash(state);
+    }
 }
 
 impl PartialEq for Function {
@@ -505,7 +542,7 @@ impl Ord for Expr {
         match (self, other) {
             (Expr::Num(l), Expr::Num(r)) => l.cmp(r),
             (Expr::String(l), Expr::String(r)) => l.cmp(r),
-            _ => panic!("bad types {:?} {:?}", self, other),
+            _ => Ordering::Less,
         }
     }
 }

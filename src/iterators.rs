@@ -1,7 +1,10 @@
 use crate::symbols::{Expr, Function, LispResult, SymbolTable};
 use im::Vector;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
+
+use rand::random;
 
 pub(crate) type IterType = Box<dyn LazyIter>;
 
@@ -9,12 +12,19 @@ pub(crate) trait LazyIter: fmt::Display + fmt::Debug + Sync + Send {
     fn next(&self, symbol_table: &SymbolTable) -> Option<LispResult<Expr>>;
     fn name(&self) -> &'static str;
     fn clone(&self) -> Box<dyn LazyIter>;
+    fn id(&self) -> u64;
     fn eval(&self, symbol_table: &SymbolTable) -> LispResult<Expr> {
         let mut res = Vector::new();
         while let Some(ee) = self.next(symbol_table) {
             res.push_back(ee?)
         }
         Ok(Expr::List(res))
+    }
+}
+
+impl Hash for IterType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id().hash(state);
     }
 }
 
@@ -40,12 +50,16 @@ impl LazyIter for IterType {
     fn clone(&self) -> IterType {
         self.deref().clone()
     }
+    fn id(&self) -> u64 {
+        self.deref().id()
+    }
 }
 
 #[derive(Clone)]
 pub(crate) struct LazyMap {
     inner: IterType,
     f: Function,
+    id: u64,
 }
 
 impl LazyIter for LazyMap {
@@ -60,11 +74,19 @@ impl LazyIter for LazyMap {
     fn clone(&self) -> IterType {
         Box::new(Clone::clone(self))
     }
+
+    fn id(&self) -> u64 {
+        self.id
+    }
 }
 
 impl LazyMap {
     pub(crate) fn lisp_res(inner: IterType, f: Function) -> LispResult<Expr> {
-        Ok(Expr::LazyIter(Box::new(LazyMap { inner, f })))
+        Ok(Expr::LazyIter(Box::new(LazyMap {
+            inner,
+            f,
+            id: random(),
+        })))
     }
 }
 
@@ -72,12 +94,14 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub(crate) struct NaturalNumbers {
     counter: AtomicUsize,
+    id: u64,
 }
 
 impl Clone for NaturalNumbers {
     fn clone(&self) -> NaturalNumbers {
         NaturalNumbers {
             counter: AtomicUsize::new(self.counter.load(Ordering::SeqCst)),
+            id: self.id,
         }
     }
 }
@@ -86,6 +110,7 @@ impl NaturalNumbers {
     pub(crate) fn lisp_res() -> LispResult<Expr> {
         Ok(Expr::LazyIter(Box::new(NaturalNumbers {
             counter: AtomicUsize::new(0),
+            id: random(),
         })))
     }
 }
@@ -105,11 +130,15 @@ impl LazyIter for NaturalNumbers {
     fn clone(&self) -> IterType {
         Box::new(Clone::clone(self))
     }
+    fn id(&self) -> u64 {
+        self.id
+    }
 }
 
 pub(crate) struct Take {
     inner: IterType,
     amount: AtomicUsize,
+    id: u64,
 }
 
 impl Take {
@@ -117,6 +146,7 @@ impl Take {
         Ok(Expr::LazyIter(Box::new(Take {
             amount: AtomicUsize::new(amount),
             inner,
+            id: random(),
         })))
     }
 }
@@ -126,6 +156,7 @@ impl Clone for Take {
         Take {
             inner: Clone::clone(&self.inner),
             amount: AtomicUsize::new(self.amount.load(Ordering::SeqCst)),
+            id: self.id,
         }
     }
 }
@@ -144,6 +175,9 @@ impl LazyIter for Take {
     }
     fn clone(&self) -> IterType {
         Box::new(Clone::clone(self))
+    }
+    fn id(&self) -> u64 {
+        self.id
     }
 }
 

@@ -13,7 +13,7 @@ You have brackets. Lots of brackets. And lists. And functions.
 
 *** Speedy Iterators
 
-Certain constructs like =(range)= and =map= are backed by Rust iterators, making them pretty fast.
+Certain constructs like =(range)= and =map= are backed by lazy iterators, making them pretty fast.
 
 *** Self-documenting
 
@@ -477,6 +477,13 @@ Return the documentation of a symbol as a string.
 Example: (doc doc) ; Return the documentation of a symbol as a...
 #+END_SRC
 
+*** =err=
+
+#+BEGIN_SRC elisp
+Return an error with a message string.
+Example: (err "Something bad happened!") ; return an error
+#+END_SRC
+
 *** =all-symbols=
 
 #+BEGIN_SRC elisp
@@ -611,6 +618,43 @@ Example:
 Evaluate a sequence, collecting the results into a list.
 Example:
 (doall (take 5 (range))) ; (0 1 2 3 4)
+
+#+END_SRC
+
+*** =dict=
+
+#+BEGIN_SRC elisp
+Create a dict from the given elements.
+Example:
+(dict "a" 1 "b" 2) ;
+
+#+END_SRC
+
+*** =assoc=
+
+#+BEGIN_SRC elisp
+Create a new dict from an old dict with the given elements.
+Example:
+(assoc (dict) 1 2 3 4) ; {1: 2, 3: 4}
+
+#+END_SRC
+
+*** =remove=
+
+#+BEGIN_SRC elisp
+Remove a key-value pair from a dict.
+Example:
+(remove (dict 1 2) 1) ; {}
+
+#+END_SRC
+
+*** =get=
+
+#+BEGIN_SRC elisp
+Get a value from a dict by key.
+Example:
+(get (dict 1 2) 1) ; 2
+(get (dict) 1) ; nil
 
 #+END_SRC
 
@@ -768,6 +812,12 @@ Example:
 
 #+BEGIN_SRC elisp
 Find the `num'th Fibonacci number.
+#+END_SRC
+
+*** =assert-eq=
+
+#+BEGIN_SRC elisp
+Test if two items are equal, and panic otherwise.
 #+END_SRC
 
 *** =pretty-print=

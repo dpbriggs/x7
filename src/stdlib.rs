@@ -33,6 +33,8 @@ macro_rules! exact_len {
 
 // ARITHMETIC
 
+// TODO: Check if the types make sense to compare. (i.e. ordering, etc)
+
 fn lt_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let first = &exprs[0];
     let rest = exprs.iter().skip(1).all(|e| first < e);
@@ -401,6 +403,47 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(func)
 }
 
+// Dict
+
+fn make_dict(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    // ensure!(
+    //     exprs.len() % 2 == 0,
+    //     anyhow!("Error: dict requires an even list of expressions, but was given a list of length {}. List given was: {}", exprs.len(), exprs)
+    // );
+    ensure!(
+        exprs.len() % 2 == 0,
+        "Error: dict requires an even list of arguments."
+    );
+    let mut dict = im::HashMap::new();
+    for (key, value) in exprs.iter().tuples() {
+        dict.insert(key.clone(), value.clone());
+    }
+    Ok(Expr::Dict(dict))
+}
+
+fn assoc(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let mut dict = exprs[0].get_dict()?;
+    for (key, value) in exprs.iter().skip(1).tuples() {
+        dict.insert(key.clone(), value.clone());
+    }
+    Ok(Expr::Dict(dict))
+}
+
+fn remove(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let mut dict = exprs[0].get_dict()?;
+    for key in exprs.iter().skip(1) {
+        dict.remove(key);
+    }
+    Ok(Expr::Dict(dict))
+}
+
+fn get_dict(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let dict = exprs[0].get_dict()?;
+    let res = dict.get(&exprs[1]).cloned().unwrap_or(Expr::Nil);
+    Ok(res)
+}
+
 // LISTS
 
 fn list(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -503,13 +546,13 @@ fn shuffle(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
 
 macro_rules! num {
     ($n:expr) => {
-        Expr::Num(BigDecimal::from_usize($n).unwrap()) // should never fail.
+        Ok(Expr::Num(BigDecimal::from_usize($n).unwrap())) // should never fail.
     };
 }
 
 fn len(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    Ok(num!(exprs[0].get_list()?.len()))
+    num!(exprs[0].len()?)
 }
 
 fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -803,6 +846,24 @@ Example:
         ("doall", 1, doall, true, "Evaluate a sequence, collecting the results into a list.
 Example:
 (doall (take 5 (range))) ; (0 1 2 3 4)
+"),
+        // Dicts
+        ("dict", 0, make_dict, true, "Create a dict from the given elements.
+Example:
+(dict \"a\" 1 \"b\" 2) ;
+"),
+        ("assoc", 1, assoc, true, "Create a new dict from an old dict with the given elements.
+Example:
+(assoc (dict) 1 2 3 4) ; {1: 2, 3: 4}
+"),
+        ("remove", 2, remove, true, "Remove a key-value pair from a dict.
+Example:
+(remove (dict 1 2) 1) ; {}
+"),
+        ("get", 2, get_dict, true, "Get a value from a dict by key.
+Example:
+(get (dict 1 2) 1) ; 2
+(get (dict) 1) ; nil
 "),
         // Lists
         ("list", 0, list, true, "Create a list from the given elements.
