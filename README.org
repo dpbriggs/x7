@@ -763,6 +763,84 @@ Example:
 
 #+END_SRC
 
+*** =fs::open=
+
+#+BEGIN_SRC elisp
+Open a file. Under construction.
+#+END_SRC
+
+*** =call_method=
+
+#+BEGIN_SRC elisp
+Open a file. Under construction.
+#+END_SRC
+
+*** =FileRecord=
+
+#+BEGIN_SRC elisp
+Manipulate files in x7.
+Example:
+(def my-file (fs::open "my_file.txt"))
+
+;; Write to the file
+(.write_to_file my-file "Hello World")
+
+;; Read from the file
+(.read_to_string my-file)
+
+#+END_SRC
+
+*** =FileRecord.read_to_string=
+
+#+BEGIN_SRC elisp
+Read a files as a string.
+Example:
+(def my-file (fs::open "my_file.txt"))
+(.read_to_string my-file) ; file contents
+
+#+END_SRC
+
+*** =FileRecord.write_to_file=
+
+#+BEGIN_SRC elisp
+Overwrite the file's content with the given string.
+Example:
+(def new-file (fs::open "new_file.txt"))
+(.write_to_file "Hello world!")
+
+#+END_SRC
+
+*** =FileRecord.append_to_file=
+
+#+BEGIN_SRC elisp
+Append to a file without a newline.
+Example:
+(def new-file (fs::open "new_file.txt"))
+(.append_to_file "Hello world!") ; file contains '...old-contents...Hello world!'
+
+
+#+END_SRC
+
+*** =FileRecord.append_line=
+
+#+BEGIN_SRC elisp
+Append a string to a file with a newline.
+Example:
+(def new-file (fs::open "new_file.txt"))
+(.append_line "Hello world!") ; file contains '...old-contents...Hello world!
+'
+
+#+END_SRC
+
+*** =not==
+
+#+BEGIN_SRC elisp
+Test if a sequence is not equal to each other.
+Example:
+(not= 1 1 2) ; false
+
+#+END_SRC
+
 *** =not==
 
 #+BEGIN_SRC elisp
@@ -778,6 +856,18 @@ Example:
 Test if a collection is empty.
 #+END_SRC
 
+*** =empty?=
+
+#+BEGIN_SRC elisp
+Test if a collection is empty.
+#+END_SRC
+
+*** =non-empty?=
+
+#+BEGIN_SRC elisp
+Test if a collection is non-empty.
+#+END_SRC
+
 *** =non-empty?=
 
 #+BEGIN_SRC elisp
@@ -788,6 +878,21 @@ Test if a collection is non-empty.
 
 #+BEGIN_SRC elisp
 Test if the given item is even.
+#+END_SRC
+
+*** =is-even?=
+
+#+BEGIN_SRC elisp
+Test if the given item is even.
+#+END_SRC
+
+*** =dot-product=
+
+#+BEGIN_SRC elisp
+Dot product two vectors.
+Example:
+(dot-product '(1 2 3) '(4 5 6)) ; 32
+
 #+END_SRC
 
 *** =dot-product=
@@ -808,6 +913,21 @@ Example:
 
 #+END_SRC
 
+*** =quicksort=
+
+#+BEGIN_SRC elisp
+Sort a list using quicksort.
+Example:
+(quicksort '(3 1 2)) ; (1 2 3)
+
+#+END_SRC
+
+*** =fib=
+
+#+BEGIN_SRC elisp
+Find the `num'th Fibonacci number.
+#+END_SRC
+
 *** =fib=
 
 #+BEGIN_SRC elisp
@@ -818,6 +938,18 @@ Find the `num'th Fibonacci number.
 
 #+BEGIN_SRC elisp
 Test if two items are equal, and panic otherwise.
+#+END_SRC
+
+*** =assert-eq=
+
+#+BEGIN_SRC elisp
+Test if two items are equal, and panic otherwise.
+#+END_SRC
+
+*** =pretty-print=
+
+#+BEGIN_SRC elisp
+Format doc strings into something org-mode will agree with.
 #+END_SRC
 
 *** =pretty-print=

@@ -1,4 +1,4 @@
-use crate::symbols::{Expr, LispResult};
+use crate::symbols::{Expr, LispResult, Symbol};
 use core::hash::Hash;
 use core::hash::Hasher;
 use im::Vector;
@@ -6,6 +6,12 @@ use std::fmt;
 use std::ops::Deref;
 
 pub(crate) type RecordType = Box<dyn Record>;
+
+pub(crate) trait RecordDoc {
+    fn name() -> &'static str;
+    fn type_doc() -> &'static str;
+    fn method_doc() -> Vec<(&'static str, &'static str)>;
+}
 
 pub(crate) trait Record: Sync + Send {
     fn call_method(&self, sym: &str, args: Vector<Expr>) -> LispResult<Expr>;

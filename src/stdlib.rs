@@ -577,15 +577,17 @@ fn call_method(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<E
     rec.call_method(method, args)
 }
 
+#[macro_export]
 macro_rules! num {
-    ($n:expr) => {
-        Ok(Expr::Num(BigDecimal::from_usize($n).unwrap())) // should never fail.
-    };
+    ($n:expr) => {{
+        use bigdecimal::{BigDecimal, FromPrimitive};
+        Expr::Num(BigDecimal::from_usize($n).unwrap()) // should never fail.
+    }};
 }
 
 fn len(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    num!(exprs[0].len()?)
+    Ok(num!(exprs[0].len()?))
 }
 
 fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -609,6 +611,19 @@ macro_rules! make_stdlib_fns {
             )*
             SymbolTable::with_globals(globals, docs)
         }
+	  };
+}
+
+macro_rules! document_records {
+	  ($sym:expr, $($rec:ident),*) => {
+        use crate::records::RecordDoc;
+		    $(
+            // Document the record itself.
+            $sym.add_doc_item($rec::name().into(), $rec::type_doc().into());
+            for (method, method_doc) in $rec::method_doc() {
+                $sym.add_doc_item(format!("{}.{}", $rec::name(), method), method_doc.into());
+            }
+        )*
 	  };
 }
 
@@ -953,6 +968,8 @@ Example:
         ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
         ("call_method", 2, call_method, true, "Open a file. Under construction.")
     );
+    use crate::records::FileRecord;
+    document_records!(syms, FileRecord);
     load_x7_stdlib(opts, &syms).unwrap();
     syms
 }

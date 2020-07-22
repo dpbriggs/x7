@@ -628,6 +628,11 @@ impl Doc {
         let order = v.into_iter().map(|(name, _)| name).collect();
         Doc { docs, order }
     }
+
+    fn add(&mut self, name: String, doc: String) {
+        self.docs.insert(name.clone(), doc);
+        self.order.push(name)
+    }
 }
 
 // TODO: Debug should include stdlib
@@ -674,7 +679,7 @@ impl SymbolTable {
     }
 
     pub(crate) fn add_doc_item(&self, symbol: String, doc: String) {
-        self.docs.borrow_mut().docs.insert(symbol, doc);
+        self.docs.borrow_mut().add(symbol, doc);
     }
 
     pub(crate) fn get_doc_item(&self, symbol: &str) -> Option<String> {
