@@ -519,9 +519,9 @@ fn zip(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let r_iter = exprs[1].get_list()?;
     Ok(Expr::List(
         l_iter
-            .iter()
+            .into_iter()
             .zip(r_iter)
-            .map(|(l, r)| Expr::Tuple(vector![l.clone(), r.clone()]))
+            .map(|(l, r)| Expr::Tuple(vector![l, r]))
             .collect(),
     ))
 }
