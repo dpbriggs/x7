@@ -1,4 +1,5 @@
 use crate::iterators::IterType;
+use crate::records::RecordType;
 use anyhow::{anyhow, bail, Context};
 use bigdecimal::{BigDecimal, ToPrimitive, Zero};
 use core::cell::RefCell;
@@ -28,11 +29,12 @@ macro_rules! bad_types {
 
 pub type Num = BigDecimal;
 pub(crate) type Dict = im::HashMap<Expr, Expr>;
+pub(crate) type Symbol = String;
 
 #[derive(Clone, Hash)]
 pub(crate) enum Expr {
     Num(Num),
-    Symbol(String),
+    Symbol(Symbol),
     List(Vector<Expr>),
     Function(Function),
     Nil,
@@ -42,6 +44,7 @@ pub(crate) enum Expr {
     Bool(bool),
     LazyIter(IterType),
     Dict(Dict),
+    Record(crate::records::RecordType),
 }
 
 impl PartialEq for Expr {
@@ -58,6 +61,7 @@ impl PartialEq for Expr {
             (Expr::LazyIter(_), Expr::LazyIter(_)) => false,
             (Expr::Nil, Expr::Nil) => true,
             (Expr::Dict(l), Expr::Dict(r)) => l.eq(r),
+            (Expr::Record(l), Expr::Record(r)) => l.eq(r),
             _ => false,
         }
     }
@@ -85,6 +89,7 @@ impl fmt::Debug for Expr {
             Expr::List(l) => write!(f, "({})", debug_join(l)),
             Expr::Tuple(l) => write!(f, "(tuple {})", debug_join(l)),
             Expr::Dict(l) => write!(f, "{:?}", l),
+            Expr::Record(l) => write!(f, "{:?}", l),
         }
     }
 }
@@ -131,6 +136,7 @@ impl Expr {
             Expr::LazyIter(_) => "iterator",
             Expr::Tuple(_) => "tuple",
             Expr::Dict(_) => "map",
+            Expr::Record(_) => "record",
         }
     }
 
@@ -139,6 +145,14 @@ impl Expr {
             Ok(n.clone())
         } else {
             bad_types!("num", &self)
+        }
+    }
+
+    pub(crate) fn get_record(&self) -> LispResult<RecordType> {
+        if let Expr::Record(r) = self {
+            Ok(r.clone())
+        } else {
+            bad_types!("record", &self)
         }
     }
 

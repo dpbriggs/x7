@@ -1,6 +1,7 @@
 use crate::cli::Options;
 use crate::iterators::{LazyMap, NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
+use crate::records::FileRecord;
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use anyhow::{anyhow, bail, ensure};
 use bigdecimal::{BigDecimal, FromPrimitive, One};
@@ -9,8 +10,11 @@ use itertools::Itertools;
 
 /// Macro to check if we have the right number of args,
 /// and throw a nice error if we don't.
+#[macro_export]
 macro_rules! exact_len {
     ($args:expr, $len:literal) => {
+        use anyhow::ensure;
+        use crate::symbols::ProgramError;
         ensure!($args.len() == $len, ProgramError::WrongNumberOfArgs($len))
     };
     ($args:expr, $($len:literal),*) => {
@@ -472,21 +476,40 @@ fn cons(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn head(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    let list = exprs[0].get_list()?;
-    if list.is_empty() {
+    if let Ok(list) = exprs[0].get_list() {
+        if list.is_empty() {
+            return Ok(Expr::Nil);
+        } else {
+            return Ok(list[0].clone());
+        }
+    }
+    let string = exprs[0].get_string()?;
+    if string.is_empty() {
         Ok(Expr::Nil)
     } else {
-        Ok(list[0].clone())
+        let first_char = match string.chars().next() {
+            Some(c) => c.to_string(),
+            None => "".to_string(),
+        };
+        Ok(Expr::String(first_char))
     }
 }
 
 fn tail(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    let mut list = exprs[0].get_list()?;
-    if list.is_empty() {
+    if let Ok(mut list) = exprs[0].get_list() {
+        if list.is_empty() {
+            return Ok(Expr::Nil);
+        } else {
+            return Ok(Expr::List(list.slice(1..)));
+        }
+    }
+    let string = exprs[0].get_string()?;
+    if string.is_empty() {
         Ok(Expr::Nil)
     } else {
-        Ok(Expr::List(list.slice(1..)))
+        let rest = string.chars().skip(1).collect();
+        Ok(Expr::String(rest))
     }
 }
 
@@ -544,6 +567,16 @@ fn shuffle(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
     Ok(Expr::List(list.into()))
 }
 
+// Records
+
+fn call_method(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let rec = exprs[0].get_record()?;
+    let method = &exprs[1].get_string()?;
+    let args = exprs.clone().slice(2..);
+    use crate::records::Record;
+    rec.call_method(method, args)
+}
+
 macro_rules! num {
     ($n:expr) => {
         Ok(Expr::Num(BigDecimal::from_usize($n).unwrap())) // should never fail.
@@ -565,7 +598,7 @@ fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 use std::sync::Arc;
 
 macro_rules! make_stdlib_fns {
-	  ( $(($sym:literal, $minargs:expr, $func:ident, $eval_args:expr, $doc:literal)),* ) => {
+	  ( $(($sym:literal, $minargs:expr, $func:expr, $eval_args:expr, $doc:literal)),* ) => {
         {
             let mut globals = Vec::new();
             let mut docs = Vec::new();
@@ -916,7 +949,9 @@ Example:
         ("sort", 1, sort, true, "Sort a given homogeneously typed list in ascending order. Returns an error if types are all not the same.
 Example:
 (sort '(3 7 0 5 4 8 1 2 6 9)) ; (0 1 2 3 4 5 6 7 8 9)
-")
+"),
+        ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
+        ("call_method", 2, call_method, true, "Open a file. Under construction.")
     );
     load_x7_stdlib(opts, &syms).unwrap();
     syms

@@ -33,9 +33,37 @@ fn is_symbol_char(c: char) -> bool {
     }
 }
 
+use crate::symbols::SymbolTable;
+use im::Vector;
+
+fn method_call(method: String) -> Expr {
+    use crate::symbols::Function;
+    use std::sync::Arc;
+    let method_clone = method.clone();
+    let method_fn = move |args: Vector<Expr>, _sym: &SymbolTable| {
+        let rec = match args[0].get_record() {
+            Ok(rec) => rec,
+            Err(e) => return Err(e),
+        };
+        use crate::records::Record;
+        rec.call_method(&method_clone, args.clone().slice(1..))
+    };
+    let f = Function::new(
+        format!("method_call<{}>", method),
+        1,
+        Arc::new(method_fn),
+        true,
+    );
+    Expr::Function(f)
+}
+
 fn parse_symbol<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
     map(take_while1(is_symbol_char), |sym: &str| {
-        Expr::Symbol(sym.into())
+        if sym.starts_with('.') {
+            method_call(sym[1..].into())
+        } else {
+            Expr::Symbol(sym.into())
+        }
     })(i)
 }
 
