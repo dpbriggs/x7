@@ -31,6 +31,7 @@ pub type Num = BigDecimal;
 pub(crate) type Dict = im::HashMap<Expr, Expr>;
 pub(crate) type Symbol = String;
 
+#[allow(clippy::derive_hash_xor_eq)] // It's probably OK.
 #[derive(Clone, Hash)]
 pub(crate) enum Expr {
     Num(Num),

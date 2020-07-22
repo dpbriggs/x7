@@ -4,7 +4,7 @@ use crate::modules::load_x7_stdlib;
 use crate::records::FileRecord;
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use anyhow::{anyhow, bail, ensure};
-use bigdecimal::{BigDecimal, FromPrimitive, One};
+use bigdecimal::{BigDecimal, One};
 use im::{vector, Vector};
 use itertools::Itertools;
 
@@ -968,8 +968,7 @@ Example:
         ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
         ("call_method", 2, call_method, true, "Open a file. Under construction.")
     );
-    use crate::records::FileRecord;
-    document_records!(syms, FileRecord);
     load_x7_stdlib(opts, &syms).unwrap();
+    document_records!(syms, FileRecord);
     syms
 }

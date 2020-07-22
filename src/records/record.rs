@@ -1,4 +1,4 @@
-use crate::symbols::{Expr, LispResult, Symbol};
+use crate::symbols::{Expr, LispResult};
 use core::hash::Hash;
 use core::hash::Hasher;
 use im::Vector;
