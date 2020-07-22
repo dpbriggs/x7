@@ -775,6 +775,120 @@ Open a file. Under construction.
 Open a file. Under construction.
 #+END_SRC
 
+*** =not==
+
+#+BEGIN_SRC elisp
+Test if a sequence is not equal to each other.
+Example:
+(not= 1 1 2) ; false
+
+#+END_SRC
+
+*** =not==
+
+#+BEGIN_SRC elisp
+Test if a sequence is not equal to each other.
+Example:
+(not= 1 1 2) ; false
+
+#+END_SRC
+
+*** =empty?=
+
+#+BEGIN_SRC elisp
+Test if a collection is empty.
+#+END_SRC
+
+*** =empty?=
+
+#+BEGIN_SRC elisp
+Test if a collection is empty.
+#+END_SRC
+
+*** =non-empty?=
+
+#+BEGIN_SRC elisp
+Test if a collection is non-empty.
+#+END_SRC
+
+*** =non-empty?=
+
+#+BEGIN_SRC elisp
+Test if a collection is non-empty.
+#+END_SRC
+
+*** =is-even?=
+
+#+BEGIN_SRC elisp
+Test if the given item is even.
+#+END_SRC
+
+*** =is-even?=
+
+#+BEGIN_SRC elisp
+Test if the given item is even.
+#+END_SRC
+
+*** =dot-product=
+
+#+BEGIN_SRC elisp
+Dot product two vectors.
+Example:
+(dot-product '(1 2 3) '(4 5 6)) ; 32
+
+#+END_SRC
+
+*** =dot-product=
+
+#+BEGIN_SRC elisp
+Dot product two vectors.
+Example:
+(dot-product '(1 2 3) '(4 5 6)) ; 32
+
+#+END_SRC
+
+*** =quicksort=
+
+#+BEGIN_SRC elisp
+Sort a list using quicksort.
+Example:
+(quicksort '(3 1 2)) ; (1 2 3)
+
+#+END_SRC
+
+*** =quicksort=
+
+#+BEGIN_SRC elisp
+Sort a list using quicksort.
+Example:
+(quicksort '(3 1 2)) ; (1 2 3)
+
+#+END_SRC
+
+*** =fib=
+
+#+BEGIN_SRC elisp
+Find the `num'th Fibonacci number.
+#+END_SRC
+
+*** =fib=
+
+#+BEGIN_SRC elisp
+Find the `num'th Fibonacci number.
+#+END_SRC
+
+*** =assert-eq=
+
+#+BEGIN_SRC elisp
+Test if two items are equal, and panic otherwise.
+#+END_SRC
+
+*** =assert-eq=
+
+#+BEGIN_SRC elisp
+Test if two items are equal, and panic otherwise.
+#+END_SRC
+
 *** =FileRecord=
 
 #+BEGIN_SRC elisp
@@ -830,120 +944,6 @@ Example:
 (.append_line "Hello world!") ; file contains '...old-contents...Hello world!
 '
 
-#+END_SRC
-
-*** =not==
-
-#+BEGIN_SRC elisp
-Test if a sequence is not equal to each other.
-Example:
-(not= 1 1 2) ; false
-
-#+END_SRC
-
-*** =not==
-
-#+BEGIN_SRC elisp
-Test if a sequence is not equal to each other.
-Example:
-(not= 1 1 2) ; false
-
-#+END_SRC
-
-*** =empty?=
-
-#+BEGIN_SRC elisp
-Test if a collection is empty.
-#+END_SRC
-
-*** =empty?=
-
-#+BEGIN_SRC elisp
-Test if a collection is empty.
-#+END_SRC
-
-*** =non-empty?=
-
-#+BEGIN_SRC elisp
-Test if a collection is non-empty.
-#+END_SRC
-
-*** =non-empty?=
-
-#+BEGIN_SRC elisp
-Test if a collection is non-empty.
-#+END_SRC
-
-*** =is-even?=
-
-#+BEGIN_SRC elisp
-Test if the given item is even.
-#+END_SRC
-
-*** =is-even?=
-
-#+BEGIN_SRC elisp
-Test if the given item is even.
-#+END_SRC
-
-*** =dot-product=
-
-#+BEGIN_SRC elisp
-Dot product two vectors.
-Example:
-(dot-product '(1 2 3) '(4 5 6)) ; 32
-
-#+END_SRC
-
-*** =dot-product=
-
-#+BEGIN_SRC elisp
-Dot product two vectors.
-Example:
-(dot-product '(1 2 3) '(4 5 6)) ; 32
-
-#+END_SRC
-
-*** =quicksort=
-
-#+BEGIN_SRC elisp
-Sort a list using quicksort.
-Example:
-(quicksort '(3 1 2)) ; (1 2 3)
-
-#+END_SRC
-
-*** =quicksort=
-
-#+BEGIN_SRC elisp
-Sort a list using quicksort.
-Example:
-(quicksort '(3 1 2)) ; (1 2 3)
-
-#+END_SRC
-
-*** =fib=
-
-#+BEGIN_SRC elisp
-Find the `num'th Fibonacci number.
-#+END_SRC
-
-*** =fib=
-
-#+BEGIN_SRC elisp
-Find the `num'th Fibonacci number.
-#+END_SRC
-
-*** =assert-eq=
-
-#+BEGIN_SRC elisp
-Test if two items are equal, and panic otherwise.
-#+END_SRC
-
-*** =assert-eq=
-
-#+BEGIN_SRC elisp
-Test if two items are equal, and panic otherwise.
 #+END_SRC
 
 *** =pretty-print=
