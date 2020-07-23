@@ -7,23 +7,44 @@ use std::ops::Deref;
 
 pub(crate) type RecordType = Box<dyn Record>;
 
+/// Document Records. Used in the document_records! macro
+/// to properly document your record type.
 pub(crate) trait RecordDoc {
+    /// Public name of the the record.
     fn name() -> &'static str;
+    /// Documentation for that record type.
     fn type_doc() -> &'static str;
-    fn method_doc() -> Vec<(&'static str, &'static str)>;
+    /// Documentation of the methods.
+    /// (method_name, method_doc)
+    fn method_doc() -> &'static [(&'static str, &'static str)];
 }
 
+/// Fundamental trait for records.
+///
+/// Records allow x7 to represent a variety of internally mutable types
+/// while not expanding the Expr enum too much. These types are responsible for
+/// implementing RecordDoc if they want to have documentation.
 pub(crate) trait Record: Sync + Send {
+    /// Call a method on this record.
+    /// (.method_name <rec> arg1 arg2 arg3)
+    /// Becomes:
+    /// (&self: <rec>, sym: "method_name", args: vector![arg1, arg2, arg3])
     fn call_method(&self, sym: &str, args: Vector<Expr>) -> LispResult<Expr>;
     fn id(&self) -> u64 {
         0
     }
+    /// Nicely display the record type.
     fn display(&self) -> String;
+    /// Add more information for debug printing
     fn debug(&self) -> String;
+    /// Clone the object.
     fn clone(&self) -> RecordType;
-    fn methods(&self) -> &'static [&'static str] {
-        &[]
+    /// Return the names of the methods for help messages.
+    fn methods(&self) -> Vec<&'static str> {
+        vec![]
     }
+    /// Return the type name for nice help messages
+    fn type_name(&self) -> &'static str;
 }
 
 impl fmt::Display for RecordType {
@@ -56,8 +77,11 @@ impl Record for RecordType {
     fn clone(&self) -> RecordType {
         self.deref().clone()
     }
-    fn methods(&self) -> &'static [&'static str] {
+    fn methods(&self) -> Vec<&'static str> {
         self.deref().methods()
+    }
+    fn type_name(&self) -> &'static str {
+        self.deref().type_name()
     }
 }
 
@@ -91,9 +115,10 @@ macro_rules! unknown_method {
     ($self:expr, $method:expr) => {{
         use itertools::Itertools;
         Err(anyhow!(
-            "Unknown method `{}` for {}\n\nHelp: It has the following methods\n\n{}",
+            "Unknown method `{}` on {}\n\nHelp! {} has the following methods:\n\n{}",
             $method,
             $self.display(),
+            $self.type_name(),
             $self
                 .methods()
                 .iter()

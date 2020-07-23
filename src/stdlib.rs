@@ -35,6 +35,14 @@ macro_rules! exact_len {
 
 }
 
+#[macro_export]
+macro_rules! num {
+    ($n:expr) => {{
+        use bigdecimal::{BigDecimal, FromPrimitive};
+        Expr::Num(BigDecimal::from_usize($n).unwrap()) // should never fail.
+    }};
+}
+
 // ARITHMETIC
 
 // TODO: Check if the types make sense to compare. (i.e. ordering, etc)
@@ -229,7 +237,7 @@ fn print(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in &exprs {
         print!("{}", expr);
     }
-    Ok(Expr::Num((exprs.len() as u64).into()))
+    Ok(num!(exprs.len()))
 }
 
 fn println(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -577,12 +585,15 @@ fn call_method(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<E
     rec.call_method(method, args)
 }
 
-#[macro_export]
-macro_rules! num {
-    ($n:expr) => {{
-        use bigdecimal::{BigDecimal, FromPrimitive};
-        Expr::Num(BigDecimal::from_usize($n).unwrap()) // should never fail.
-    }};
+fn doc_methods(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let sym = exprs[0].get_symbol_string()?;
+    let docs = symbol_table
+        .get_doc_methods(&sym)
+        .into_iter()
+        .map(|(doc, method)| Expr::Tuple(vector![Expr::String(doc), Expr::String(method)]))
+        .collect();
+    Ok(Expr::List(docs))
 }
 
 fn len(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -621,7 +632,7 @@ macro_rules! document_records {
             // Document the record itself.
             $sym.add_doc_item($rec::name().into(), $rec::type_doc().into());
             for (method, method_doc) in $rec::method_doc() {
-                $sym.add_doc_item(format!("{}.{}", $rec::name(), method), method_doc.into());
+                $sym.add_doc_item(format!("{}.{}", $rec::name(), method), (*method_doc).into());
             }
         )*
 	  };
@@ -966,7 +977,8 @@ Example:
 (sort '(3 7 0 5 4 8 1 2 6 9)) ; (0 1 2 3 4 5 6 7 8 9)
 "),
         ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
-        ("call_method", 2, call_method, true, "Open a file. Under construction.")
+        ("call_method", 2, call_method, true, "Open a file. Under construction."),
+        ("methods", 1, doc_methods, false, "Grab all documentation for a record's methods")
     );
     load_x7_stdlib(opts, &syms).unwrap();
     document_records!(syms, FileRecord);

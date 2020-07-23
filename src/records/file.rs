@@ -25,6 +25,7 @@ macro_rules! write_file {
             .map_err(|e| anyhow!("Failed to write to file, {}", e))?;
     };
 }
+
 #[derive(Clone, Debug)]
 pub(crate) struct FileRecord {
     path: String,
@@ -46,39 +47,75 @@ impl FileRecord {
     }
 
     pub(crate) fn open_file(path: String) -> LispResult<Expr> {
+        // TODO: Allow access to OpenOptions in x7.
+        // Open the file with liberal permissions.
         let f = OpenOptions::new()
             .write(true)
             .create(true)
             .read(true)
             .open(path.clone())
-            .map_err(|e| anyhow!("Error: Could not open file {}", e))?;
-        record!(FileRecord::new(f, path))
+            .map_err(|e| anyhow!("Could not open file \"{}\" because {}", &path, e))?;
+        // Make the path pretty.
+        let abs_path = fs::canonicalize(path)
+            .map_err(|e| anyhow!("Could not canonicalize path! {}", e))?
+            .to_str()
+            .ok_or_else(|| anyhow!("Could not represent path as UTF-8 string"))?
+            .into();
+        record!(FileRecord::new(f, abs_path))
     }
 
-    fn read_to_string(&self) -> LispResult<Expr> {
+    fn read_all(&self) -> LispResult<String> {
         let mut buf = String::new();
         let mut guard = self.file.lock();
         guard
             .read_to_string(&mut buf)
             .map_err(|e| anyhow!("Failed to read to string {}", e))?;
         rewind_file!(guard);
-        Ok(Expr::String(buf))
+        Ok(buf)
     }
 
-    fn write_to_file(&self, args: Vector<Expr>) -> LispResult<Expr> {
+    fn read_to_string(&self, args: Vector<Expr>) -> LispResult<Expr> {
+        exact_len!(args, 0);
+        self.read_all().map(Expr::String)
+    }
+
+    fn try_shrink(&self, file: &mut std::fs::File) -> LispResult<()> {
+        let metadata = file
+            .metadata()
+            .map_err(|e| anyhow!("Failed to get metadata for file, {}", e))?;
+        if metadata.len() == 0 {
+            Ok(())
+        } else {
+            file.set_len(0)
+                .map_err(|e| anyhow!("Failed to shrink file to 0, {}", e))
+        }
+    }
+
+    fn write(&self, args: Vector<Expr>) -> LispResult<Expr> {
         exact_len!(args, 1);
         let content = args[0].get_string()?;
         let content_len = num!(content.len());
         let mut guard = self.file.lock();
-        guard
-            .set_len(0)
-            .map_err(|e| anyhow!("Failed to shrink file to 0, {}", e))?;
+        // Set the length to 0.
+        self.try_shrink(&mut guard)?;
+        // Write the string
         write_file!(guard, content);
+        // Set the cursor to pos 0
         rewind_file!(guard);
+        // Flush the changes
         guard
             .flush()
             .map_err(|e| anyhow!("Failed to flush file {}", e))?;
         Ok(content_len)
+    }
+
+    fn read_lines(&self) -> LispResult<Expr> {
+        let contents = self.read_all()?;
+        let split: im::Vector<Expr> = contents
+            .split('\n')
+            .map(|s| Expr::String(s.into()))
+            .collect();
+        Ok(Expr::List(split))
     }
 
     fn append(&self, content: &str) -> LispResult<Expr> {
@@ -102,19 +139,24 @@ impl FileRecord {
     fn append_line(&self, args: Vector<Expr>) -> LispResult<Expr> {
         exact_len!(args, 1);
         let content = args[0].get_string()?;
-        self.append(&format!("{}\n", content))
+        self.append(&format!("\n{}", content))
     }
 }
 
 impl Record for FileRecord {
     fn call_method(&self, sym: &str, args: Vector<Expr>) -> LispResult<Expr> {
         match sym {
-            "read_to_string" => self.read_to_string(),
-            "write_to_file" => self.write_to_file(args),
+            "read_to_string" => self.read_to_string(args),
+            "read_lines" => self.read_lines(),
+            "write" => self.write(args),
             "append_to_file" => self.append_to_file(args),
             "append_line" => self.append_line(args),
             _ => unknown_method!(self, sym),
         }
+    }
+
+    fn type_name(&self) -> &'static str {
+        "FileRecord"
     }
 
     fn display(&self) -> String {
@@ -129,13 +171,8 @@ impl Record for FileRecord {
         Box::new(Clone::clone(self))
     }
 
-    fn methods(&self) -> &'static [&'static str] {
-        &[
-            "read_to_string",
-            "write_to_file",
-            "append_to_file",
-            "append_line",
-        ]
+    fn methods(&self) -> Vec<&'static str> {
+        FileRecord::method_doc().iter().map(|(l, _)| *l).collect()
     }
 }
 
@@ -150,15 +187,15 @@ Example:
 (def my-file (fs::open \"my_file.txt\"))
 
 ;; Write to the file
-(.write_to_file my-file \"Hello World\")
+(.write my-file \"Hello World\")
 
 ;; Read from the file
 (.read_to_string my-file)
 "
     }
 
-    fn method_doc() -> Vec<(&'static str, &'static str)> {
-        vec![
+    fn method_doc() -> &'static [(&'static str, &'static str)] {
+        &[
             (
                 "read_to_string",
                 "Read a files as a string.
@@ -168,11 +205,19 @@ Example:
 ",
             ),
             (
-                "write_to_file",
+                "read_lines",
+                "Get all lines of a file as a list.
+Example:
+(def my-file (fs::open \"my_file.txt\"))
+(.read_lines my-file) ; '(\"first_line\" \"second_line\")
+",
+            ),
+            (
+                "write",
                 "Overwrite the file's content with the given string.
 Example:
 (def new-file (fs::open \"new_file.txt\"))
-(.write_to_file \"Hello world!\")
+(.write \"Hello world!\")
 ",
             ),
             (

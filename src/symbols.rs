@@ -687,6 +687,16 @@ impl SymbolTable {
         self.docs.borrow().docs.get(symbol).cloned()
     }
 
+    pub(crate) fn get_doc_methods(&self, sym: &str) -> Vec<(String, String)> {
+        self.docs
+            .borrow()
+            .docs
+            .iter()
+            .filter(|(symbol, _doc)| symbol.starts_with(sym))
+            .map(|(symbol, doc)| (symbol.into(), doc.into()))
+            .collect()
+    }
+
     pub(crate) fn with_locals(&self, symbols: &[Expr], values: Vector<Expr>) -> LispResult<Self> {
         let copy = self.clone();
         let mut symbol_iter = symbols.iter().cloned();
