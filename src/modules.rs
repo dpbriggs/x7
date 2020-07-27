@@ -33,7 +33,7 @@ pub(crate) fn load_x7_stdlib(
             };
             match prog.eval(symbol_table) {
                 Ok(p) => {
-                    if !opts.hide_loading_stdlib {
+                    if opts.show_loading_stdlib {
                         println!("{}", p);
                     }
                 }

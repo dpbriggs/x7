@@ -156,8 +156,7 @@ fn apply(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 }
 
 fn err(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    exact_len!(exprs, 1);
-    let msg = exprs[0].get_string()?;
+    let msg = exprs.iter().join("");
     Err(anyhow!(msg))
 }
 
@@ -214,9 +213,7 @@ fn def(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn exprs_do(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in exprs.clone().slice(..exprs.len() - 1).iter() {
-        if let Err(e) = expr.eval(symbol_table) {
-            println!("{:?}", e);
-        }
+        expr.eval(symbol_table)?;
     }
     exprs[exprs.len() - 1].eval(symbol_table)
 }
@@ -263,6 +260,26 @@ fn cond(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         }
     }
     bail!(ProgramError::CondNoExecutionPath)
+}
+
+fn expr_match(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let item = exprs[0].eval(symbol_table)?;
+    let mut iter = exprs.iter().skip(1);
+    ensure!(
+        (exprs.len() - 1) % 2 == 0,
+        anyhow!("Match requires an even list of then")
+    );
+    while let Some(lhs) = iter.next() {
+        let then = iter.next().unwrap();
+        if lhs.is_symbol_underscore() {
+            return then.eval(symbol_table);
+        }
+        let lhs = lhs.eval(symbol_table)?;
+        if lhs == item {
+            return then.eval(symbol_table);
+        }
+    }
+    bail!(anyhow!("No execution paths for match!"))
 }
 
 fn if_gate(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -801,6 +818,15 @@ Example:
   (= input 10) (print \"input is 10\")
   true         (print \"hit base case, input is: \" input))
 "),
+        ("match", 3, expr_match, false, "Branching control flow construct. Given an item and an even list of [value then], if `item` == `value`, return `then`.
+Example:
+(def input 10)
+(match input
+  3  (print \"input is 3\")
+  10 (print \"input is 10\")
+  _  (print \"hit base case, input is: \" input))
+"),
+
         ("if", 3, if_gate, false, "Branching control flow construct. Given pred?, then, and else, if pred? is true, return then, otherwise, else.
 Note: Does not evaluate branches not taken.
 Example:

@@ -9,7 +9,7 @@ use structopt::StructOpt;
 #[structopt(name = "x7", about = "x7 Programming Language")]
 pub struct Options {
     #[structopt(short = "l", long)]
-    pub hide_loading_stdlib: bool,
+    pub show_loading_stdlib: bool,
     pub files: Vec<String>,
 }
 

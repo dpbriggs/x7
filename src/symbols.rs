@@ -181,6 +181,13 @@ impl Expr {
         }
     }
 
+    pub(crate) fn is_symbol_underscore(&self) -> bool {
+        self.get_symbol_string()
+            .ok()
+            .map(|s| s == "_")
+            .unwrap_or(false)
+    }
+
     pub(crate) fn is_bool_true(&self) -> LispResult<bool> {
         if let Expr::Bool(b) = self {
             Ok(*b)
@@ -642,6 +649,11 @@ pub struct SymbolTable {
     globals: Rc<RefCell<SymbolLookup>>,
     locals: Rc<RefCell<SymbolLookup>>,
     docs: Rc<RefCell<Doc>>,
+    // TODO: Should functions be magic like this?
+    // Future Dave: magic means we special case adding
+    // symbols to the table whether or not a function is calling.
+    // So named arguments last only as long as the function calling.
+    func_locals: im::HashMap<String, Expr>,
 }
 
 impl SymbolTable {
@@ -653,6 +665,7 @@ impl SymbolTable {
             globals: Rc::new(RefCell::new(globals.into_iter().collect())),
             locals: Default::default(),
             docs: Rc::new(RefCell::new(Doc::with_globals(doc_order))),
+            func_locals: Default::default(),
         }
     }
 
@@ -662,6 +675,9 @@ impl SymbolTable {
             Expr::Symbol(ref s) => s,
             _ => bail!(ProgramError::CannotLookupNonSymbol),
         };
+        if let Some(expr) = self.func_locals.get(symbol) {
+            return Ok(expr.clone());
+        }
         if let Some(expr) = self.locals.borrow().get(symbol) {
             return Ok(expr.clone());
         }
@@ -698,9 +714,10 @@ impl SymbolTable {
     }
 
     pub(crate) fn with_locals(&self, symbols: &[Expr], values: Vector<Expr>) -> LispResult<Self> {
-        let copy = self.clone();
+        let mut copy = self.clone();
         let mut symbol_iter = symbols.iter().cloned();
         let mut values_iter = values.iter().cloned();
+        let new_func_locals = &mut copy.func_locals;
         // TODO: Find nicer way to express argument collapsing.
         #[allow(clippy::while_let_loop)]
         loop {
@@ -723,7 +740,7 @@ impl SymbolTable {
             }
 
             let value = values_iter.next().unwrap();
-            copy.locals.borrow_mut().insert(symbol, value);
+            new_func_locals.insert(symbol, value);
         }
         Ok(copy)
     }
