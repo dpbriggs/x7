@@ -20,7 +20,7 @@ rand = "0.7.3"
 im = "15.0.0"
 glob = "0.3.0"
 nom = "6.0.0-alpha1"
-bigdecimal = "0.1.2"
+bigdecimal = { git = "https://github.com/dpbriggs/bigdecimal-rs", rev="02ba26b" }
 structopt = "0.3.15"
 anyhow = "1.0.31"
 thiserror = "1.0.20"

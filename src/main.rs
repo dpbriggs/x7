@@ -9,7 +9,6 @@ fn main() -> Result<(), i32> {
     if opt.files.is_empty() {
         cli::read_cli(&sym_table);
     } else {
-        // TODO Load File
         for f in opt.files {
             if let Err(e) = modules::run_file(&f, &sym_table) {
                 report_error(&e);

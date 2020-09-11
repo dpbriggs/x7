@@ -134,6 +134,20 @@ fn inc_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Exp
     Ok(Expr::Num(n + bigdecimal::BigDecimal::one()))
 }
 
+fn sqrt_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let num = exprs[0].get_num()?;
+    num.sqrt()
+        .map(Expr::Num)
+        .ok_or_else(|| anyhow!("Cannot square root a negative number!"))
+}
+
+fn int(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let num = exprs[0].get_num()?;
+    Ok(Expr::Num(num.round(0)))
+}
+
 // MISC
 
 fn ident(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -706,6 +720,15 @@ Example: (/ 8 2 2 2) ; 1
 "
         ),
         (
+            "sqrt",
+            1,
+            sqrt_exprs,
+            true,
+            "Take the square root of a number.
+Example: (sqrt 9) ; 3
+"
+        ),
+        (
             "=",
             1,
             eq_exprs,
@@ -748,6 +771,11 @@ Example: (> 10 0 1 2 3 4) ; true"
 Example: (>= 10 10 5) ; true"
         ),
         ("inc", 1, inc_exprs, true, "Increment the given number."),
+        ("int", 1, int, true, "Create an integer from the input.
+
+Example:
+(int 3.2) ;; 3
+"),
         (
             "not",
             1,
@@ -1003,7 +1031,15 @@ Example:
 (sort '(3 7 0 5 4 8 1 2 6 9)) ; (0 1 2 3 4 5 6 7 8 9)
 "),
         ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
-        ("call_method", 2, call_method, true, "Open a file. Under construction."),
+        ("call_method", 2, call_method, true, "
+Call a method on a record.
+
+Example:
+
+(def f (fs::open \"Hello.txt\"))
+(call_method f \"read_to_string\") ;; no args required
+(call_method f \"write\" \"hello world\") ;; pass it an arg
+"),
         ("methods", 1, doc_methods, false, "Grab all documentation for a record's methods")
     );
     load_x7_stdlib(opts, &syms).unwrap();

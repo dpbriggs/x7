@@ -304,6 +304,14 @@ Example: (/ 8 2 2 2) ; 1
 
 #+END_SRC
 
+*** =sqrt=
+
+#+BEGIN_SRC elisp
+Take the square root of a number.
+Example: (sqrt 9) ; 3
+
+#+END_SRC
+
 *** ===
 
 #+BEGIN_SRC elisp
@@ -345,6 +353,16 @@ Example: (>= 10 10 5) ; true
 
 #+BEGIN_SRC elisp
 Increment the given number.
+#+END_SRC
+
+*** =int=
+
+#+BEGIN_SRC elisp
+Create an integer from the input.
+
+Example:
+(int 3.2) ;; 3
+
 #+END_SRC
 
 *** =not=
@@ -421,6 +439,19 @@ Example:
   (= input 3)  (print "input is 3")
   (= input 10) (print "input is 10")
   true         (print "hit base case, input is: " input))
+
+#+END_SRC
+
+*** =match=
+
+#+BEGIN_SRC elisp
+Branching control flow construct. Given an item and an even list of [value then], if `item` == `value`, return `then`.
+Example:
+(def input 10)
+(match input
+  3  (print "input is 3")
+  10 (print "input is 10")
+  _  (print "hit base case, input is: " input))
 
 #+END_SRC
 
@@ -772,7 +803,21 @@ Open a file. Under construction.
 *** =call_method=
 
 #+BEGIN_SRC elisp
-Open a file. Under construction.
+
+Call a method on a record.
+
+Example:
+
+(def f (fs::open "Hello.txt"))
+(call_method f "read_to_string") ;; no args required
+(call_method f "write" "hello world") ;; pass it an arg
+
+#+END_SRC
+
+*** =methods=
+
+#+BEGIN_SRC elisp
+Grab all documentation for a record's methods
 #+END_SRC
 
 *** =not==
@@ -897,7 +942,7 @@ Example:
 (def my-file (fs::open "my_file.txt"))
 
 ;; Write to the file
-(.write_to_file my-file "Hello World")
+(.write my-file "Hello World")
 
 ;; Read from the file
 (.read_to_string my-file)
@@ -914,13 +959,23 @@ Example:
 
 #+END_SRC
 
-*** =FileRecord.write_to_file=
+*** =FileRecord.read_lines=
+
+#+BEGIN_SRC elisp
+Get all lines of a file as a list.
+Example:
+(def my-file (fs::open "my_file.txt"))
+(.read_lines my-file) ; '("first_line" "second_line")
+
+#+END_SRC
+
+*** =FileRecord.write=
 
 #+BEGIN_SRC elisp
 Overwrite the file's content with the given string.
 Example:
 (def new-file (fs::open "new_file.txt"))
-(.write_to_file "Hello world!")
+(.write "Hello world!")
 
 #+END_SRC
 
@@ -957,15 +1012,6 @@ Format doc strings into something org-mode will agree with.
 #+BEGIN_SRC elisp
 Format doc strings into something org-mode will agree with.
 #+END_SRC
-
-
-** TODOs
-
-- [ ] Loading files / modules
-- [ ] Test suite in the x7 language
-  - [ ] (test res expr)
-- [X] Iterators
-  - [X] Have a basic shell now
 
 
 * Thanks

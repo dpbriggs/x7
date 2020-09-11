@@ -143,6 +143,17 @@ impl FileRecord {
     }
 }
 
+macro_rules! try_call_method {
+    ($self:expr, $sym:expr, $args:expr, $($method_name:ident),*) => {
+        match $sym {
+            $(
+                stringify!($method_name) => $self.$method_name($args),
+            )*
+            _ => unknown_method!($self, $sym)
+        }
+    }
+}
+
 impl Record for FileRecord {
     fn call_method(&self, sym: &str, args: Vector<Expr>) -> LispResult<Expr> {
         match sym {
@@ -173,6 +184,14 @@ impl Record for FileRecord {
 
     fn methods(&self) -> Vec<&'static str> {
         FileRecord::method_doc().iter().map(|(l, _)| *l).collect()
+    }
+
+    fn id(&self) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut h = DefaultHasher::new();
+        self.path.hash(&mut h);
+        h.finish()
     }
 }
 

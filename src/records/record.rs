@@ -40,9 +40,7 @@ pub(crate) trait Record: Sync + Send {
     /// Clone the object.
     fn clone(&self) -> RecordType;
     /// Return the names of the methods for help messages.
-    fn methods(&self) -> Vec<&'static str> {
-        vec![]
-    }
+    fn methods(&self) -> Vec<&'static str>;
     /// Return the type name for nice help messages
     fn type_name(&self) -> &'static str;
 }
@@ -58,6 +56,7 @@ impl fmt::Debug for RecordType {
         write!(f, "{}", self.debug())
     }
 }
+
 impl Record for RecordType {
     fn call_method(&self, sym: &str, args: Vector<Expr>) -> LispResult<Expr> {
         self.deref().call_method(sym, args)
