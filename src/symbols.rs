@@ -29,12 +29,12 @@ macro_rules! bad_types {
 }
 
 pub type Num = BigDecimal;
-pub(crate) type Dict = im::HashMap<Expr, Expr>;
-pub(crate) type Symbol = String;
+pub type Dict = im::HashMap<Expr, Expr>;
+pub type Symbol = String;
 
 #[allow(clippy::derive_hash_xor_eq)] // It's probably OK.
 #[derive(Clone, Hash)]
-pub(crate) enum Expr {
+pub enum Expr {
     Num(Num),
     Symbol(Symbol),
     List(Vector<Expr>),
@@ -301,7 +301,7 @@ pub(crate) type X7FunctionPtr =
     Arc<dyn Fn(Vector<Expr>, &SymbolTable) -> LispResult<Expr> + Sync + Send>;
 
 #[derive(Clone)]
-pub(crate) struct Function {
+pub struct Function {
     symbol: String,
     minimum_args: usize,
     f: X7FunctionPtr,
@@ -449,7 +449,7 @@ impl fmt::Display for ProgramError {
     }
 }
 
-pub(crate) type LispResult<T> = anyhow::Result<T>;
+pub type LispResult<T> = anyhow::Result<T>;
 
 impl std::ops::Rem<&Expr> for Expr {
     type Output = LispResult<Expr>;
@@ -583,7 +583,7 @@ impl Expr {
         }
     }
 
-    pub(crate) fn eval(&self, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    pub fn eval(&self, symbol_table: &SymbolTable) -> LispResult<Expr> {
         // Tuple bypass
 
         if self.is_tuple() {

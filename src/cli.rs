@@ -13,6 +13,15 @@ pub struct Options {
     pub files: Vec<String>,
 }
 
+impl Default for Options {
+    fn default() -> Self {
+        Options {
+            show_loading_stdlib: false,
+            files: Vec::with_capacity(0),
+        }
+    }
+}
+
 pub fn read_cli(sym_table: &SymbolTable) {
     let conf = Config::builder().auto_add_history(true).build();
     // TODO: Auto-complete

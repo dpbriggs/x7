@@ -7,9 +7,9 @@ use std::ops::Deref;
 
 use rand::random;
 
-pub(crate) type IterType = Box<dyn LazyIter>;
+pub type IterType = Box<dyn LazyIter>;
 
-pub(crate) trait LazyIter: fmt::Display + fmt::Debug + Sync + Send {
+pub trait LazyIter: fmt::Display + fmt::Debug + Sync + Send {
     fn next(&self, symbol_table: &SymbolTable) -> Option<LispResult<Expr>>;
     fn name(&self) -> &'static str;
     fn clone(&self) -> Box<dyn LazyIter>;

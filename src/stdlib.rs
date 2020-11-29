@@ -679,6 +679,11 @@ macro_rules! document_records {
 	  };
 }
 
+pub fn create_stdlib_symbol_table_no_cli() -> SymbolTable {
+    let opt = Options::default();
+    create_stdlib_symbol_table(&opt)
+}
+
 #[allow(clippy::let_and_return)]
 pub fn create_stdlib_symbol_table(opts: &Options) -> SymbolTable {
     let syms = make_stdlib_fns!(

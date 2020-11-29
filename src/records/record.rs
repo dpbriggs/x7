@@ -24,7 +24,7 @@ pub(crate) trait RecordDoc {
 /// Records allow x7 to represent a variety of internally mutable types
 /// while not expanding the Expr enum too much. These types are responsible for
 /// implementing RecordDoc if they want to have documentation.
-pub(crate) trait Record: Sync + Send {
+pub trait Record: Sync + Send {
     /// Call a method on this record.
     /// (.method_name <rec> arg1 arg2 arg3)
     /// Becomes:

@@ -150,7 +150,7 @@ fn parse_expr(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     )(i)
 }
 
-pub(crate) struct ExprIterator<'a> {
+pub struct ExprIterator<'a> {
     input: &'a str,
     done: bool,
 }
@@ -182,7 +182,7 @@ impl<'a> Iterator for ExprIterator<'a> {
     }
 }
 
-pub(crate) fn read(s: &str) -> ExprIterator {
+pub fn read(s: &str) -> ExprIterator {
     ExprIterator::new(s)
 }
 
