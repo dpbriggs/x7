@@ -71,3 +71,9 @@ Example:
   "Test if two items are equal, and panic otherwise."
   (l r msg)
   (if (not= l r) (err msg) ()))
+
+(defn docp
+  "Pretty print the doc string of a function
+   Example: (docp docp) ;; Pretty print the doc string of a function..."
+  (sym)
+  (println (doc sym)))

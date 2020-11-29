@@ -109,7 +109,7 @@ impl FileRecord {
         Ok(content_len)
     }
 
-    fn read_lines(&self) -> LispResult<Expr> {
+    fn read_lines(&self, _args: Vector<Expr>) -> LispResult<Expr> {
         let contents = self.read_all()?;
         let split: im::Vector<Expr> = contents
             .split('\n')
@@ -156,14 +156,16 @@ macro_rules! try_call_method {
 
 impl Record for FileRecord {
     fn call_method(&self, sym: &str, args: Vector<Expr>) -> LispResult<Expr> {
-        match sym {
-            "read_to_string" => self.read_to_string(args),
-            "read_lines" => self.read_lines(),
-            "write" => self.write(args),
-            "append_to_file" => self.append_to_file(args),
-            "append_line" => self.append_line(args),
-            _ => unknown_method!(self, sym),
-        }
+        try_call_method!(
+            self,
+            sym,
+            args,
+            read_to_string,
+            read_lines,
+            write,
+            append_to_file,
+            append_line
+        )
     }
 
     fn type_name(&self) -> &'static str {

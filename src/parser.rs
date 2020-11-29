@@ -57,17 +57,17 @@ fn method_call(method: String) -> Expr {
     Expr::Function(f)
 }
 
-fn parse_symbol<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
+fn parse_symbol(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     map(take_while1(is_symbol_char), |sym: &str| {
-        if sym.starts_with('.') {
-            method_call(sym[1..].into())
+        if let Some(method) = sym.strip_prefix('.') {
+            method_call(method.into())
         } else {
             Expr::Symbol(sym.into())
         }
     })(i)
 }
 
-fn parse_string<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
+fn parse_string(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     let esc = escaped(none_of("\\\""), '\\', tag("\""));
     let esc_or_empty = alt((esc, tag("")));
 
@@ -76,14 +76,14 @@ fn parse_string<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>>
     })(i)
 }
 
-fn parse_bool<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
+fn parse_bool(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     alt((
         map(tag("true"), |_| Expr::Bool(true)),
         map(tag("false"), |_| Expr::Bool(false)),
     ))(i)
 }
 
-fn ignored_input<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
+fn ignored_input(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
     let comment_parse = delimited(
         preceded(multispace0, tag(";")),
         take_till(|c| c == '\n'),
@@ -92,7 +92,7 @@ fn ignored_input<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a s
     alt((comment_parse, multispace0))(i)
 }
 
-fn parse_tuple<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
+fn parse_tuple(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     let make_tuple = |exprs: Vec<_>| {
         let mut tuple_list = im::vector![Expr::Symbol("tuple".into())];
         tuple_list.append(exprs.into());
@@ -104,14 +104,14 @@ fn parse_tuple<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> 
     )(i)
 }
 
-fn parse_quote<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
+fn parse_quote(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     map(
         context("quote", preceded(tag("'"), cut(s_exp(many0(parse_expr))))),
         |exprs| Expr::Quote(exprs.into()),
     )(i)
 }
 
-fn parse_num<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
+fn parse_num(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     map_res(recognize_float, |digit_str: &str| {
         digit_str.parse::<Num>().map(Expr::Num)
     })(i)
@@ -128,13 +128,13 @@ where
     )
 }
 
-fn parse_list<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
+fn parse_list(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     let application_inner = map(many0(parse_expr), |l| Expr::List(l.into()));
     // finally, we wrap it in an s-expression
     s_exp(application_inner)(i)
 }
 
-fn parse_expr<'a>(i: &'a str) -> IResult<&'a str, Expr, VerboseError<&'a str>> {
+fn parse_expr(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     delimited(
         ignored_input,
         alt((

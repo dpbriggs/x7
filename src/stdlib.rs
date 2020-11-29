@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_wraps)]
 use crate::cli::Options;
 use crate::iterators::{LazyMap, NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
@@ -183,8 +184,12 @@ fn all_symbols(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Ex
 fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let sym = exprs[0].get_symbol_string()?;
+    if let Some(doc) = symbol_table.get_doc_item(&sym) {
+        return Ok(Expr::String(doc));
+    }
+    let sym_eval = exprs[0].eval(&symbol_table)?;
     let doc = symbol_table
-        .get_doc_item(&sym)
+        .get_doc_item(&sym_eval.get_symbol_string()?)
         .unwrap_or_else(|| format!("No documentation for {}", sym));
     Ok(Expr::String(doc))
 }
@@ -200,7 +205,7 @@ fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 // }
 
 // TODO: Make this work.
-fn comp<'c>(exprs: Vector<Expr>, _symbol_table: &'c SymbolTable) -> LispResult<Expr> {
+fn comp(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let compose = move |es, sym: &SymbolTable| {
         let mut res: Vector<Expr> = es;
         for func in exprs.iter().rev() {
@@ -438,7 +443,6 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 
     // If given docs, add it to the symbol table
     if let Some(doc) = doc {
-        symbol_table.push_canonical_doc_item(sym_name.clone());
         symbol_table.add_doc_item(sym_name, doc);
     }
 
@@ -604,6 +608,12 @@ fn shuffle(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
     use rand::thread_rng;
     list.shuffle(&mut thread_rng());
     Ok(Expr::List(list.into()))
+}
+
+fn random_bool(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 0);
+    let b: bool = rand::random();
+    Ok(Expr::Bool(b))
 }
 
 // Records
@@ -868,6 +878,7 @@ Example:
 >>> (shuffle (range 10))
 (6 3 2 9 4 0 1 8 5 7)
 "),
+        ("random_bool", 0, random_bool, true, "Randomly return true or false."),
         ("panic", 1, panic, true, "Abort the program printing the given message.
 
 Example: (panic \"goodbye\") ; kills program

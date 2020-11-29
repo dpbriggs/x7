@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_wraps)]
 use crate::cli::Options;
 use crate::parser::read;
 use crate::symbols::SymbolTable;

@@ -259,7 +259,7 @@ with the script below, which =org-mode= pastes into the list below:
 #+end_src
 
 #+begin_src sh :results output raw :format org :exports results
-     cargo run --release -- gen_docs.x7 -l
+     cargo run --release -- gen_docs.x7
 #+end_src
 
 #+RESULTS:
@@ -476,6 +476,12 @@ Example:
 >>> (shuffle (range 10))
 (6 3 2 9 4 0 1 8 5 7)
 
+#+END_SRC
+
+*** =random_bool=
+
+#+BEGIN_SRC elisp
+Randomly return true or false.
 #+END_SRC
 
 *** =panic=
@@ -829,21 +835,6 @@ Example:
 
 #+END_SRC
 
-*** =not==
-
-#+BEGIN_SRC elisp
-Test if a sequence is not equal to each other.
-Example:
-(not= 1 1 2) ; false
-
-#+END_SRC
-
-*** =empty?=
-
-#+BEGIN_SRC elisp
-Test if a collection is empty.
-#+END_SRC
-
 *** =empty?=
 
 #+BEGIN_SRC elisp
@@ -856,31 +847,10 @@ Test if a collection is empty.
 Test if a collection is non-empty.
 #+END_SRC
 
-*** =non-empty?=
-
-#+BEGIN_SRC elisp
-Test if a collection is non-empty.
-#+END_SRC
-
 *** =is-even?=
 
 #+BEGIN_SRC elisp
 Test if the given item is even.
-#+END_SRC
-
-*** =is-even?=
-
-#+BEGIN_SRC elisp
-Test if the given item is even.
-#+END_SRC
-
-*** =dot-product=
-
-#+BEGIN_SRC elisp
-Dot product two vectors.
-Example:
-(dot-product '(1 2 3) '(4 5 6)) ; 32
-
 #+END_SRC
 
 *** =dot-product=
@@ -901,21 +871,6 @@ Example:
 
 #+END_SRC
 
-*** =quicksort=
-
-#+BEGIN_SRC elisp
-Sort a list using quicksort.
-Example:
-(quicksort '(3 1 2)) ; (1 2 3)
-
-#+END_SRC
-
-*** =fib=
-
-#+BEGIN_SRC elisp
-Find the `num'th Fibonacci number.
-#+END_SRC
-
 *** =fib=
 
 #+BEGIN_SRC elisp
@@ -928,10 +883,11 @@ Find the `num'th Fibonacci number.
 Test if two items are equal, and panic otherwise.
 #+END_SRC
 
-*** =assert-eq=
+*** =docp=
 
 #+BEGIN_SRC elisp
-Test if two items are equal, and panic otherwise.
+Pretty print the doc string of a function
+   Example: (docp docp) ;; Pretty print the doc string of a function...
 #+END_SRC
 
 *** =FileRecord=
@@ -999,12 +955,6 @@ Example:
 (.append_line "Hello world!") ; file contains '...old-contents...Hello world!
 '
 
-#+END_SRC
-
-*** =pretty-print=
-
-#+BEGIN_SRC elisp
-Format doc strings into something org-mode will agree with.
 #+END_SRC
 
 *** =pretty-print=

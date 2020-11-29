@@ -25,7 +25,7 @@ pub fn read_cli(sym_table: &SymbolTable) {
         let readline = rl.readline(">>> ");
         match readline {
             Ok(line) => {
-                if line == "" {
+                if line.is_empty() {
                     continue;
                 }
                 for expr in read(line.as_str()) {

@@ -1,3 +1,4 @@
+#![allow(clippy::match_like_matches_macro)]
 use crate::iterators::IterType;
 use crate::records::RecordType;
 use anyhow::{anyhow, bail, Context};
@@ -743,10 +744,6 @@ impl SymbolTable {
             new_func_locals.insert(symbol, value);
         }
         Ok(copy)
-    }
-
-    pub(crate) fn push_canonical_doc_item(&self, item: String) {
-        self.docs.borrow_mut().order.push(item);
     }
 
     pub(crate) fn get_canonical_doc_order(&self) -> Vec<String> {

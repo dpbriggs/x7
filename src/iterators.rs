@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_wraps)]
 use crate::symbols::{Expr, Function, LispResult, SymbolTable};
 use im::Vector;
 use std::fmt;

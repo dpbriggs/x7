@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_wraps)]
 use crate::cli::report_error;
 use structopt::StructOpt;
 
