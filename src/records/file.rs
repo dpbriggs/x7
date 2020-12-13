@@ -1,7 +1,7 @@
 use crate::exact_len;
 use crate::records::{Record, RecordDoc, RecordType};
 use crate::symbols::{Expr, LispResult, SymbolTable};
-use crate::{num, record, unknown_method};
+use crate::{num, record, try_call_method, unknown_method};
 use anyhow::anyhow;
 use im::Vector;
 use parking_lot::Mutex;
@@ -140,17 +140,6 @@ impl FileRecord {
         exact_len!(args, 1);
         let content = args[0].get_string()?;
         self.append(&format!("\n{}", content))
-    }
-}
-
-macro_rules! try_call_method {
-    ($self:expr, $sym:expr, $args:expr, $($method_name:ident),*) => {
-        match $sym {
-            $(
-                stringify!($method_name) => $self.$method_name($args),
-            )*
-            _ => unknown_method!($self, $sym)
-        }
     }
 }
 

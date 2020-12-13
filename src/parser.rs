@@ -68,7 +68,7 @@ fn parse_symbol(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
 }
 
 fn parse_string(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
-    let esc = escaped(none_of("\\\""), '\\', tag("\""));
+    let esc = escaped(none_of("\\\""), '\\', none_of(""));
     let esc_or_empty = alt((esc, tag("")));
 
     map(delimited(tag("\""), esc_or_empty, tag("\"")), |s: &str| {

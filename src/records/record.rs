@@ -126,3 +126,15 @@ macro_rules! unknown_method {
         ))
     }};
 }
+
+#[macro_export]
+macro_rules! try_call_method {
+    ($self:expr, $sym:expr, $args:expr, $($method_name:ident),*) => {
+        match $sym {
+            $(
+                stringify!($method_name) => $self.$method_name($args),
+            )*
+                _ => unknown_method!($self, $sym)
+        }
+    }
+}

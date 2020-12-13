@@ -383,6 +383,12 @@ logical or.
 logical and.
 #+END_SRC
 
+*** =xor=
+
+#+BEGIN_SRC elisp
+logical xor.
+#+END_SRC
+
 *** =ident=
 
 #+BEGIN_SRC elisp
@@ -393,6 +399,12 @@ Identity function. Returns what you give it.
 
 #+BEGIN_SRC elisp
 Transforms the given input into a quote. Usually you will want to use the '(1 2 3) syntax.
+#+END_SRC
+
+*** =symbol=
+
+#+BEGIN_SRC elisp
+tbd
 #+END_SRC
 
 *** =print=
@@ -533,6 +545,12 @@ Return all symbols defined in the interpreter.
 Apply a function to each element of a sequence and return a list.
 Example: (map inc '(1 2 3)) ; (2 3 4)
 
+#+END_SRC
+
+*** =inline_transform=
+
+#+BEGIN_SRC elisp
+doc tbd
 #+END_SRC
 
 *** =foreach=
@@ -806,6 +824,12 @@ Example:
 Open a file. Under construction.
 #+END_SRC
 
+*** =re::compile=
+
+#+BEGIN_SRC elisp
+Compile a regex. Under construction.
+#+END_SRC
+
 *** =call_method=
 
 #+BEGIN_SRC elisp
@@ -954,6 +978,54 @@ Example:
 (def new-file (fs::open "new_file.txt"))
 (.append_line "Hello world!") ; file contains '...old-contents...Hello world!
 '
+
+#+END_SRC
+
+*** =Regex=
+
+#+BEGIN_SRC elisp
+Regular Expressions - regular search patterns.
+
+This is backed by the excellent regex crate: https://github.com/rust-lang/regex
+
+Example:
+
+;; Compile a regex
+(def a (re::compile "(abc)+"))
+
+;; Test if a string matches
+
+(.is_match a "abcabc") ;; true
+(.is_match a "ab") ;; false
+
+#+END_SRC
+
+*** =Regex.is_match=
+
+#+BEGIN_SRC elisp
+Returns true if a string matches the regex.
+
+Example:
+(def re (re::compile "abc"))
+(assert-eq true (.is_match re "abc") "Did not match!")
+#+END_SRC
+
+*** =Regex.captures=
+
+#+BEGIN_SRC elisp
+Returns a list of lists of all captures in the input.
+;; Example
+(def lines "15-16 f: ffffffffffffffhf
+             6-8 b: bbbnvbbb
+             6-10 z: zhzzzzfzzzzzzzzzpzz
+             9-13 s: dmssskssqsssssf")
+(def re (re::compile "(\d+)-(\d+) (.): (.*)"))
+(.captures re lines)
+;; Outputs:
+((tuple "15" "16" "f" "ffffffffffffffhf")
+ (tuple "6" "8" "b" "bbbnvbbb")
+ (tuple "6" "10" "z" "zhzzzzfzzzzzzzzzpzz")
+ (tuple "9" "13" "s" "dmssskssqsssssf"))
 
 #+END_SRC
 

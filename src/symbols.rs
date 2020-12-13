@@ -302,7 +302,7 @@ pub(crate) type X7FunctionPtr =
 
 #[derive(Clone)]
 pub struct Function {
-    symbol: String,
+    pub symbol: String,
     minimum_args: usize,
     f: X7FunctionPtr,
     named_args: Vec<Expr>, // Expr::Symbol

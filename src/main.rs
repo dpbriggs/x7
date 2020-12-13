@@ -16,6 +16,9 @@ fn main() -> Result<(), i32> {
                 return Err(1);
             }
         }
+        if opt.load_file {
+            cli::read_cli(&sym_table);
+        }
     }
     Ok(())
 }

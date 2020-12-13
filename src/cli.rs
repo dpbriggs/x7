@@ -8,9 +8,19 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "x7", about = "x7 Programming Language")]
 pub struct Options {
-    #[structopt(short = "l", long)]
+    #[structopt(
+        short = "l",
+        long,
+        help = "Show the functions loaded from the x7 stdlib"
+    )]
     pub show_loading_stdlib: bool,
     pub files: Vec<String>,
+    #[structopt(
+        short = "e",
+        long,
+        help = "Execute the file(s), and then load the interpreter"
+    )]
+    pub load_file: bool,
 }
 
 impl Default for Options {
@@ -18,6 +28,7 @@ impl Default for Options {
         Options {
             show_loading_stdlib: false,
             files: Vec::with_capacity(0),
+            load_file: false,
         }
     }
 }

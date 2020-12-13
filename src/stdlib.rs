@@ -2,7 +2,8 @@
 use crate::cli::Options;
 use crate::iterators::{LazyMap, NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
-use crate::records::FileRecord;
+use crate::records::RecordDoc;
+use crate::records::{FileRecord, RegexRecord};
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use anyhow::{anyhow, bail, ensure};
 use bigdecimal::{BigDecimal, One};
@@ -95,6 +96,18 @@ fn and(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::Bool(true))
 }
 
+fn xor(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    if exprs.len() > 0 {
+        let mut res = exprs[0].get_bool()?;
+        for b in exprs.iter().skip(1) {
+            res ^= b.get_bool()?;
+        }
+        Ok(Expr::Bool(res))
+    } else {
+        Ok(Expr::Bool(true))
+    }
+}
+
 fn not(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     Ok(Expr::Bool(!exprs[0].get_bool()?))
@@ -145,6 +158,12 @@ fn sqrt_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Ex
 
 fn int(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
+    if let Ok(s) = exprs[0].get_string() {
+        let res: u64 = s
+            .parse()
+            .map_err(|_| anyhow!("Could not convert to an int."))?;
+        return Ok(Expr::Num(res.into()));
+    }
     let num = exprs[0].get_num()?;
     Ok(Expr::Num(num.round(0)))
 }
@@ -158,6 +177,15 @@ fn ident(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn quote(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::Quote(exprs))
+}
+
+fn symbol(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    if let Ok(s) = exprs[0].get_string() {
+        Ok(Expr::Symbol(s))
+    } else {
+        todo!("fancy error handling")
+    }
 }
 
 fn eval(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -187,11 +215,32 @@ fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     if let Some(doc) = symbol_table.get_doc_item(&sym) {
         return Ok(Expr::String(doc));
     }
+
     let sym_eval = exprs[0].eval(&symbol_table)?;
+    if let Ok(f) = sym_eval.get_function() {
+        if let Some(doc) = symbol_table.get_doc_item(&f.symbol) {
+            return Ok(Expr::String(doc));
+        }
+    }
+
     let doc = symbol_table
         .get_doc_item(&sym_eval.get_symbol_string()?)
         .unwrap_or_else(|| format!("No documentation for {}", sym));
     Ok(Expr::String(doc))
+}
+
+fn inline_transform(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let data = exprs[0].get_list()?;
+    let functions = exprs[1].get_list()?;
+
+    Ok(Expr::Tuple(
+        functions
+            .iter()
+            .zip(data)
+            .map(|(f, x)| f.call_fn(vector![x], symbol_table))
+            .collect::<LispResult<Vector<Expr>>>()?,
+    ))
 }
 
 // XXX: Closure lifetime resolution is some magic shit.
@@ -503,11 +552,19 @@ fn tuple(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn nth(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let index = exprs[0].get_usize()?;
-    exprs[1]
-        .get_list()?
-        .get(index)
-        .cloned()
-        .ok_or_else(|| anyhow::anyhow!(ProgramError::BadTypes))
+    if let Ok(string) = exprs[1].get_string() {
+        Ok(string
+            .chars()
+            .nth(index)
+            .map(|c| Expr::String(c.into()))
+            .unwrap_or(Expr::Nil))
+    } else {
+        exprs[1]
+            .get_list()?
+            .get(index)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!(ProgramError::BadTypes))
+    }
 }
 
 fn cons(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -668,7 +725,6 @@ macro_rules! make_stdlib_fns {
 
 macro_rules! document_records {
 	  ($sym:expr, $($rec:ident),*) => {
-        use crate::records::RecordDoc;
 		    $(
             // Document the record itself.
             $sym.add_doc_item($rec::name().into(), $rec::type_doc().into());
@@ -800,6 +856,7 @@ Example:
         ),
         ("or", 1, or, true, "logical or."),
         ("and", 1, and, true, "logical and."),
+        ("xor", 1, xor, true, "logical xor."),
         // // MISC
         (
             "ident",
@@ -814,6 +871,13 @@ Example:
             quote,
             false,
             "Transforms the given input into a quote. Usually you will want to use the '(1 2 3) syntax."
+        ),
+        (
+            "symbol",
+            0,
+            symbol,
+            false,
+            "tbd"
         ),
         (
             "print",
@@ -906,6 +970,7 @@ Example: (err \"Something bad happened!\") ; return an error"),
         ("map", 1, map, true, "Apply a function to each element of a sequence and return a list.
 Example: (map inc '(1 2 3)) ; (2 3 4)
 "),
+        ("inline_transform", 2, inline_transform, true, "doc tbd"),
         ("foreach", 2, foreach, true, "Eagerly apply the given function to a sequence or list.
 Example:
 (foreach
@@ -1047,6 +1112,7 @@ Example:
 (sort '(3 7 0 5 4 8 1 2 6 9)) ; (0 1 2 3 4 5 6 7 8 9)
 "),
         ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
+        ("re::compile", 1, RegexRecord::compile_x7, true, "Compile a regex. Under construction."),
         ("call_method", 2, call_method, true, "
 Call a method on a record.
 
@@ -1060,5 +1126,6 @@ Example:
     );
     load_x7_stdlib(opts, &syms).unwrap();
     document_records!(syms, FileRecord);
+    document_records!(syms, RegexRecord);
     syms
 }
