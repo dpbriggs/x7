@@ -97,7 +97,7 @@ fn and(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 }
 
 fn xor(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    if exprs.len() > 0 {
+    if !exprs.is_empty() {
         let mut res = exprs[0].get_bool()?;
         for b in exprs.iter().skip(1) {
             res ^= b.get_bool()?;
@@ -450,7 +450,7 @@ fn bind(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exprs[1].eval(&sym_copy)
 }
 
-fn func(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn func(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let arg_symbols = exprs[0].get_list()?;
     let min_args = match arg_symbols.iter().position(|e| e.symbol_matches("&")) {
@@ -465,6 +465,7 @@ fn func(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         f,
         arg_symbols.iter().cloned().collect(),
         true,
+        symbol_table.get_func_locals(),
     );
     Ok(Expr::Function(f))
 }

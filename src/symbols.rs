@@ -3,8 +3,8 @@ use crate::iterators::IterType;
 use crate::records::RecordType;
 use anyhow::{anyhow, bail, Context};
 use bigdecimal::{BigDecimal, ToPrimitive, Zero};
-use core::cell::RefCell;
 use core::cmp::Ordering;
+use dashmap::DashMap;
 use im::Vector;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -307,6 +307,7 @@ pub struct Function {
     f: X7FunctionPtr,
     named_args: Vec<Expr>, // Expr::Symbol
     eval_args: bool,
+    closure: Option<im::HashMap<String, Expr>>,
 }
 
 use std::hash::{Hash, Hasher};
@@ -354,6 +355,7 @@ impl Function {
             f,
             named_args: Vec::with_capacity(0),
             eval_args,
+            closure: None,
         }
     }
 
@@ -363,6 +365,7 @@ impl Function {
         f: X7FunctionPtr,
         named_args: Vec<Expr>,
         eval_args: bool,
+        closure: im::HashMap<String, Expr>,
     ) -> Self {
         Self {
             symbol,
@@ -370,6 +373,7 @@ impl Function {
             f,
             named_args,
             eval_args,
+            closure: Some(closure),
         }
     }
 
@@ -389,20 +393,25 @@ impl Function {
             ));
         }
 
+        let symbol_table = match &self.closure {
+            None => symbol_table.clone(),
+            Some(close) => symbol_table.with_closure(close),
+        };
+
         if self.named_args.is_empty() {
             if self.eval_args {
-                let args: Vector<_> = args.iter().map(|e| e.eval(symbol_table)).try_collect()?;
+                let args: Vector<_> = args.iter().map(|e| e.eval(&symbol_table)).try_collect()?;
                 // let args = args?;
-                return (self.f)(args.clone(), symbol_table).with_context(|| {
+                return (self.f)(args.clone(), &symbol_table).with_context(|| {
                     format!("Error in {}, with args {}", &self, format_args(&args))
                 });
             } else {
-                return (self.f)(args, symbol_table);
+                return (self.f)(args, &symbol_table);
             }
         }
 
         let args = if self.eval_args {
-            let args: Vector<_> = args.iter().map(|e| e.eval(symbol_table)).try_collect()?;
+            let args: Vector<_> = args.iter().map(|e| e.eval(&symbol_table)).try_collect()?;
             args
         } else {
             args
@@ -619,8 +628,7 @@ impl Expr {
     }
 }
 
-type SymbolLookup = HashMap<String, Expr>;
-use std::rc::Rc;
+use std::sync::Mutex;
 
 #[derive(Debug, Clone, Default)]
 struct Doc {
@@ -647,9 +655,9 @@ impl Doc {
 // TODO: Debug should include stdlib
 #[derive(Clone, Debug, Default)]
 pub struct SymbolTable {
-    globals: Rc<RefCell<SymbolLookup>>,
-    locals: Rc<RefCell<SymbolLookup>>,
-    docs: Rc<RefCell<Doc>>,
+    globals: Arc<DashMap<String, Expr>>,
+    locals: Arc<DashMap<String, Expr>>,
+    docs: Arc<Mutex<Doc>>,
     // TODO: Should functions be magic like this?
     // Future Dave: magic means we special case adding
     // symbols to the table whether or not a function is calling.
@@ -663,9 +671,9 @@ impl SymbolTable {
         doc_order: Vec<(String, String)>,
     ) -> SymbolTable {
         SymbolTable {
-            globals: Rc::new(RefCell::new(globals.into_iter().collect())),
+            globals: Arc::new(globals.into_iter().collect()),
             locals: Default::default(),
-            docs: Rc::new(RefCell::new(Doc::with_globals(doc_order))),
+            docs: Arc::new(Mutex::new(Doc::with_globals(doc_order))),
             func_locals: Default::default(),
         }
     }
@@ -679,34 +687,45 @@ impl SymbolTable {
         if let Some(expr) = self.func_locals.get(symbol) {
             return Ok(expr.clone());
         }
-        if let Some(expr) = self.locals.borrow().get(symbol) {
+        if let Some(expr) = self.locals.get(symbol) {
             return Ok(expr.clone());
         }
         // Check global scope
         self.globals
-            .borrow()
             .get(symbol)
-            .cloned()
+            .map(|e| e.clone())
             .ok_or_else(|| anyhow!("Unknown Symbol {}", symbol.to_string()))
     }
 
+    pub(crate) fn get_func_locals(&self) -> im::HashMap<String, Expr> {
+        self.func_locals.clone()
+    }
+
+    pub(crate) fn with_closure(&self, other: &im::HashMap<String, Expr>) -> SymbolTable {
+        let mut new = self.clone();
+        new.func_locals = new.func_locals.union(other.clone());
+        new
+    }
+
     pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {
-        let mut locals = self.locals.borrow_mut();
-        locals.insert(symbol.get_symbol_string()?, value.clone());
+        self.locals
+            .insert(symbol.get_symbol_string()?, value.clone());
         Ok(Expr::Nil)
     }
 
     pub(crate) fn add_doc_item(&self, symbol: String, doc: String) {
-        self.docs.borrow_mut().add(symbol, doc);
+        let mut guard = self.docs.lock().unwrap();
+        guard.add(symbol, doc);
     }
 
     pub(crate) fn get_doc_item(&self, symbol: &str) -> Option<String> {
-        self.docs.borrow().docs.get(symbol).cloned()
+        let guard = self.docs.lock().unwrap();
+        guard.docs.get(symbol).cloned()
     }
 
     pub(crate) fn get_doc_methods(&self, sym: &str) -> Vec<(String, String)> {
-        self.docs
-            .borrow()
+        let guard = self.docs.lock().unwrap();
+        guard
             .docs
             .iter()
             .filter(|(symbol, _doc)| symbol.starts_with(sym))
@@ -735,7 +754,6 @@ impl SymbolTable {
                     bail!(ProgramError::ExpectedRestSymbol);
                 };
                 copy.locals
-                    .borrow_mut()
                     .insert(rest_sym, Expr::List(values_iter.collect()));
                 break;
             }
@@ -747,7 +765,8 @@ impl SymbolTable {
     }
 
     pub(crate) fn get_canonical_doc_order(&self) -> Vec<String> {
-        self.docs.borrow().order.clone()
+        let guard = self.docs.lock().unwrap();
+        guard.order.clone()
     }
 }
 
