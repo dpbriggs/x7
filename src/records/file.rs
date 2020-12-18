@@ -144,7 +144,12 @@ impl FileRecord {
 }
 
 impl Record for FileRecord {
-    fn call_method(&self, sym: &str, args: Vector<Expr>) -> LispResult<Expr> {
+    fn call_method(
+        &self,
+        sym: &str,
+        args: Vector<Expr>,
+        _symbol_table: &SymbolTable,
+    ) -> LispResult<Expr> {
         try_call_method!(
             self,
             sym,
@@ -157,8 +162,8 @@ impl Record for FileRecord {
         )
     }
 
-    fn type_name(&self) -> &'static str {
-        "FileRecord"
+    fn type_name(&self) -> String {
+        "FileRecord".into()
     }
 
     fn display(&self) -> String {
@@ -173,8 +178,11 @@ impl Record for FileRecord {
         Box::new(Clone::clone(self))
     }
 
-    fn methods(&self) -> Vec<&'static str> {
-        FileRecord::method_doc().iter().map(|(l, _)| *l).collect()
+    fn methods(&self) -> Vec<String> {
+        FileRecord::method_doc()
+            .iter()
+            .map(|(l, _)| l.to_string())
+            .collect()
     }
 
     fn id(&self) -> u64 {

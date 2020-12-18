@@ -118,6 +118,112 @@ Outputs:
 135301852344706746049
 218922995834555169026
 #+end_example
+** More Features
+*** Dynamic Records and Syntactic Sugar
+
+A recent addition to the language is the =defrecord= and =defmethod= functions,
+which allow you to define records in =x7= and add methods to the them respectively.
+
+Here's an example of defining =Vec3=, and a way to add them together:
+
+#+begin_src lisp
+  ;; Define a record
+  (defrecord Vec3 "Three dimensional vector" x y z)
+
+  ;; Add a method to it
+  (defmethod Vec3 +
+    "Add two vectors together"
+    (other)
+    (Vec3
+     (+ other.x self.x)
+     (+ other.y self.y)
+     (+ other.z self.z)))
+#+end_src
+
+This lets us encapsulate data, and access it in a nice structured way.
+
+#+begin_src lisp
+  ;; Instantiate a Vec3
+  (def my-vector (Vec3 1 1 1))
+
+  ;; Call the + method
+  (.+ my-vector my-vector) ;; Vec3
+#+end_src
+
+The process of adding this support added two
+new ways to interact with expressions - callable Records and field-access-sugar
+
+**** Callable Records
+
+To make record construction nice, you can treat records defined with =defrecord= as constructor functions:
+
+#+begin_example
+>>> (defrecord Point x y)
+Record<Point, uninitialized>
+>>> (Point 0 0)
+Record<Point, fields=[ x: 0 y: 0 ]>
+#+end_example
+
+**** Record Field Syntactic Sugar
+
+By default, fields of a record are treated as zero-arity methods on that record, with =self= being inserted with method_call syntax.
+
+This meant that this got old after a while:
+
+#+begin_example
+(+ (.x self) (.x other))
+#+end_example
+
+So I added some sugar in the form of =self.x=:
+
+#+begin_example 
+>>> (defrecord Point x y)
+>>> (def origin (Point 0 0))
+>>> origin.x
+0
+#+end_example
+
+It works in a recursive way if you have deeply nested fields.
+
+#+begin_example
+>>> (defrecord Point x y)
+>>> (defrecord Space origin)
+>>> (def space (Space (Point 0 0)))
+>>> space.origin
+Record<Point, fields=[ x: 0 y: 0 ]>
+>>> space.origin.x
+0
+>>> space.origin.y
+0
+#+end_example
+
+The syntax immediately evaluates, as it gets transformed a nested list of function calls:
+
+#+begin_example
+space.origin.y ;; (.y (.origin space))
+#+end_example
+
+You can do some tricks with this, like this:
+
+#+begin_src lisp
+  (def file (fs::open "input.txt"))
+  (def re (re::compile "(\d+)-(\d+) (.): (.*)"))
+  (def captures (.captures re file.read_to_string))
+#+end_src
+
+It's currently not possible to reference non-zero-arity functions.
+
+#+begin_example
+>>> (def v (Vec3 0 0 0))
+nil
+>>> v.scale
+Error: Too few args supplied for Fn<Vec3.scale, 1, [ scalar ]>. Expected 1, was given  of length 0
+
+Stacktrace:
+  - Error in Fn<method_call<scale; v>, 0, [ ]>, with args ()
+#+end_example
+
+I am working to fix this.
 
 ** Language Description
 
@@ -293,7 +399,7 @@ Example: (* 1 2 3) ; 6
 
 #+BEGIN_SRC elisp
 Take the remainder of the first item against the second.
-Example: (% 4 2) ; 0
+            Example: (% 4 2) ; 0
 #+END_SRC
 
 *** =/=
@@ -325,28 +431,28 @@ Example: (= 1 1) ; true
 
 #+BEGIN_SRC elisp
 Test if the first item is strictly smaller than the rest.
-Example: (< 0 1 2) ; true
+            Example: (< 0 1 2) ; true
 #+END_SRC
 
 *** =<==
 
 #+BEGIN_SRC elisp
 Test if the first item is smaller or equal to the rest.
-Example: (<= 0 0 0.05 1) ; true
+            Example: (<= 0 0 0.05 1) ; true
 #+END_SRC
 
 *** =>=
 
 #+BEGIN_SRC elisp
 Test if the first item is strictly greater than the rest.
-Example: (> 10 0 1 2 3 4) ; true
+            Example: (> 10 0 1 2 3 4) ; true
 #+END_SRC
 
 *** =>==
 
 #+BEGIN_SRC elisp
 Test if the first item is greater than or equal to the rest.
-Example: (>= 10 10 5) ; true
+            Example: (>= 10 10 5) ; true
 #+END_SRC
 
 *** =inc=
@@ -516,21 +622,21 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 #+BEGIN_SRC elisp
 Return the type of the argument as a string.
-Example: (type "hello") ; str
+            Example: (type "hello") ; str
 #+END_SRC
 
 *** =doc=
 
 #+BEGIN_SRC elisp
 Return the documentation of a symbol as a string.
-Example: (doc doc) ; Return the documentation of a symbol as a...
+            Example: (doc doc) ; Return the documentation of a symbol as a...
 #+END_SRC
 
 *** =err=
 
 #+BEGIN_SRC elisp
 Return an error with a message string.
-Example: (err "Something bad happened!") ; return an error
+            Example: (err "Something bad happened!") ; return an error
 #+END_SRC
 
 *** =all-symbols=
@@ -828,6 +934,52 @@ Open a file. Under construction.
 
 #+BEGIN_SRC elisp
 Compile a regex. Under construction.
+#+END_SRC
+
+*** =defrecord=
+
+#+BEGIN_SRC elisp
+Define a Record structure.
+
+Use defmethod to add methods a record.
+
+Example:
+;; Define a record
+(defrecord Vec3 "Three Dimensional Vector" x y z)
+
+;; Instantiate a Vec3
+(def v (Vec 1 2 3))
+
+;; Access attributes
+
+v.x    ;; 1
+(.y v) ;; 2
+
+#+END_SRC
+
+*** =defmethod=
+
+#+BEGIN_SRC elisp
+Add a method to a record. Cannot be called on instantiated records.
+
+NOTE: Methods get an implicit `self` reference.
+
+;; Example
+
+;; Define a record
+(defrecord Vec3 "Three Dimensional Vector" x y z)
+
+(defmethod Vec3 +
+  "Add two vectors together"
+  (other)
+  (Vec3
+   (+ other.x self.x)
+   (+ other.y self.y)
+   (+ other.z self.z)))
+
+(def v (Vec3 1 1 1))
+
+(.+ v v) ;; (Vec3 2 2 2)
 #+END_SRC
 
 *** =call_method=

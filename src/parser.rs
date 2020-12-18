@@ -7,6 +7,8 @@ use crate::symbols::{Expr, LispResult, Num, ProgramError};
 // who had an s_expression example for me to work from.
 // https://github.com/Geal/nom/blob/master/examples/s_expression.rs
 
+use crate::symbols::Function;
+use im::vector;
 use nom::bytes::complete::escaped;
 use nom::{
     branch::alt,
@@ -20,6 +22,7 @@ use nom::{
     sequence::{delimited, preceded},
     IResult, Parser,
 };
+use std::sync::Arc;
 
 #[inline]
 fn is_symbol_char(c: char) -> bool {
@@ -37,16 +40,14 @@ use crate::symbols::SymbolTable;
 use im::Vector;
 
 fn method_call(method: String) -> Expr {
-    use crate::symbols::Function;
-    use std::sync::Arc;
     let method_clone = method.clone();
-    let method_fn = move |args: Vector<Expr>, _sym: &SymbolTable| {
+    let method_fn = move |args: Vector<Expr>, sym: &SymbolTable| {
         let rec = match args[0].get_record() {
             Ok(rec) => rec,
             Err(e) => return Err(e),
         };
         use crate::records::Record;
-        rec.call_method(&method_clone, args.clone().slice(1..))
+        rec.call_method(&method_clone, args.clone().slice(1..), sym)
     };
     let f = Function::new(
         format!("method_call<{}>", method),
@@ -57,22 +58,93 @@ fn method_call(method: String) -> Expr {
     Expr::Function(f)
 }
 
+/// Massage a symbol like `Record.field.inner_field`
+/// into (.inner_field (.field Record))
+///
+/// If there's left hand side, like `.read_to_string`,
+/// return a `Fn<method_call<read_to_string>>` instead.
+fn method_call_multiple(methods: Vec<String>) -> Expr {
+    if methods.len() == 1 {
+        return method_call(methods[0].clone());
+    }
+    let ff: Expr = methods.into_iter().fold(Expr::Nil, |acc, method| {
+        if matches!(acc, Expr::Nil) {
+            return Expr::Symbol(method);
+        }
+        let acc_clone = acc.clone();
+        let method_clone = method.clone();
+        let method_fn = move |args: Vector<Expr>, sym: &SymbolTable| {
+            let mut args = args;
+            // Stick the acc at the front
+            args.push_front(acc.clone());
+            let rec = match args[0].eval(sym).and_then(|e| e.get_record()) {
+                Ok(rec) => rec,
+                Err(e) => return Err(e),
+            };
+            use crate::records::Record;
+            rec.call_method(&method_clone, args.slice(1..), sym)
+        };
+        let f = Function::new(
+            format!("method_call<{}; {}>", method, acc_clone),
+            0,
+            Arc::new(method_fn),
+            true,
+        );
+        Expr::List(vector![Expr::Function(f)])
+    });
+    ff
+}
+
 fn parse_symbol(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     map(take_while1(is_symbol_char), |sym: &str| {
-        if let Some(method) = sym.strip_prefix('.') {
-            method_call(method.into())
+        if sym.contains('.') {
+            let methods = sym
+                .split('.')
+                .filter(|s| !s.is_empty())
+                .map(|st| st.to_string())
+                .collect();
+            method_call_multiple(methods)
         } else {
             Expr::Symbol(sym.into())
         }
     })(i)
 }
 
+fn decode_control_character_str(input: &str) -> String {
+    let mut output_str = String::new();
+    if input.is_empty() {
+        return output_str;
+    }
+    let mut skip_next_c = false;
+    for (first_c, second_c) in input.chars().zip(input.chars().skip(1)) {
+        if skip_next_c {
+            skip_next_c = false;
+            continue;
+        }
+        if first_c == '\\' {
+            skip_next_c = true;
+            match second_c {
+                'n' => output_str.push('\n'),
+                'r' => output_str.push('\r'),
+                _ => {
+                    skip_next_c = false;
+                }
+            }
+        } else {
+            output_str.push(first_c);
+        }
+    }
+    output_str.push(input.chars().last().unwrap());
+    output_str
+}
+
 fn parse_string(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     let esc = escaped(none_of("\\\""), '\\', none_of(""));
+    // let esc = escaped(none_of("\\\""), '\\', one_of(r#"n"\"#));
     let esc_or_empty = alt((esc, tag("")));
 
     map(delimited(tag("\""), esc_or_empty, tag("\"")), |s: &str| {
-        Expr::String(s.into())
+        Expr::String(decode_control_character_str(s))
     })(i)
 }
 

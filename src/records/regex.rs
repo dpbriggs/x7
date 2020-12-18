@@ -57,7 +57,12 @@ impl RegexRecord {
 }
 
 impl Record for RegexRecord {
-    fn call_method(&self, sym: &str, args: Vector<Expr>) -> LispResult<Expr> {
+    fn call_method(
+        &self,
+        sym: &str,
+        args: Vector<Expr>,
+        _symbol_table: &SymbolTable,
+    ) -> LispResult<Expr> {
         try_call_method!(self, sym, args, is_match, captures)
     }
 
@@ -73,12 +78,15 @@ impl Record for RegexRecord {
         Box::new(Clone::clone(self))
     }
 
-    fn methods(&self) -> Vec<&'static str> {
-        RegexRecord::method_doc().iter().map(|(l, _)| *l).collect()
+    fn methods(&self) -> Vec<String> {
+        RegexRecord::method_doc()
+            .iter()
+            .map(|(l, _)| l.to_string())
+            .collect()
     }
 
-    fn type_name(&self) -> &'static str {
-        "Regex"
+    fn type_name(&self) -> String {
+        "Regex".into()
     }
 }
 

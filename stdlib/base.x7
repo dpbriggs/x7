@@ -77,3 +77,13 @@ Example:
    Example: (docp docp) ;; Pretty print the doc string of a function..."
   (sym)
   (println (doc sym)))
+
+
+(defn doc-methods
+  (record)
+  (foreach
+   (fn (rec-method)
+       (do
+           (println "- " (nth 0 rec-method))
+           (println "  - " (nth 1 rec-method))))
+   (methods record)))

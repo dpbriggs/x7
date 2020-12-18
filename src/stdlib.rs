@@ -1,11 +1,12 @@
 #![allow(clippy::unnecessary_wraps)]
+use crate::bad_types;
 use crate::cli::Options;
 use crate::iterators::{LazyMap, NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
 use crate::records::RecordDoc;
-use crate::records::{FileRecord, RegexRecord};
+use crate::records::{DynRecord, FileRecord, RegexRecord};
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
-use anyhow::{anyhow, bail, ensure};
+use anyhow::{anyhow, bail, ensure, Context};
 use bigdecimal::{BigDecimal, One};
 use im::{vector, Vector};
 use itertools::Itertools;
@@ -184,7 +185,7 @@ fn symbol(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> 
     if let Ok(s) = exprs[0].get_string() {
         Ok(Expr::Symbol(s))
     } else {
-        todo!("fancy error handling")
+        bad_types!("string", exprs[0])
     }
 }
 
@@ -211,6 +212,7 @@ fn all_symbols(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Ex
 
 fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
+    // TODO: Make records nice (merge Record and RecordDoc?)
     let sym = exprs[0].get_symbol_string()?;
     if let Some(doc) = symbol_table.get_doc_item(&sym) {
         return Ok(Expr::String(doc));
@@ -223,6 +225,7 @@ fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         }
     }
 
+    // Last ditch effort: eval it
     let doc = symbol_table
         .get_doc_item(&sym_eval.get_symbol_string()?)
         .unwrap_or_else(|| format!("No documentation for {}", sym));
@@ -276,7 +279,8 @@ fn comp(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn def(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
-    symbol_table.add_local(&exprs[0], &exprs[1].eval(symbol_table)?)
+    symbol_table.add_local(&exprs[0], &exprs[1].eval(symbol_table)?)?;
+    Ok(Expr::Nil)
 }
 
 fn exprs_do(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -477,7 +481,7 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     } else {
         (
             exprs[0].clone(),
-            Some(exprs[1].clone().get_string()?),
+            Some(exprs[1].eval(symbol_table)?.get_string()?),
             exprs[2].clone(),
             exprs[3].clone(),
         )
@@ -676,12 +680,12 @@ fn random_bool(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<E
 
 // Records
 
-fn call_method(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn call_method(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     let rec = exprs[0].get_record()?;
     let method = &exprs[1].get_string()?;
     let args = exprs.clone().slice(2..);
     use crate::records::Record;
-    rec.call_method(method, args)
+    rec.call_method(method, args, symbol_table)
 }
 
 fn doc_methods(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -780,7 +784,7 @@ Example: (* 1 2 3) ; 6
             rem_exprs,
             true,
             "Take the remainder of the first item against the second.
-Example: (% 4 2) ; 0"
+            Example: (% 4 2) ; 0"
         ),
         (
             "/",
@@ -816,7 +820,7 @@ Example: (= 1 1) ; true
             lt_exprs,
             true,
             "Test if the first item is strictly smaller than the rest.
-Example: (< 0 1 2) ; true"
+            Example: (< 0 1 2) ; true"
         ),
         (
             "<=",
@@ -824,7 +828,7 @@ Example: (< 0 1 2) ; true"
             lte_exprs,
             true,
             "Test if the first item is smaller or equal to the rest.
-Example: (<= 0 0 0.05 1) ; true"
+            Example: (<= 0 0 0.05 1) ; true"
         ),
         (
             ">",
@@ -832,7 +836,7 @@ Example: (<= 0 0 0.05 1) ; true"
             gt_exprs,
             true,
             "Test if the first item is strictly greater than the rest.
-Example: (> 10 0 1 2 3 4) ; true"
+            Example: (> 10 0 1 2 3 4) ; true"
         ),
         (
             ">=",
@@ -840,7 +844,7 @@ Example: (> 10 0 1 2 3 4) ; true"
             gte_exprs,
             true,
             "Test if the first item is greater than or equal to the rest.
-Example: (>= 10 10 5) ; true"
+            Example: (>= 10 10 5) ; true"
         ),
         ("inc", 1, inc_exprs, true, "Increment the given number."),
         ("int", 1, int, true, "Create an integer from the input.
@@ -961,11 +965,11 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 ... and the interpreter will stop.
 "),
         ("type", 1, type_of, true, "Return the type of the argument as a string.
-Example: (type \"hello\") ; str"),
+            Example: (type \"hello\") ; str"),
         ("doc", 1, doc, false, "Return the documentation of a symbol as a string.
-Example: (doc doc) ; Return the documentation of a symbol as a..."),
+            Example: (doc doc) ; Return the documentation of a symbol as a..."),
         ("err", 1, err, true, "Return an error with a message string.
-Example: (err \"Something bad happened!\") ; return an error"),
+            Example: (err \"Something bad happened!\") ; return an error"),
         ("all-symbols", 0, all_symbols, true, "Return all symbols defined in the interpreter."),
         // FUNC TOOLS
         ("map", 1, map, true, "Apply a function to each element of a sequence and return a list.
@@ -1114,6 +1118,42 @@ Example:
 "),
         ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
         ("re::compile", 1, RegexRecord::compile_x7, true, "Compile a regex. Under construction."),
+        ("defrecord", 1, DynRecord::defrecord, false, "Define a Record structure.
+
+Use defmethod to add methods a record.
+
+Example:
+;; Define a record
+(defrecord Vec3 \"Three Dimensional Vector\" x y z)
+
+;; Instantiate a Vec3
+(def v (Vec 1 2 3))
+
+;; Access attributes
+
+v.x    ;; 1
+(.y v) ;; 2
+"),
+        ("defmethod", 1, DynRecord::defmethod_x7, false, "Add a method to a record. Cannot be called on instantiated records.
+
+NOTE: Methods get an implicit `self` reference.
+
+;; Example
+
+;; Define a record
+(defrecord Vec3 \"Three Dimensional Vector\" x y z)
+
+(defmethod Vec3 +
+  \"Add two vectors together\"
+  (other)
+  (Vec3
+   (+ other.x self.x)
+   (+ other.y self.y)
+   (+ other.z self.z)))
+
+(def v (Vec3 1 1 1))
+
+(.+ v v) ;; (Vec3 2 2 2)"),
         ("call_method", 2, call_method, true, "
 Call a method on a record.
 
@@ -1123,7 +1163,7 @@ Example:
 (call_method f \"read_to_string\") ;; no args required
 (call_method f \"write\" \"hello world\") ;; pass it an arg
 "),
-        ("methods", 1, doc_methods, false, "Grab all documentation for a record's methods")
+        ("methods", 1, doc_methods, true, "Grab all documentation for a record's methods")
     );
     load_x7_stdlib(opts, &syms).unwrap();
     document_records!(syms, FileRecord);

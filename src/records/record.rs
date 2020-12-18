@@ -1,4 +1,5 @@
-use crate::symbols::{Expr, LispResult};
+use crate::symbols::{Expr, LispResult, ProgramError, SymbolTable};
+use anyhow::bail;
 use core::hash::Hash;
 use core::hash::Hasher;
 use im::Vector;
@@ -29,7 +30,12 @@ pub trait Record: Sync + Send {
     /// (.method_name <rec> arg1 arg2 arg3)
     /// Becomes:
     /// (&self: <rec>, sym: "method_name", args: vector![arg1, arg2, arg3])
-    fn call_method(&self, sym: &str, args: Vector<Expr>) -> LispResult<Expr>;
+    fn call_method(
+        &self,
+        sym: &str,
+        args: Vector<Expr>,
+        symbol_table: &SymbolTable,
+    ) -> LispResult<Expr>;
     fn id(&self) -> u64 {
         0
     }
@@ -40,9 +46,22 @@ pub trait Record: Sync + Send {
     /// Clone the object.
     fn clone(&self) -> RecordType;
     /// Return the names of the methods for help messages.
-    fn methods(&self) -> Vec<&'static str>;
+    fn methods(&self) -> Vec<String>;
     /// Return the type name for nice help messages
-    fn type_name(&self) -> &'static str;
+    fn type_name(&self) -> String;
+
+    fn call_as_fn(&self, _args: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+        bail!(ProgramError::NotAFunction(Expr::Record(Box::new(
+            self.clone(),
+        ))))
+    }
+
+    fn defmethod(&self, _args: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+        bail!(
+            "Defining methods is not supported on this record: {}",
+            Record::type_name(self)
+        )
+    }
 }
 
 impl fmt::Display for RecordType {
@@ -58,8 +77,13 @@ impl fmt::Debug for RecordType {
 }
 
 impl Record for RecordType {
-    fn call_method(&self, sym: &str, args: Vector<Expr>) -> LispResult<Expr> {
-        self.deref().call_method(sym, args)
+    fn call_method(
+        &self,
+        sym: &str,
+        args: Vector<Expr>,
+        symbol_table: &SymbolTable,
+    ) -> LispResult<Expr> {
+        self.deref().call_method(sym, args, symbol_table)
     }
 
     fn debug(&self) -> String {
@@ -76,11 +100,17 @@ impl Record for RecordType {
     fn clone(&self) -> RecordType {
         self.deref().clone()
     }
-    fn methods(&self) -> Vec<&'static str> {
+    fn methods(&self) -> Vec<String> {
         self.deref().methods()
     }
-    fn type_name(&self) -> &'static str {
+    fn type_name(&self) -> String {
         self.deref().type_name()
+    }
+    fn call_as_fn(&self, args: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+        self.deref().call_as_fn(args, symbol_table)
+    }
+    fn defmethod(&self, args: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+        self.deref().defmethod(args, symbol_table)
     }
 }
 

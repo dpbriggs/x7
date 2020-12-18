@@ -4,4 +4,4 @@ pub mod modules;
 pub mod parser;
 mod records;
 pub mod stdlib;
-mod symbols;
+pub mod symbols;

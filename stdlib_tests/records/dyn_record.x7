@@ -1,0 +1,59 @@
+(defrecord Vec3 "Three dimensional vector" x y z)
+
+(defmethod Vec3 +
+  "Add two vectors together"
+  (other)
+  (Vec3
+   (+ other.x self.x)
+   (+ other.y self.y)
+   (+ other.z self.z)))
+
+(defmethod Vec3 -
+  "Subtract self by some other vector"
+  (other)
+  (Vec3
+   (- other.x self.x)
+   (- other.y self.y)
+   (- other.z self.z)))
+
+(defmethod Vec3 =
+  "Test if this vector is equal to other"
+  (other)
+  (and
+   (= self.x other.x)
+   (= self.y other.y)
+   (= self.z other.z)))
+
+(defmethod Vec3 dot
+  "Dot product of two vectors"
+  (other)
+  (+
+   (* other.x self.x)
+   (* other.y self.y)
+   (* other.z self.z)))
+
+(defmethod Vec3 scale
+  "Scale this vector by some scalar"
+  (scalar)
+  (Vec3
+   (* self.x scalar)
+   (* self.y scalar)
+   (* self.z scalar)))
+
+(defmethod Vec3 inline_scale
+  "Pair-wise multiply self and other"
+  (other)
+  (Vec3
+   (* other.x self.x)
+   (* other.y self.y)
+   (* other.z self.z)))
+
+(defmethod Vec3 length
+  "Length of this vector from the origin"
+  ()
+  (sqrt (.dot self self)))
+
+(defmethod Vec3 squared_length
+  "Squared Length of this vector from the origin"
+  ()
+  (.dot self self))

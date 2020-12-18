@@ -1,0 +1,8 @@
+(defn ret (x)
+  (fn (y) (+ x y)))
+
+(assert-eq ((ret 3) 3) 6 "Closure test failed!")
+
+(defn foobar (x) x)
+(defn foo (foobar)
+     (fn () (foobar foobar)))

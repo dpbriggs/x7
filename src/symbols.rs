@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
+#[macro_export]
 macro_rules! bad_types {
     ($custom:expr) => {
         Err(anyhow!(ProgramError::BadTypes)).with_context(|| $custom)
@@ -585,10 +586,10 @@ impl Expr {
         args: Vector<Expr>,
         symbol_table: &SymbolTable,
     ) -> LispResult<Expr> {
-        if let Expr::Function(f) = self {
-            f.call_fn(args, symbol_table)
-        } else {
-            bail!(ProgramError::NotAFunction(self.clone()));
+        match self {
+            Expr::Function(f) => f.call_fn(args, symbol_table),
+            Expr::Record(r) => r.call_as_fn(args, symbol_table),
+            _ => bail!(ProgramError::NotAFunction(self.clone())),
         }
     }
 
@@ -707,6 +708,10 @@ impl SymbolTable {
         new
     }
 
+    pub(crate) fn add_item(&self, symbol: String, value: Expr) {
+        self.locals.insert(symbol, value);
+    }
+
     pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {
         self.locals
             .insert(symbol.get_symbol_string()?, value.clone());
@@ -725,10 +730,11 @@ impl SymbolTable {
 
     pub(crate) fn get_doc_methods(&self, sym: &str) -> Vec<(String, String)> {
         let guard = self.docs.lock().unwrap();
+        let sym = format!("{}.", sym);
         guard
             .docs
             .iter()
-            .filter(|(symbol, _doc)| symbol.starts_with(sym))
+            .filter(|(symbol, _doc)| symbol.starts_with(&sym))
             .map(|(symbol, doc)| (symbol.into(), doc.into()))
             .collect()
     }
