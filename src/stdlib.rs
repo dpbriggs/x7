@@ -950,7 +950,7 @@ Example (in repl):
         ),
         (
             "def",
-            1,
+            2,
             def,
             false,
             "Associate a given symbol with a value. Overwrites local variables.

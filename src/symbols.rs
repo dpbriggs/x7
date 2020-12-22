@@ -744,6 +744,15 @@ impl SymbolTable {
             .collect()
     }
 
+    pub(crate) fn query_symbol_starts_with(&self, prefix: &str) -> Vec<String> {
+        self.globals
+            .iter()
+            .chain(self.locals.iter())
+            .filter(|s| s.key().starts_with(prefix))
+            .map(|hit| hit.key().into())
+            .collect()
+    }
+
     pub(crate) fn with_locals(&self, symbols: &[Expr], values: Vector<Expr>) -> LispResult<Self> {
         let mut copy = self.clone();
         let mut symbol_iter = symbols.iter().cloned();
