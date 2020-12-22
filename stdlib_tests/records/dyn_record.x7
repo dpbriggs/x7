@@ -57,3 +57,5 @@
   "Squared Length of this vector from the origin"
   ()
   (.dot self self))
+
+(def v (Vec3 1 1 1))

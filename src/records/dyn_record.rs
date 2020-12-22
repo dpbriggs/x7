@@ -176,15 +176,62 @@ impl DynRecord {
         // Finally, look it up
         match self.methods.get(method_name) {
             Some(method) => {
-                let augmented_sym = symbol_table.with_closure(
-                    &self
-                        .fields
+                if args.len() < method.minimum_args {
+                    // In this branch, we auto-curry function methods.
+                    // We need to move a LOT into that closure
+                    let self_clone = Clone::clone(self);
+                    let method_name = method_name.to_string();
+                    let method_clone = method.clone();
+                    let minimum_args = method.minimum_args - args.len();
+                    let name = format!(
+                        "curried_method_call<{}<{}>; #args={}>",
+                        self.name, &method_name, minimum_args
+                    );
+                    let named_args = method
+                        .named_args
                         .iter()
-                        .map(|e| (e.key().clone(), e.value().clone()))
-                        .collect(),
-                );
-                augmented_sym.add_item("self".into(), Expr::Record(Record::clone(self)));
-                method.call_fn(args, &augmented_sym)
+                        .skip(minimum_args)
+                        .cloned()
+                        .collect();
+                    let curry_fn = move |c_args: Vector<Expr>, c_sym: &SymbolTable| {
+                        let mut args_clone = args.clone();
+                        args_clone.append(c_args);
+                        if args_clone.len() < minimum_args {
+                            // curry further
+                            self_clone.call_method(&method_name, args_clone, c_sym)
+                        } else {
+                            // Make sure we close over "self" as we're about to lose
+                            // our usual context.
+                            let new_c_sym = c_sym.add_local_item(
+                                "self".into(),
+                                Expr::Record(Record::clone(&self_clone)),
+                            );
+                            method_clone.call_fn(args_clone, &new_c_sym)
+                        }
+                    };
+                    let f = Function::new_named_args(
+                        name,
+                        0,
+                        Arc::new(curry_fn),
+                        named_args,
+                        true,
+                        im::HashMap::new(),
+                    );
+                    Ok(Expr::Function(f))
+                } else {
+                    let augmented_sym = symbol_table.with_closure(
+                        &self
+                            .fields
+                            .iter()
+                            .map(|e| (e.key().clone(), e.value().clone()))
+                            .collect(),
+                    );
+                    // Add "self" to the symbol table
+                    let augmented_sym = augmented_sym
+                        .add_local_item("self".into(), Expr::Record(Record::clone(self)));
+
+                    method.call_fn(args, &augmented_sym)
+                }
             }
             None => unknown_method!(self, method_name),
         }

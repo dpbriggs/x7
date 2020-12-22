@@ -189,6 +189,15 @@ fn symbol(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> 
     }
 }
 
+fn string(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    if let Ok(s) = exprs[0].get_string() {
+        Ok(Expr::String(s))
+    } else {
+        Ok(Expr::String(format!("{}", &exprs[0])))
+    }
+}
+
 fn eval(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     exprs[0].eval(symbol_table)
@@ -631,6 +640,28 @@ fn zip(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     ))
 }
 
+fn product(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    // TODO: Any number of args.
+    exact_len!(exprs, 2);
+    let first = exprs[0].get_list()?;
+    let second = exprs[1].get_list()?;
+    let mut out = Vector::new();
+    // TODO: use fancy itertools
+    for x in &first {
+        for y in &second {
+            out.push_back(Expr::Tuple(vector![x.clone(), y.clone()]));
+        }
+    }
+    Ok(Expr::Tuple(out))
+}
+
+fn rev(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    // TODO: Any number of args.
+    exact_len!(exprs, 1);
+    let list = exprs[0].get_list()?;
+    Ok(Expr::List(list.into_iter().rev().collect()))
+}
+
 fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.is_empty() {
         return NaturalNumbers::lisp_res();
@@ -885,6 +916,13 @@ Example:
             "tbd"
         ),
         (
+            "str",
+            1,
+            string,
+            true,
+            "Make a string"
+        ),
+        (
             "print",
             1,
             print,
@@ -1100,11 +1138,13 @@ Example:
 (range 5) ; (0 1 2 3 4)
 (range 5 10); (5 6 7 8 9)
 "),
+        ("product", 2, product, true, "Cartesian product two lists"),
         ("len", 1, len, true, "Get the number of items in a list or tuple.
 Example:
 (len '(0 0 0)) ; 3
 (len '()) ; 0
 "),
+        ("rev", 1, rev, true, "Reverse a list."),
         ("zip", 2, zip, true, "Zip two lists together into a list of tuples."),
         ("len", 1, len, true, "Get the number of items in a list or tuple.
 Example:

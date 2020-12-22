@@ -3,6 +3,7 @@ use crate::parser::read;
 use crate::symbols::SymbolTable;
 use rustyline::error::ReadlineError;
 use rustyline::{Config, Editor};
+use std::fs::File;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -38,7 +39,13 @@ pub fn read_cli(sym_table: &SymbolTable) {
     // TODO: Auto-complete
     let mut rl = Editor::<()>::with_config(conf);
     if rl.load_history("history.txt").is_err() {
-        // TODO: Make the actual file
+        if let Err(e) = File::create("history.txt") {
+            eprintln!("Attempted to create history file, but failed! {}", e);
+        } else {
+            if rl.load_history("history.txt").is_err() {
+                eprintln!("Successfully created history, but could not load it!")
+            }
+        }
         println!("No previous history.");
     }
     loop {

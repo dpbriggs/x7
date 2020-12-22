@@ -304,9 +304,9 @@ pub(crate) type X7FunctionPtr =
 #[derive(Clone)]
 pub struct Function {
     pub symbol: String,
-    minimum_args: usize,
+    pub minimum_args: usize,
     f: X7FunctionPtr,
-    named_args: Vec<Expr>, // Expr::Symbol
+    pub named_args: Vec<Expr>, // Expr::Symbol
     eval_args: bool,
     closure: Option<im::HashMap<String, Expr>>,
 }
@@ -480,6 +480,8 @@ impl std::ops::Add<&Expr> for Expr {
         match (&self, &other) {
             (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l + r))),
             (Expr::String(l), Expr::String(r)) => Ok(Expr::String(l.to_string() + r)),
+            (Expr::Num(l), Expr::String(r)) => (Ok(Expr::String(format!("{}{}", l, r)))),
+            (Expr::String(l), Expr::Num(r)) => (Ok(Expr::String(format!("{}{}", l, r)))),
             (Expr::List(l), Expr::List(r)) => {
                 let mut res = l.clone();
                 res.append(r.clone());
@@ -703,13 +705,16 @@ impl SymbolTable {
     }
 
     pub(crate) fn with_closure(&self, other: &im::HashMap<String, Expr>) -> SymbolTable {
-        let mut new = self.clone();
-        new.func_locals = new.func_locals.union(other.clone());
-        new
+        SymbolTable {
+            func_locals: other.clone().union(self.func_locals.clone()),
+            ..self.clone()
+        }
     }
 
-    pub(crate) fn add_item(&self, symbol: String, value: Expr) {
-        self.locals.insert(symbol, value);
+    pub(crate) fn add_local_item(&self, symbol: String, value: Expr) -> Self {
+        let new = self.clone();
+        new.locals.insert(symbol, value);
+        new
     }
 
     pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {
