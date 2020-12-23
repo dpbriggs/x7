@@ -91,26 +91,89 @@ impl LazyMap {
     }
 }
 
-use std::sync::atomic::{AtomicUsize, Ordering};
-
-pub(crate) struct NaturalNumbers {
-    counter: AtomicUsize,
+#[derive(Clone)]
+pub(crate) struct LazyFilter {
+    inner: IterType,
+    f: Function,
     id: u64,
 }
 
-impl Clone for NaturalNumbers {
-    fn clone(&self) -> NaturalNumbers {
-        NaturalNumbers {
-            counter: AtomicUsize::new(self.counter.load(Ordering::SeqCst)),
-            id: self.id,
+impl LazyIter for LazyFilter {
+    fn next(&self, symbol_table: &SymbolTable) -> Option<LispResult<Expr>> {
+        loop {
+            match self.inner.next(symbol_table)? {
+                Ok(item) => {
+                    let pred_res = self
+                        .f
+                        .call_fn(Vector::unit(item.clone()), symbol_table)
+                        .and_then(|fn_res| fn_res.get_bool());
+                    // Result<bool, Err>
+                    match pred_res {
+                        Ok(false) => continue,
+                        Ok(true) => return Some(Ok(item)),
+                        Err(e) => return Some(Err(e)),
+                    }
+                }
+                Err(e) => return Some(Err(e)),
+            }
         }
     }
+
+    fn name(&self) -> &'static str {
+        "LazyFilter"
+    }
+
+    fn clone(&self) -> Box<dyn LazyIter> {
+        Box::new(Clone::clone(self))
+    }
+
+    fn id(&self) -> u64 {
+        0
+    }
+}
+
+impl LazyFilter {
+    pub(crate) fn lisp_res(inner: IterType, f: Function) -> LispResult<Expr> {
+        Ok(Expr::LazyIter(Box::new(LazyFilter {
+            inner,
+            f,
+            id: random(),
+        })))
+    }
+}
+
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+#[derive(Default, Debug)]
+struct Counter(AtomicUsize);
+
+impl Clone for Counter {
+    fn clone(&self) -> Self {
+        let value = self.0.load(Ordering::SeqCst);
+        Counter(AtomicUsize::new(value))
+    }
+}
+
+impl Counter {
+    fn zero() -> Counter {
+        Counter(AtomicUsize::new(0))
+    }
+
+    fn fetch_add_one(&self) -> usize {
+        self.0.fetch_add(1, Ordering::SeqCst)
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct NaturalNumbers {
+    counter: Counter,
+    id: u64,
 }
 
 impl NaturalNumbers {
     pub(crate) fn lisp_res() -> LispResult<Expr> {
         Ok(Expr::LazyIter(Box::new(NaturalNumbers {
-            counter: AtomicUsize::new(0),
+            counter: Counter::zero(),
             id: random(),
         })))
     }
@@ -118,7 +181,7 @@ impl NaturalNumbers {
 
 impl LazyIter for NaturalNumbers {
     fn next(&self, _symbol_table: &SymbolTable) -> Option<LispResult<Expr>> {
-        let res = self.counter.fetch_add(1, Ordering::SeqCst);
+        let res = self.counter.fetch_add_one();
         // let res: usize = *self.counter.borrow();
         // *self.counter.borrow_mut() += 1;
         Some(Ok(Expr::Num((res as u64).into())))
@@ -135,6 +198,54 @@ impl LazyIter for NaturalNumbers {
         self.id
     }
 }
+
+use std::sync::Arc;
+
+#[derive(Debug, Clone)]
+pub(crate) struct LazyList {
+    inner: Arc<Vector<Expr>>,
+    index: Counter,
+}
+
+impl LazyList {
+    pub(crate) fn lisp_new(inner: Vector<Expr>) -> LispResult<Expr> {
+        let lazy = LazyList {
+            inner: Arc::new(inner),
+            index: Counter::zero(),
+        };
+        Ok(Expr::LazyIter(Box::new(lazy)))
+    }
+}
+
+impl fmt::Display for LazyList {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl LazyIter for LazyList {
+    fn next(&self, _symbol_table: &SymbolTable) -> Option<LispResult<Expr>> {
+        self.inner.get(self.index.fetch_add_one()).cloned().map(Ok)
+    }
+
+    fn name(&self) -> &'static str {
+        "Lazy"
+    }
+
+    fn clone(&self) -> Box<dyn LazyIter> {
+        Box::new(Clone::clone(self))
+    }
+
+    fn id(&self) -> u64 {
+        0
+    }
+}
+
+// impl Lazy {
+//     fn lisp_res(list: Vector<Expr>) -> LispResult<Expr> {
+//         Ok(Expr::LazyIter(Box::new()))
+//     }
+// }
 
 pub(crate) struct Take {
     inner: IterType,
@@ -217,5 +328,5 @@ macro_rules! impl_dbg {
 	  };
 }
 
-impl_dbg_inner!(LazyMap, Take);
+impl_dbg_inner!(LazyMap, LazyFilter, Take);
 impl_dbg!(NaturalNumbers);

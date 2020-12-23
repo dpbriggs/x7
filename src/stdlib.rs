@@ -1,11 +1,11 @@
 #![allow(clippy::unnecessary_wraps)]
-use crate::bad_types;
 use crate::cli::Options;
-use crate::iterators::{LazyMap, NaturalNumbers, Take};
+use crate::iterators::{LazyList, LazyMap, NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
 use crate::records::RecordDoc;
 use crate::records::{DynRecord, FileRecord, RegexRecord};
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
+use crate::{bad_types, iterators::LazyFilter};
 use anyhow::{anyhow, bail, ensure, Context};
 use bigdecimal::{BigDecimal, One};
 use im::{vector, Vector};
@@ -408,10 +408,13 @@ fn filter(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.len() == 1 {
         // TODO: Transducer case
         // return Transducer::new(|exprs, sym| filter(&exprs[0]))
-        return Ok(Expr::Nil);
+        todo!()
     }
     exact_len!(exprs, 2);
     let f = &exprs[0];
+    if let Ok(iter) = exprs[1].get_iterator() {
+        return LazyFilter::lisp_res(iter, f.get_function()?);
+    }
     let l = exprs[1].get_list()?;
     let mut res = Vector::new();
     for expr in l {
@@ -444,6 +447,19 @@ fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         init = f.call_fn(vector![init, item], symbol_table)?;
     }
     Ok(init)
+}
+
+fn lazy(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    if let Ok(list) = exprs[0].get_list() {
+        return LazyList::lisp_new(list);
+    }
+    // let iter = match &exprs[0] {
+    //     Expr::LazyIter(iter) => iter.clone(),
+    //     _ => return bad_types!("iter", &exprs[0]),
+    // };
+    // Ok(Expr::LazyIter(iter))
+    Ok(Expr::Nil)
 }
 
 fn bind(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -552,6 +568,14 @@ fn get_dict(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr
     let dict = exprs[0].get_dict()?;
     let res = dict.get(&exprs[1]).cloned().unwrap_or(Expr::Nil);
     Ok(res)
+}
+
+fn time(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let start = Instant::now();
+    let _ = exprs[0].eval(symbol_table)?;
+    let end = start.elapsed().as_millis() as u64;
+    Ok(Expr::Num(end.into()))
 }
 
 // LISTS
@@ -742,7 +766,7 @@ fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::List(list))
 }
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 macro_rules! make_stdlib_fns {
 	  ( $(($sym:literal, $minargs:expr, $func:expr, $eval_args:expr, $doc:literal)),* ) => {
@@ -1029,6 +1053,7 @@ Example:
 (defn is-odd (x) (= 1 (% x 2)))
 (filter is-odd (range 20)) ; outputs (1 3 5 7 9 11 13 15 17 19)
 "),
+        ("lazy", 1, lazy, true, "docs TBD"),
         ("apply", 2, apply, true, "Apply a function to a given list.
 (def my-list '(1 2 3))
 (apply + my-list) ; outputs 6
@@ -1203,7 +1228,8 @@ Example:
 (call_method f \"read_to_string\") ;; no args required
 (call_method f \"write\" \"hello world\") ;; pass it an arg
 "),
-        ("methods", 1, doc_methods, true, "Grab all documentation for a record's methods")
+        ("methods", 1, doc_methods, true, "Grab all documentation for a record's methods"),
+        ("time", 1, time, false, "TBD")
     );
     load_x7_stdlib(opts, &syms).unwrap();
     document_records!(syms, FileRecord);
