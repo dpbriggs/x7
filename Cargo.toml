@@ -1,8 +1,12 @@
 [package]
 name = "x7"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["David Briggs <david@dpbriggs.ca>"]
 edition = "2018"
+license = "GPL-3.0-or-later"
+description = "Quirky and embeddable lisp"
+homepage = "https://github.com/dpbriggs/x7"
+readme = "README.org"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]

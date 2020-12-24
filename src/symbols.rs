@@ -717,6 +717,10 @@ impl SymbolTable {
         new
     }
 
+    pub(crate) fn add_symbol(&self, sym: &str, value: Expr) {
+        self.locals.insert(sym.into(), value);
+    }
+
     pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {
         self.locals
             .insert(symbol.get_symbol_string()?, value.clone());
