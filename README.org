@@ -11,10 +11,6 @@ The standard library is being written in either x7 or rust for performance.
 
 You have brackets. Lots of brackets. And lists. And functions.
 
-*** Speedy Iterators
-
-Certain constructs like =(range)= and =map= are backed by lazy iterators, making them pretty fast.
-
 *** Self-documenting
 
 The goal is to have every function describe itself, so you can live in the repl.
@@ -59,6 +55,60 @@ Stacktrace:
   - Error in Fn<top, 0, [ ]>, with args ()
 #+end_src
 #+end_example
+
+*** Convenient FFI
+
+x7 offers easy and convenient embedding into other rust programs.
+
+#+begin_src rust
+  use x7::ffi::{X7Interpreter, ForeignData};
+
+  let interpreter = X7Interpreter::new();
+  let res = interpreter.run_program::<u64>("(+ 1 1)").unwrap();
+  assert_eq!(res, 2);
+#+end_src
+
+You can interface your own types in x7 with the =ForeignData= trait, and
+add foreign functions into the interpreter. To maximize convenience foreign functions 
+are typed in terms of their own datatypes - not x7's Expr type.
+
+#+begin_src rust
+  let interpreter = X7Interpreter::new();
+  let my_sum_fn = |args: Vec<u64>| Ok(args.iter().sum());
+  // Add the my-sum to interpreter
+  interpreter.add_function("my-sum", 1, Arc::new(my_sum_fn));
+
+  // And verify we get u64 with value 6 out of it.
+  assert_eq!(interpreter.run_program::<u64>("(my-sum 1 2 3)").unwrap(), 6);
+#+end_src
+
+More interesting is the fact that functions added to the interpreter
+in a strongly typed way, allowing us to mix types!
+
+#+begin_src rust
+  // Recall that my-sum is a Fn(Vec<u64>) -> u64
+  let string_res = interpreter.run_program::<String>("(my-sum 1 2 3)").unwrap();
+  // And we get a string out it!
+  assert_eq!(string_res, "6".to_string());
+#+end_src
+
+That works even though =my-sum= is defined over =u64='s!!!
+The reason it works is we embed the type information into the function
+added to the interpreter, and x7's =Expr= type acts as a bridge between types.
+
+For more info see the =ffi.rs= example in the examples folder!
+
+You can run the example with:
+
+#+begin_example
+cargo run --example ffi
+#+end_example
+
+
+*** Speedy Iterators
+
+Certain constructs like =(range)= and =map= are backed by lazy iterators, making them pretty fast.
+
 
 ** Examples
 
@@ -513,6 +563,12 @@ Transforms the given input into a quote. Usually you will want to use the '(1 2 
 tbd
 #+END_SRC
 
+*** =str=
+
+#+BEGIN_SRC elisp
+Make a string
+#+END_SRC
+
 *** =print=
 
 #+BEGIN_SRC elisp
@@ -682,6 +738,12 @@ Example:
 (defn is-odd (x) (= 1 (% x 2)))
 (filter is-odd (range 20)) ; outputs (1 3 5 7 9 11 13 15 17 19)
 
+#+END_SRC
+
+*** =lazy=
+
+#+BEGIN_SRC elisp
+Turn a list into a lazy sequence. Useful for building complex iterators over some source list.
 #+END_SRC
 
 *** =apply=
@@ -889,6 +951,12 @@ Example:
 
 #+END_SRC
 
+*** =product=
+
+#+BEGIN_SRC elisp
+Cartesian product two lists
+#+END_SRC
+
 *** =len=
 
 #+BEGIN_SRC elisp
@@ -897,6 +965,12 @@ Example:
 (len '(0 0 0)) ; 3
 (len '()) ; 0
 
+#+END_SRC
+
+*** =rev=
+
+#+BEGIN_SRC elisp
+Reverse a list.
 #+END_SRC
 
 *** =zip=
@@ -1000,6 +1074,12 @@ Example:
 
 #+BEGIN_SRC elisp
 Grab all documentation for a record's methods
+#+END_SRC
+
+*** =time=
+
+#+BEGIN_SRC elisp
+Return the time taken to evaluate an expression in milliseconds.
 #+END_SRC
 
 *** =not==

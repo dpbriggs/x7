@@ -1053,7 +1053,7 @@ Example:
 (defn is-odd (x) (= 1 (% x 2)))
 (filter is-odd (range 20)) ; outputs (1 3 5 7 9 11 13 15 17 19)
 "),
-        ("lazy", 1, lazy, true, "docs TBD"),
+        ("lazy", 1, lazy, true, "Turn a list into a lazy sequence. Useful for building complex iterators over some source list."),
         ("apply", 2, apply, true, "Apply a function to a given list.
 (def my-list '(1 2 3))
 (apply + my-list) ; outputs 6
@@ -1229,7 +1229,7 @@ Example:
 (call_method f \"write\" \"hello world\") ;; pass it an arg
 "),
         ("methods", 1, doc_methods, true, "Grab all documentation for a record's methods"),
-        ("time", 1, time, false, "TBD")
+        ("time", 1, time, false, "Return the time taken to evaluate an expression in milliseconds.")
     );
     load_x7_stdlib(opts, &syms).unwrap();
     document_records!(syms, FileRecord);
