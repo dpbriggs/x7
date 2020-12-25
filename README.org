@@ -92,7 +92,6 @@ in a strongly typed way, allowing us to mix types!
   assert_eq!(string_res, "6".to_string());
 #+end_src
 
-That works even though =my-sum= is defined over =u64='s!!!
 The reason it works is we embed the type information into the function
 added to the interpreter, and x7's =Expr= type acts as a bridge between types.
 
