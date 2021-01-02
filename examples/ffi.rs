@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use x7::ffi::{ExprHelper, ForeignData, X7Interpreter};
+use x7::ffi::{ExprHelper, ForeignData, IntoX7Function, X7Interpreter};
 use x7::symbols::Expr;
 
 // This example shows how to use x7's FFI interface.
@@ -70,11 +70,11 @@ fn setup_interpreter(interpreter: &X7Interpreter) {
         Ok(res) // we need to return a result
     };
 
-    // The parameters in order to add_function mean:
+    // The parameters in order to add_function_ptr mean:
     // - symbol: The name of the function in the interpreter
     // - minimum_args: The minimum number of args required to run this function.
     // - function_ptr: The function pointer for the function we're making.
-    interpreter.add_function("mydata-sum", 2, Arc::new(mydata_sum));
+    interpreter.add_function_ptr("mydata-sum", 2, Arc::new(mydata_sum));
 }
 
 fn main() {
@@ -119,10 +119,16 @@ fn main() {
 
     // We can more functions, and use them
     let my_sum_fn = |args: Vec<u64>| Ok(args.iter().sum());
-    interpreter.add_function("my-sum", 1, Arc::new(my_sum_fn));
+    interpreter.add_function_ptr("my-sum", 1, Arc::new(my_sum_fn));
     assert_eq!(interpreter.run_program::<u64>("(my-sum 1 2 3)").unwrap(), 6);
 
     // ... even mixing different types!
     let string_res = interpreter.run_program::<String>("(my-sum 1 2 3)").unwrap();
     assert_eq!(string_res, "6".to_string());
+
+    let string_res = interpreter.run_program::<String>("(test1 3)").unwrap();
+    dbg!(&string_res);
+
+    let string_res = interpreter.run_program::<String>("(test2 3)").unwrap();
+    dbg!(&string_res);
 }
