@@ -167,7 +167,7 @@ impl Expr {
         Ok(res)
     }
 
-    pub(crate) fn get_string(&self) -> LispResult<String> {
+    pub fn get_string(&self) -> LispResult<String> {
         if let Expr::String(s) = self {
             Ok(s.clone())
         } else {
@@ -280,7 +280,7 @@ impl Expr {
         }
     }
 
-    pub(crate) fn get_symbol_string(&self) -> LispResult<String> {
+    pub fn get_symbol_string(&self) -> LispResult<String> {
         if let Expr::Symbol(s) = self {
             Ok(s.clone())
         } else {

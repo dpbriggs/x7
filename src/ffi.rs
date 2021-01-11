@@ -2,8 +2,8 @@ use num_traits::cast::ToPrimitive;
 use std::error::Error;
 use std::sync::Arc;
 
-use crate::parser::read;
 use crate::symbols::{Expr, Function, SymbolTable};
+use crate::{parser::read, symbols::LispResult};
 use anyhow::anyhow;
 use im::Vector;
 
@@ -139,13 +139,13 @@ impl X7Interpreter {
     /// # Example:
     ///
     /// ```rust
-    /// use x7::ffi::{ExprHelper, ForeignData, X7Interpreter};
+    /// use x7::ffi::{ExprHelper, ForeignData, X7Interpreter, IntoX7Function};
     ///
     /// let interpreter = X7Interpreter::new();
     /// let my_sum_fn = |a: u64, b: u64| a + b;
     ///
     /// // Add the function
-    /// interpreter.add_function("my-sum", 1, Arc::new(my_sum_fn));
+    /// interpreter.add_function("my-sum", my_sum_fn.to_x7_fn());
     ///
     /// // Verify the output is correct
     /// assert_eq!(interpreter.run_program::<u64>("(my-sum 1 2)").unwrap(), 3);
@@ -164,21 +164,86 @@ impl X7Interpreter {
             .add_symbol(function_symbol, Expr::Function(f));
     }
 
+    /// Add a foreign function to this x7 interpreter instance, that doesn't
+    /// evaluate it's arguments.
+    ///
+    /// Useful when dynamically generating functions.
+    ///
+    /// You'll want to use `.to_x7_fn()` here.
+    pub fn add_unevaled_function(
+        &self,
+        function_symbol: &'static str,
+        fn_tuple: (usize, crate::symbols::X7FunctionPtr),
+    ) {
+        let (minimum_args, fn_ptr) = fn_tuple;
+        let f = Function::new(function_symbol.into(), minimum_args, fn_ptr, false);
+        self.symbol_table
+            .add_symbol(function_symbol, Expr::Function(f));
+    }
+
+    /// Manually construct an x7 function, and add it to the interpreter.
+    ///
+    /// #Example
+    ///
+    /// ```rust
+    /// use x7::ffi::{IntoX7Function, Variadic, X7Interpreter};
+    /// use x7::symbols::Expr;
+    ///
+    /// fn embed_foreign_script(interpreter: &X7Interpreter) {
+    ///     // (def-dyn-function my-sum (a b) (+ a b))
+    ///     let interpreter_clone = interpreter.clone();
+    ///     let f = move |args: Variadic<Expr>| {
+    ///         let args = args.to_vec();
+    ///         let fn_name = match args[0].get_symbol_string() {
+    ///             Ok(sym) => sym,
+    ///             Err(e) => return Err(e),
+    ///         };
+    ///         let f_args = args[1].clone(); // (arg1 arg2)
+    ///         let f_body = args[2].clone(); // (redis "set" arg1 arg2)
+    ///         let res = interpreter_clone.add_dynamic_function(&fn_name, f_args, f_body);
+    ///         res
+    ///     };
+    ///     interpreter
+    ///         .add_unevaled_function("def-dyn-function", f.to_x7_fn());
+    /// }
+    /// ```
+    pub fn add_dynamic_function(
+        &self,
+        function_sym: &str,
+        named_args: Expr,
+        body: Expr,
+    ) -> LispResult<Expr> {
+        let arg_symbols = named_args.get_list()?;
+        let args_len = arg_symbols.len();
+        let f = Arc::new(move |_args: Vector<Expr>, sym: &SymbolTable| body.eval(sym));
+        let f = Function::new_named_args(
+            function_sym.to_string(),
+            args_len,
+            f,
+            arg_symbols.into_iter().collect(),
+            true,
+            im::HashMap::new(),
+        );
+
+        self.symbol_table
+            .add_symbol(function_sym, Expr::Function(f));
+        Ok(Expr::Nil)
+    }
+
     /// Run an x7 program.
     ///
     /// # Example:
     ///
     /// ```rust
-    /// use x7::ffi::{ExprHelper, ForeignData, X7Interpreter};
-    /// use std::sync::Arc;
+    /// use x7::ffi::{ExprHelper, ForeignData, X7Interpreter, IntoX7Function};
     ///
     /// let interpreter = X7Interpreter::new();
-    /// let my_sum_fn = |args: Vec<u64>| Ok(args.iter().sum());
+    /// let my_sum_fn = |args: Vec<u64>| args.iter().sum::<u64>();
     /// // Add the my-sum to interpreter
-    /// interpreter.add_function("my-sum", 1, Arc::new(my_sum_fn));
+    /// interpreter.add_function("my-sum", my_sum_fn.to_x7_fn());
     ///
     /// // And verify we get u64 with value 6 out of it.
-    /// assert_eq!(interpreter.run_program::<u64>("(my-sum 1 2 3)").unwrap(), 6);
+    /// assert_eq!(interpreter.run_program::<u64>("(my-sum '(1 2 3))").unwrap(), 6);
     /// ```
     ///
     /// For further help, please find the ffi example at:
@@ -194,6 +259,37 @@ impl X7Interpreter {
                 .map_err(ErrorBridge::new)?;
         }
         T::from_x7(&last_expr)
+    }
+
+    /// Run a function directly in the interpreter.
+    ///
+    /// This is useful for dynamic functions, where you
+    /// just want to call the foreign function.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use x7::ffi::{ExprHelper, ForeignData, X7Interpreter, IntoX7Function};
+    ///
+    /// let interpreter = X7Interpreter::new();
+    /// // replace "+" with your foreign function
+    /// let res: u64 = interpreter.run_function("+", &[1u64, 2, 3]).unwrap();
+    /// assert_eq!(res, 6);
+    /// ```
+    pub fn run_function<T: ForeignData, Out: ForeignData>(
+        &self,
+        fn_name: &str,
+        fn_args: &[T],
+    ) -> Result<Out, Box<dyn Error + Send>> {
+        let args = fn_args
+            .iter()
+            .map(|e| e.to_x7())
+            .collect::<Result<_, _>>()?;
+        self.symbol_table
+            .lookup(&Expr::Symbol(fn_name.into()))
+            .and_then(|f| f.call_fn(args, &self.symbol_table))
+            .map_err(ErrorBridge::new)
+            .and_then(|e| Out::from_x7(&e))
     }
 }
 
@@ -552,5 +648,18 @@ where
                 .map_err(|e| anyhow!("{:?}", e))
         };
         (5, Arc::new(f))
+    }
+}
+
+impl<F> IntoX7Function<(Variadic<Expr>,), Expr> for F
+where
+    F: Fn(Variadic<Expr>) -> LispResult<Expr> + Sync + Send + 'static,
+{
+    fn to_x7_fn(self) -> (usize, crate::symbols::X7FunctionPtr) {
+        let f = move |args: Vector<Expr>, _sym: &SymbolTable| {
+            let args = args.iter().cloned().collect();
+            (self)(Variadic(args))
+        };
+        (1, Arc::new(f))
     }
 }
