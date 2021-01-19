@@ -118,17 +118,16 @@ fn main() {
     assert_eq!(interpreter.run_program::<u64>(program).unwrap(), 2);
 
     // We can more functions, and use them
-    let my_sum_fn = |args: Vec<u64>| Ok(args.iter().sum());
-    interpreter.add_function_ptr("my-sum", 1, Arc::new(my_sum_fn));
-    assert_eq!(interpreter.run_program::<u64>("(my-sum 1 2 3)").unwrap(), 6);
+    let my_sum_fn = |args: Vec<u64>| args.iter().sum::<u64>();
+    interpreter.add_function("my-sum", my_sum_fn.to_x7_fn());
+    assert_eq!(
+        interpreter.run_program::<u64>("(my-sum '(1 2 3))").unwrap(),
+        6
+    );
 
     // ... even mixing different types!
-    let string_res = interpreter.run_program::<String>("(my-sum 1 2 3)").unwrap();
+    let string_res = interpreter
+        .run_program::<String>("(my-sum '(1 2 3))")
+        .unwrap();
     assert_eq!(string_res, "6".to_string());
-
-    let string_res = interpreter.run_program::<String>("(test1 3)").unwrap();
-    dbg!(&string_res);
-
-    let string_res = interpreter.run_program::<String>("(test2 3)").unwrap();
-    dbg!(&string_res);
 }

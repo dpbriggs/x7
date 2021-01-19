@@ -1,6 +1,6 @@
 use num_traits::cast::ToPrimitive;
-use std::error::Error;
 use std::sync::Arc;
+use std::{error::Error, path::Path};
 
 use crate::symbols::{Expr, Function, SymbolTable};
 use crate::{parser::read, symbols::LispResult};
@@ -95,6 +95,11 @@ impl X7Interpreter {
         }
     }
 
+    /// Recursively load a provided standard library directory.
+    pub fn load_lib_dir<P: AsRef<Path>>(&self, lib_path: P) -> Result<(), Box<dyn Error>> {
+        crate::modules::recursively_load_dir(false, lib_path, &self.symbol_table)
+    }
+
     /// Add a foreign function to this x7 interpreter instance.
     ///
     /// # Example:
@@ -114,6 +119,7 @@ impl X7Interpreter {
     ///
     /// For further help, please find the ffi example at:
     /// https://github.com/dpbriggs/x7/blob/master/examples/ffi.rs
+    #[allow(clippy::type_complexity)]
     pub fn add_function_ptr<T: 'static + ForeignData>(
         &self,
         function_symbol: &str,
@@ -496,7 +502,8 @@ impl<T: ForeignData> ForeignData for Result<T, Box<dyn Error + Send>> {
 pub struct Variadic<T>(Vec<T>);
 
 impl<T> Variadic<T> {
-    pub fn to_vec(self) -> Vec<T> {
+    /// Consume the Variadic to produce Vec<T>
+    pub fn into_vec(self) -> Vec<T> {
         self.0
     }
 }
@@ -635,6 +642,7 @@ where
     Out: ForeignData,
     F: Fn(A, B, C, D, E) -> Out + Sync + Send + 'static,
 {
+    #[allow(clippy::many_single_char_names)]
     fn to_x7_fn(self) -> (usize, crate::symbols::X7FunctionPtr) {
         let f = move |args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 5);

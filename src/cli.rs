@@ -26,6 +26,13 @@ pub struct Options {
         help = "Execute the file(s), and then load the interpreter"
     )]
     pub load_file: bool,
+
+    #[structopt(
+        short = "no-nat",
+        long,
+        help = "Load the standard library written in x7. Default: false"
+    )]
+    pub do_not_load_native_stdlib: bool,
 }
 
 impl Default for Options {
@@ -34,6 +41,7 @@ impl Default for Options {
             show_loading_stdlib: false,
             files: Vec::with_capacity(0),
             load_file: false,
+            do_not_load_native_stdlib: false,
         }
     }
 }

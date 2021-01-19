@@ -796,7 +796,12 @@ macro_rules! document_records {
 }
 
 pub fn create_stdlib_symbol_table_no_cli() -> SymbolTable {
-    let opt = Options::default();
+    let opt = Options {
+        // We haven't solved the $X7_PATH issue - i.e. where does
+        // the x7 stdlib on the filesystem?
+        do_not_load_native_stdlib: true,
+        ..Default::default()
+    };
     create_stdlib_symbol_table(&opt)
 }
 
@@ -1231,7 +1236,11 @@ Example:
         ("methods", 1, doc_methods, true, "Grab all documentation for a record's methods"),
         ("time", 1, time, false, "Return the time taken to evaluate an expression in milliseconds.")
     );
-    load_x7_stdlib(opts, &syms).unwrap();
+    if !opts.do_not_load_native_stdlib {
+        if let Err(e) = load_x7_stdlib(opts, &syms) {
+            panic!("Failed to load stdlib: {:?}", e);
+        }
+    }
     document_records!(syms, FileRecord);
     document_records!(syms, RegexRecord);
     syms
