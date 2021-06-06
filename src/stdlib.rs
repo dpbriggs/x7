@@ -1,11 +1,11 @@
 #![allow(clippy::unnecessary_wraps)]
-use crate::cli::Options;
 use crate::iterators::{LazyList, LazyMap, NaturalNumbers, Take};
 use crate::modules::load_x7_stdlib;
 use crate::records::RecordDoc;
 use crate::records::{DynRecord, FileRecord, RegexRecord};
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use crate::{bad_types, iterators::LazyFilter};
+use crate::{cli::Options, iterators::IterType};
 use anyhow::{anyhow, bail, ensure, Context};
 use bigdecimal::{BigDecimal, One};
 use im::{vector, Vector};
@@ -306,7 +306,7 @@ fn panic(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     } else {
         format!("{}", exprs[0])
     };
-    panic!(msg);
+    panic!("{}", msg);
 }
 
 // PRINT
@@ -427,11 +427,33 @@ fn filter(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::List(res))
 }
 
+fn reduce_iterator(
+    f: &Expr,
+    init: Option<Expr>,
+    tail: IterType,
+    symbol_table: &SymbolTable,
+) -> LispResult<Expr> {
+    let mut init = match init {
+        Some(e) => e,
+        None => tail.next(symbol_table).ok_or_else(|| {
+            anyhow!("Attempted to reduce without initial argument using an empty list")
+        })??,
+    };
+    while let Some(next) = tail.next(symbol_table) {
+        init = f.call_fn(vector![init, next?], symbol_table)?;
+    }
+    Ok(init)
+}
+
 /// reduce
 /// (f init coll)
 fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2, 3);
+    let f = &exprs[0];
     let (mut init, list) = if exprs.len() == 2 {
+        if let Ok(iter) = exprs[1].get_iterator() {
+            return reduce_iterator(f, None, iter, symbol_table);
+        }
         let list = exprs[1].get_list()?;
         ensure!(
             !list.is_empty(),
@@ -440,9 +462,11 @@ fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         let (mut head, tail) = list.split_at(1);
         (head.pop_front().unwrap(), tail)
     } else {
+        if let Ok(iter) = exprs[2].get_iterator() {
+            return reduce_iterator(f, Some(exprs[1].clone()), iter, symbol_table);
+        }
         (exprs[1].clone(), exprs[2].get_list()?)
     };
-    let f = &exprs[0];
     for item in list {
         init = f.call_fn(vector![init, item], symbol_table)?;
     }
@@ -769,7 +793,7 @@ fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 use std::{sync::Arc, time::Instant};
 
 macro_rules! make_stdlib_fns {
-	  ( $(($sym:literal, $minargs:expr, $func:expr, $eval_args:expr, $doc:literal)),* ) => {
+    ( $(($sym:literal, $minargs:expr, $func:expr, $eval_args:expr, $doc:literal)),* ) => {
         {
             let mut globals = Vec::new();
             let mut docs = Vec::new();
@@ -780,19 +804,19 @@ macro_rules! make_stdlib_fns {
             )*
             SymbolTable::with_globals(globals, docs)
         }
-	  };
+    };
 }
 
 macro_rules! document_records {
-	  ($sym:expr, $($rec:ident),*) => {
-		    $(
+    ($sym:expr, $($rec:ident),*) => {
+        $(
             // Document the record itself.
             $sym.add_doc_item($rec::name().into(), $rec::type_doc().into());
             for (method, method_doc) in $rec::method_doc() {
                 $sym.add_doc_item(format!("{}.{}", $rec::name(), method), (*method_doc).into());
             }
         )*
-	  };
+    };
 }
 
 pub fn create_stdlib_symbol_table_no_cli() -> SymbolTable {

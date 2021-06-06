@@ -402,7 +402,6 @@ impl Function {
         if self.named_args.is_empty() {
             if self.eval_args {
                 let args: Vector<_> = args.iter().map(|e| e.eval(&symbol_table)).try_collect()?;
-                // let args = args?;
                 return (self.f)(args.clone(), &symbol_table).with_context(|| {
                     format!("Error in {}, with args {}", &self, format_args(&args))
                 });
@@ -428,8 +427,6 @@ impl Function {
 }
 
 impl std::error::Error for ProgramError {}
-
-// use thiserror::Error;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum ProgramError {
