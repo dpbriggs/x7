@@ -119,7 +119,7 @@ impl Expr {
                 _ => false,
             }) {
                 // only floats (sorta) + strings are totally ordered
-                bad_types!("list of identically typed, ordered elements", &self)
+                bad_types!("list of identically typed, ordered elements", self)
             } else {
                 Ok(list)
             }
@@ -147,7 +147,7 @@ impl Expr {
         if let Expr::Num(n) = self {
             Ok(n.clone())
         } else {
-            bad_types!("num", &self)
+            bad_types!("num", self)
         }
     }
 
@@ -155,7 +155,7 @@ impl Expr {
         if let Expr::Record(r) = self {
             Ok(r.clone())
         } else {
-            bad_types!("record", &self)
+            bad_types!("record", self)
         }
     }
 
@@ -171,7 +171,7 @@ impl Expr {
         if let Expr::String(s) = self {
             Ok(s.clone())
         } else {
-            bad_types!("string", &self)
+            bad_types!("string", self)
         }
     }
 
@@ -179,7 +179,7 @@ impl Expr {
         if let Expr::Dict(d) = self {
             Ok(d.clone())
         } else {
-            bad_types!("dict", &self)
+            bad_types!("dict", self)
         }
     }
 
@@ -194,7 +194,7 @@ impl Expr {
         if let Expr::Bool(b) = self {
             Ok(*b)
         } else {
-            bad_types!("bool", &self)
+            bad_types!("bool", self)
         }
     }
 
@@ -206,7 +206,7 @@ impl Expr {
             Expr::Dict(m) => m.len(),
             Expr::String(s) => s.len(),
             Expr::Symbol(s) => s.len(),
-            _ => return bad_types!("collection", &self),
+            _ => return bad_types!("collection", self),
         };
         Ok(len)
     }
@@ -231,7 +231,7 @@ impl Expr {
         if let Expr::Function(f) = self {
             Ok(f.clone())
         } else {
-            bad_types!("func", &self)
+            bad_types!("func", self)
         }
     }
 
@@ -239,7 +239,7 @@ impl Expr {
         if let Expr::LazyIter(l) = self {
             Ok(l.clone())
         } else {
-            bad_types!("iterator", &self)
+            bad_types!("iterator", self)
         }
     }
 
@@ -247,8 +247,7 @@ impl Expr {
         if let Expr::Bool(b) = self {
             Ok(*b)
         } else {
-            bad_types!("bool", &self)
-            // Err(ProgramError::BadTypes).with_context(|| format!("{} is not a bool!", &self))
+            bad_types!("bool", self)
         }
     }
 
@@ -256,7 +255,7 @@ impl Expr {
         if let Expr::Quote(l) = self {
             Ok(l.clone())
         } else {
-            bad_types!("quote", &self)
+            bad_types!("quote", self)
         }
     }
 
@@ -268,7 +267,7 @@ impl Expr {
         } else if let Expr::Tuple(l) = self {
             Ok(l.clone())
         } else {
-            bad_types!("list", &self)
+            bad_types!("list", self)
         }
     }
 
@@ -284,7 +283,7 @@ impl Expr {
         if let Expr::Symbol(s) = self {
             Ok(s.clone())
         } else {
-            bad_types!("symbol", &self)
+            bad_types!("symbol", self)
         }
     }
 
@@ -293,7 +292,7 @@ impl Expr {
             f.symbol = new_name;
             Ok(Expr::Function(f))
         } else {
-            bad_types!("function", &self)
+            bad_types!("function", self)
         }
     }
 }
@@ -609,7 +608,7 @@ impl Expr {
             let head = list.pop_front().unwrap();
             let tail = list;
 
-            return head.eval(&symbol_table)?.call_fn(tail, symbol_table);
+            return head.eval(symbol_table)?.call_fn(tail, symbol_table);
         }
 
         // Eval quote
@@ -621,7 +620,7 @@ impl Expr {
         // Resolve Symbol
 
         if self.is_symbol() {
-            return symbol_table.lookup(&self);
+            return symbol_table.lookup(self);
         }
 
         Ok(self.clone())
@@ -795,10 +794,7 @@ impl SymbolTable {
 // (foo 1 2 3 4) // x: 1, rest: '(2 3 4)
 
 fn get_symbol(sym: Option<Expr>) -> Option<LispResult<String>> {
-    match sym {
-        Some(rest_sym) => Some(rest_sym.get_symbol_string()),
-        None => None,
-    }
+    sym.map(|s| s.get_symbol_string())
 }
 
 fn format_args(args: &Vector<Expr>) -> String {

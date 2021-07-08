@@ -227,7 +227,7 @@ fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         return Ok(Expr::String(doc));
     }
 
-    let sym_eval = exprs[0].eval(&symbol_table)?;
+    let sym_eval = exprs[0].eval(symbol_table)?;
     if let Ok(f) = sym_eval.get_function() {
         if let Some(doc) = symbol_table.get_doc_item(&f.symbol) {
             return Ok(Expr::String(doc));

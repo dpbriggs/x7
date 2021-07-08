@@ -199,7 +199,7 @@ impl X7Interpreter {
     ///     // (def-dyn-function my-sum (a b) (+ a b))
     ///     let interpreter_clone = interpreter.clone();
     ///     let f = move |args: Variadic<Expr>| {
-    ///         let args = args.to_vec();
+    ///         let args = args.into_vec();
     ///         let fn_name = match args[0].get_symbol_string() {
     ///             Ok(sym) => sym,
     ///             Err(e) => return Err(e),

@@ -33,6 +33,13 @@ pub struct Options {
         help = "Load the standard library written in x7. Default: false"
     )]
     pub do_not_load_native_stdlib: bool,
+
+    #[structopt(
+        short = "f",
+        long = "format",
+        help = "WIP: Format some incoming x7 on stdin"
+    )]
+    pub formatter: bool,
 }
 
 impl Default for Options {
@@ -42,6 +49,7 @@ impl Default for Options {
             files: Vec::with_capacity(0),
             load_file: false,
             do_not_load_native_stdlib: false,
+            formatter: false,
         }
     }
 }

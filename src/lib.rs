@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod ffi;
+pub mod formatter;
 mod iterators;
 pub mod modules;
 pub mod parser;

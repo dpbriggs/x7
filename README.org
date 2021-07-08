@@ -69,7 +69,7 @@ x7 offers easy and convenient embedding into other rust programs.
 #+end_src
 
 You can interface your own types in x7 with the =ForeignData= trait, and
-add foreign functions into the interpreter. To maximize convenience foreign functions 
+add foreign functions into the interpreter. To maximize convenience foreign functions
 are typed in terms of their own datatypes - not x7's Expr type.
 
 #+begin_src rust
@@ -225,7 +225,7 @@ This meant that this got old after a while:
 
 So I added some sugar in the form of =self.x=:
 
-#+begin_example 
+#+begin_example
 >>> (defrecord Point x y)
 >>> (def origin (Point 0 0))
 >>> origin.x
@@ -342,7 +342,7 @@ Example:
 (map
   (fn (num) (* num num)) ; anon func
   (range 20))
-  
+
 (defn not=
   (& args) ; excess variables can be captured into a list
   (not (apply = args)))

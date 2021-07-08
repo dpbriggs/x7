@@ -1,12 +1,16 @@
 #![allow(clippy::unnecessary_wraps)]
+
 use crate::cli::report_error;
 use structopt::StructOpt;
 
-use x7::{cli, modules, stdlib};
+use x7::{cli, formatter, modules, stdlib};
 
 fn main() -> Result<(), i32> {
     let opt = cli::Options::from_args();
     let sym_table = stdlib::create_stdlib_symbol_table(&opt);
+    if opt.formatter {
+        return formatter::format(&opt);
+    }
     if opt.files.is_empty() {
         cli::read_cli(&sym_table);
     } else {
