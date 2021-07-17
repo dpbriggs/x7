@@ -9,6 +9,9 @@ use im::Vector;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 use std::sync::Arc;
 
 #[macro_export]
@@ -165,6 +168,14 @@ impl Expr {
             self.get_num()?
         ))?;
         Ok(res)
+    }
+
+    pub fn get_symbol(&self) -> LispResult<Symbol> {
+        if let Expr::Symbol(s) = self {
+            Ok(s.clone())
+        } else {
+            bad_types!("symbol", self)
+        }
     }
 
     pub fn get_string(&self) -> LispResult<String> {
@@ -696,6 +707,13 @@ impl SymbolTable {
             .ok_or_else(|| anyhow!("Unknown Symbol {}", symbol.to_string()))
     }
 
+    pub(crate) fn symbol_exists(&self, sym: String) -> bool {
+        match self.lookup(&Expr::Symbol(sym)) {
+            Ok(_) => true,
+            Err(_) => false,
+        }
+    }
+
     pub(crate) fn get_func_locals(&self) -> im::HashMap<String, Expr> {
         self.func_locals.clone()
     }
@@ -787,6 +805,16 @@ impl SymbolTable {
     pub(crate) fn get_canonical_doc_order(&self) -> Vec<String> {
         let guard = self.docs.lock().unwrap();
         guard.order.clone()
+    }
+
+    pub(crate) fn load_file<P: AsRef<Path>>(&self, path: P) -> LispResult<Expr> {
+        let mut strbuf = String::new();
+        File::open(path)?.read_to_string(&mut strbuf)?;
+        for expr in crate::parser::read(strbuf.as_str()) {
+            let prog = expr?;
+            prog.eval(self)?;
+        }
+        Ok(Expr::Nil)
     }
 }
 

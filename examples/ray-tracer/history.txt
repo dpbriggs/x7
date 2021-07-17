@@ -1,0 +1,101 @@
+#V2
+(.+ (r.destination.scale 0) r.origin)
+(.+ (r.destination.scale -1) r.origin)
+(.at r 3)
+(.at r 10)
+(r.at 10)
+self
+self.scale
+(r.at 10)
+(.at r 10)
+r.at
+(r.at 3)
+(r.at 10)
+(v.scale 3)
+(r.at 10)
+(v.scale 3)
+(v.scale 2)
+(v.scale 1)
+(r.at 10)
+self
+(v.scale 1)
+self
+(r.at 10)
+r.origin
+r
+self
+r.destination
+(r.p 2)
+(v.scale 10)
+(r.p 2)
+(r.p)
+r.p
+(v.scale 10)
+r.p
+(r.at 10)
+r.origin.+
+self
+r.origin.+
+(r.origin.scale 3)
+(r.at 3)
+(.at r 3)
+r.destination
+r.destination.scale
+(r.destination.scale 3)
+(r.destination.scale 2)
+(.at r 3)
+r.destination.scale
+(r.at 3)
+v.x
+self
+r.destination.scale
+(r.destination.scale 3)
+(r.at 3)
+(.at r 3)
+self
+r.destination.scale
+(r.destination.scale 3)
+self
+(.at r 3)
+(.at r 2)
+(.at r 1)
+(r.at 1)
+r.origin.+
+(r.origin.+ (Vec3 1 1 1))
+(r.at 1)
+(r.at 10)
+(.at r 2)
+(.at r 1000)
+(r.at 1000)
+(r.at 100)
+r.p
+(def t (Test r))
+(t.r.at 3)
+(t.test.at 3)
+(t.test.at 1)
+(t.test.at -1)
+v
+v.x
+v.scale
+(v.scale 3)
+panic
+(foobar (foobar
+ininline_transform
+inline_transform
+(random_bool (inline_transform ))
+inline_tran
+ident inline_transform
+dec
+(inline_transform inline_transform defrecord defmethod)
+(defrecord Test test)
+(def test (Test 3))
+test.test
+()
+(defrecord Foobar x y)
+(()\n)
+(defn test ()\n(Foobar 1 2))
+(test)
+(.x (test))
+def
+(def foobar 7)
+foobar

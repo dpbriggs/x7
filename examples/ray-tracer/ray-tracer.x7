@@ -1,0 +1,178 @@
+;; Does this work
+
+(def image-height 256)
+(def image-width 256)
+(def image-height-less-one (- image-height 1))
+(def image-width-less-one (- image-width 1))
+
+;; Image
+
+(defn make-pixel-line
+  (r g b)
+  (+ (int (* 255.999 r))
+     " "
+     (int (* 255.999 g))
+     " "
+     (int (* 255.999 b))))
+
+(defn make-pixels
+  (img-height img-width)
+  (map
+   (fn (x)
+       (bind
+        (i (nth 1 x)
+         j (nth 0 x)
+         r (/ i (- img-height 1))
+         g (/ j (- img-width 1))
+         b 0.25)
+        (make-pixel-line r g b)))
+   (product (rev (range 0 img-height))
+            (range 0 img-width))))
+
+(defn output-image-chp1
+  "Write image contents to the given file"
+  (file)
+  (do
+    (.write file "P3")
+    (.append_line file (+ image-height " " image-width))
+    (.append_line file (str 255))
+    (foreach
+     (fn (x) (.append_line file x))
+     (make-pixels image-height image-width))))
+
+;; chp1 initial image (output-image-chp1 (fs::open "chp1.ppm"))
+
+;; Vec3 record
+
+(defrecord Vec3 "Three dimensional vector" x y z)
+
+(defmethod Vec3 +
+  "Add two vectors together"
+  (other)
+  (Vec3
+   (+ other.x self.x)
+   (+ other.y self.y)
+   (+ other.z self.z)))
+
+
+(defmethod Vec3 -
+  "Subtract self by some other vector"
+  (other)
+  (Vec3
+   (- other.x self.x)
+   (- other.y self.y)
+   (- other.z self.z)))
+
+(defmethod Vec3 =
+  "Test if this vector is equal to other"
+  (other)
+  (and
+   (= self.x other.x)
+   (= self.y other.y)
+   (= self.z other.z)))
+
+(defmethod Vec3 dot
+  "Dot product of two vectors"
+  (other)
+  (+
+   (* other.x self.x)
+   (* other.y self.y)
+   (* other.z self.z)))
+
+(defmethod Vec3 scale
+  "Scale this vector by some scalar"
+  (scalar)
+  (Vec3
+   (* self.x scalar)
+   (* self.y scalar)
+   (* self.z scalar)))
+
+(defmethod Vec3 inline_scale
+  "Pair-wise multiply self and other"
+  (other)
+  (Vec3
+   (* other.x self.x)
+   (* other.y self.y)
+   (* other.z self.z)))
+
+(defmethod Vec3 length
+  "Length of this vector from the origin"
+  ()
+  (sqrt (.dot self self)))
+
+(defmethod Vec3 squared_length
+  "Squared Length of this vector from the origin"
+  ()
+  (.dot self self))
+
+(defmethod Vec3 unit_vector
+  "Scale this vector to have unit length"
+  ()
+  (self.scale (/ 1 self.length)))
+
+(defmethod Vec3 as_tuple
+  ()
+  (tuple self.x self.y self.z))
+
+(defn colour_int
+  (coord)
+  (int (* 255.999 coord)))
+
+(defmethod Vec3 pixel_colour_string
+  "Get the pixel colour line representing this vector"
+  ()
+  (+
+   (colour_int (/ self.x image-width-less-one))
+   " "
+   (colour_int (/ self.y image-height-less-one))
+   " "
+   (colour_int self.z)))
+
+(defmethod Vec3 write_colour_file
+  "Write this vec directly into a file"
+  (file)
+  (.append_line file self.pixel_colour_string))
+
+(defn generate-pixels
+  "Generate all pixel vectors, with z set to 0.25"
+  (height width)
+  (map (fn (x-y) (apply Vec3 (+ x-y (tuple 0.25))))
+       (product (rev (range 0 height))
+                (range 0 width))))
+
+(defn write-file-chp1-3
+  ()
+  (bind
+   (file (fs::open "chp1-3.ppm"))
+   (do
+     (.write file "P3")
+     (.append_line file (+ image-height " " image-width))
+     (.append_line file (str 255))
+     (foreach
+      (fn (x) (.append_line file x))
+      (map .pixel_colour_string
+           (generate-pixels image-height image-width))))))
+
+;; Write chp-1 in that format: (write-file-chp1-3)
+
+
+(defrecord Ray
+  "A ray from an origin with a direction."
+  origin
+  direction)
+
+(defmethod Ray at
+  "The destination of a ray at a scale t"
+  (t)
+  (self.origin.+ (self.direction.scale t)))
+
+(defmethod Ray colour
+  ()
+  (bind
+   (unit_dir self.direction.unit_vector
+    t        (* 0.5 (+ 1 unit_dir.y)))
+   (.+ (.scale (Vec3 1 1 1) (- 1 t))
+       (.scale (Vec3 0.5 0.7 1) t))))
+
+(def v (Vec3 2 2 2))
+(def r (Ray (Vec3 0 0 0) (Vec3 1 1 1)))

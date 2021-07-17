@@ -1,0 +1,16 @@
+
+
+(defn this-functions
+  (x)
+  (bind
+   (a (nth 0 x)
+    b (nth 1 x))
+   (+ a b)))
+
+(defn test-bind
+  (x)
+  (bind
+   (a  (% "a" 2)
+    b (nth 1 x)
+    c a)
+   (+ a b c)))

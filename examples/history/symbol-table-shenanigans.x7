@@ -1,0 +1,19 @@
+
+;; DOES NOT WORK AS SYMBOL TABLE GETS FUCKED BY FIRST fib3 CALL
+
+(defn fib3 (x)
+  (do
+      (if (< x 0) (err "x cannot be negative: " x) ())
+      (match x
+             0 0
+             1 1
+             _ (+ (fib3 (- x 1)) (fib3 (- x 2))))))
+
+;; (println (fib3 2))
+
+(defn fuck (x)
+  (match x
+         0 0
+         _ (+ (fuck (- x 1)) (fuck (- x 1)))))
+
+(println (fib3 10))

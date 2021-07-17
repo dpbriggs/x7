@@ -7,7 +7,7 @@ use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use crate::{bad_types, iterators::LazyFilter};
 use crate::{cli::Options, iterators::IterType};
 use anyhow::{anyhow, bail, ensure, Context};
-use bigdecimal::{BigDecimal, One};
+use bigdecimal::{BigDecimal, One, ToPrimitive};
 use im::{vector, Vector};
 use itertools::Itertools;
 
@@ -176,6 +176,12 @@ fn ident(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(exprs[0].clone())
 }
 
+fn ident_exists(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let iden = exprs[0].get_symbol()?;
+    Ok(Expr::Bool(symbol_table.symbol_exists(iden)))
+}
+
 fn quote(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::Quote(exprs))
 }
@@ -217,6 +223,12 @@ fn all_symbols(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Ex
     exact_len!(exprs, 0);
     let all_syms = symbol_table.get_canonical_doc_order();
     Ok(Expr::List(all_syms.into_iter().map(Expr::Symbol).collect()))
+}
+
+fn include(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let file_path = exprs[0].get_string()?;
+    symbol_table.load_file(file_path)
 }
 
 fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -307,6 +319,16 @@ fn panic(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         format!("{}", exprs[0])
     };
     panic!("{}", msg);
+}
+
+fn sleep(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let dur = exprs[0]
+        .get_num()?
+        .to_u64()
+        .ok_or_else(|| anyhow!("Failed to convert {} to u64", exprs[0]))?;
+    std::thread::sleep(Duration::from_secs(dur));
+    Ok(Expr::Nil)
 }
 
 // PRINT
@@ -757,6 +779,19 @@ fn random_bool(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<E
     Ok(Expr::Bool(b))
 }
 
+fn random_int(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let lower = exprs[0].get_num()?;
+    let lower = lower
+        .to_usize()
+        .ok_or_else(|| anyhow!("Failed to convert {} to a usize!", &lower))?;
+    let upper = exprs[1].get_num()?;
+    let upper = upper
+        .to_usize()
+        .ok_or_else(|| anyhow!("Failed to convert {} to a usize!", &upper))?;
+    let b: usize = rand::random::<usize>() % upper + lower;
+    Ok(num!(b))
+}
 // Records
 
 fn call_method(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -790,6 +825,7 @@ fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::List(list))
 }
 
+use std::time::Duration;
 use std::{sync::Arc, time::Instant};
 
 macro_rules! make_stdlib_fns {
@@ -990,6 +1026,13 @@ Example:
             "Print the given argument WITH a newline."
         ),
         (
+            "ident-exists",
+            1,
+            ident_exists,
+            false,
+            "Returns true if a given symbol exists in the interpeter"
+        ),
+        (
             "eval",
             1,
             eval,
@@ -1044,6 +1087,10 @@ Example:
 (6 3 2 9 4 0 1 8 5 7)
 "),
         ("random_bool", 0, random_bool, true, "Randomly return true or false."),
+        ("random_int", 2, random_int, true, "Randomly return an integer between lower and upper.
+
+Example:
+(random_int 0 10) ;; Returns a num between 0 and 10 (exclusive)"),
         ("panic", 1, panic, true, "Abort the program printing the given message.
 
 Example: (panic \"goodbye\") ; kills program
@@ -1055,6 +1102,8 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 ... and the interpreter will stop.
 "),
+        ("sleep", 1, sleep, true, "Sleep for n seconds.
+            Example: (sleep 10) ; sleep for 10 seconds."),
         ("type", 1, type_of, true, "Return the type of the argument as a string.
             Example: (type \"hello\") ; str"),
         ("doc", 1, doc, false, "Return the documentation of a symbol as a string.
@@ -1062,6 +1111,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
         ("err", 1, err, true, "Return an error with a message string.
             Example: (err \"Something bad happened!\") ; return an error"),
         ("all-symbols", 0, all_symbols, true, "Return all symbols defined in the interpreter."),
+        ("include", 1, include, true, "Include a file into the interpreter."),
         // FUNC TOOLS
         ("map", 1, map, true, "Apply a function to each element of a sequence and return a list.
 Example: (map inc '(1 2 3)) ; (2 3 4)

@@ -580,6 +580,12 @@ Print the given argument WITHOUT a newline.
 Print the given argument WITH a newline.
 #+END_SRC
 
+*** =ident-exists=
+
+#+BEGIN_SRC elisp
+Returns true if a given symbol exists in the interpeter
+#+END_SRC
+
 *** =eval=
 
 #+BEGIN_SRC elisp
@@ -657,6 +663,15 @@ Example:
 Randomly return true or false.
 #+END_SRC
 
+*** =random_int=
+
+#+BEGIN_SRC elisp
+Randomly return an integer between lower and upper.
+
+Example:
+(random_int 0 10) ;; Returns a num between 0 and 10 (exclusive)
+#+END_SRC
+
 *** =panic=
 
 #+BEGIN_SRC elisp
@@ -671,6 +686,13 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 ... and the interpreter will stop.
 
+#+END_SRC
+
+*** =sleep=
+
+#+BEGIN_SRC elisp
+Sleep for n seconds.
+            Example: (sleep 10) ; sleep for 10 seconds.
 #+END_SRC
 
 *** =type=
@@ -698,6 +720,12 @@ Return an error with a message string.
 
 #+BEGIN_SRC elisp
 Return all symbols defined in the interpreter.
+#+END_SRC
+
+*** =include=
+
+#+BEGIN_SRC elisp
+Include a file into the interpreter.
 #+END_SRC
 
 *** =map=
@@ -1079,6 +1107,12 @@ Grab all documentation for a record's methods
 
 #+BEGIN_SRC elisp
 Return the time taken to evaluate an expression in milliseconds.
+#+END_SRC
+
+*** =TestResult=
+
+#+BEGIN_SRC elisp
+Result of a test
 #+END_SRC
 
 *** =not==

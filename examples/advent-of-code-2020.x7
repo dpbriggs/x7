@@ -1,0 +1,33 @@
+(defn count-occurences
+  (chr string)
+  (if (empty? string)
+      0
+      (+ (count-occurences chr (tail string))
+         (if (= (head string) chr) 1 0))))
+
+(defn problem1-is-valid?
+    (line)
+    (bind
+     (lower      (nth 0 line)
+      upper      (nth 1 line)
+      chr        (nth 2 line)
+      passwd     (nth 3 line)
+      num-appear (count-occurences chr passwd))
+     (and (<= num-appear upper)
+          (>= num-appear lower))))
+
+
+(def file
+     (.read_to_string
+      (fs::open "/home/david/programming/advent-of-code-2020/advent2020-day-2/input.txt")))
+
+(def re (re::compile "(\d+)-(\d+) (.): (.*)"))
+
+(def lines (map (fn (x) (inline_transform x (list int int ident ident)))
+                (.captures re file)))
+
+(println "Problem 1 - Number of valid passwords: "
+         (len (filter ident (map problem1-is-valid? lines))))
+
+(println "Problem 2 - Number of valid passwords: "
+         (len (filter ident (map problem2-is-valid? lines))))

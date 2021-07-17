@@ -66,11 +66,5 @@ pub(crate) fn load_x7_stdlib(
 }
 
 pub fn run_file(file_name: &str, symbol_table: &SymbolTable) -> Result<i32, anyhow::Error> {
-    let mut strbuf = String::new();
-    File::open(file_name)?.read_to_string(&mut strbuf)?;
-    for expr in read(strbuf.as_str()) {
-        let prog = expr?;
-        prog.eval(symbol_table)?;
-    }
-    Ok(0)
+    symbol_table.load_file(file_name).map(|_| 0) // TODO: Figure out appropriate success mapping
 }

@@ -1,7 +1,13 @@
-(defn test (msg expected exp)
+(defrecord TestResult
+  "Result of a test"
+  success
+  name
+  message)
+
+(defn test-eq (name msg expected exp)
   (cond
-   (= expected exp) ()
-   true (panic msg)))
+    (= expected exp) (TestResult true name msg)
+    true (TestResult false name msg)))
 
 (defn float-eq (l r threshold)
   (and

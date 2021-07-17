@@ -1,0 +1,4 @@
+(include "examples/modules/sub-folder/hello.x7")
+
+(hello-world) ;; prints Hello World
+(exit 0)
