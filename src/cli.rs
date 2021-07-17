@@ -1,6 +1,6 @@
 // use crate::repl::read;
 use crate::parser::read;
-use crate::symbols::SymbolTable;
+use crate::symbols::{Expr, SymbolTable};
 use rustyline::completion::{Completer, Pair};
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use rustyline::hint::Hinter;
@@ -195,6 +195,8 @@ pub fn read_cli(sym_table: &SymbolTable) {
         }
         println!("No previous history.");
     }
+    let quit_symbol = Expr::Symbol("quit".into());
+    let exit_symbol = Expr::Symbol("exit".into());
     loop {
         let readline = rl.readline(">>> ");
         match readline {
@@ -210,6 +212,10 @@ pub fn read_cli(sym_table: &SymbolTable) {
                             continue;
                         }
                     };
+                    if prog == quit_symbol || prog == exit_symbol {
+                        println!("cy@");
+                        return;
+                    }
                     match prog.eval(sym_table) {
                         Ok(p) => println!("{:?}", p),
                         Err(e) => {
