@@ -959,6 +959,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 
 [[package]]
+name = "smol_str"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b203e79e90905594272c1c97c7af701533d42adaab0beb3859018e477d54a3b0"
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1249,6 +1255,7 @@ dependencies = [
  "regex",
  "rustyline",
  "rustyline-derive",
+ "smol_str",
  "structopt",
  "thiserror",
  "walkdir",

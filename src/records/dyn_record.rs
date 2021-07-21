@@ -55,7 +55,7 @@ impl Record for DynRecord {
         self.methods.iter().map(|m| m.key().to_string()).collect()
     }
 
-    fn type_name(&self) -> String {
+    fn type_name(&self) -> Symbol {
         self.name.clone()
     }
 
@@ -203,7 +203,7 @@ impl DynRecord {
                             // Make sure we close over "self" as we're about to lose
                             // our usual context.
                             let new_c_sym = c_sym.add_local_item(
-                                "self".into(),
+                                Symbol::from("self"),
                                 Expr::Record(Record::clone(&self_clone)),
                             );
                             method_clone.call_fn(args_clone, &new_c_sym)
@@ -228,7 +228,7 @@ impl DynRecord {
                     );
                     // Add "self" to the symbol table
                     let augmented_sym = augmented_sym
-                        .add_local_item("self".into(), Expr::Record(Record::clone(self)));
+                        .add_local_item(Symbol::from("self"), Expr::Record(Record::clone(self)));
 
                     method.call_fn(args, &augmented_sym)
                 }

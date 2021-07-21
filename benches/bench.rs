@@ -3,7 +3,7 @@ use x7::parser::read;
 use x7::stdlib;
 
 fn parse_benchmark(c: &mut Criterion) {
-    let program = "(doall (take 100 (map fib (range)))) (+ 1 1)";
+    let program = "(doall (take 100 (map inc (range)))) (+ 1 1)";
     c.bench_function("parse doall", |b| {
         b.iter(|| {
             for i in read(&program) {
@@ -14,7 +14,7 @@ fn parse_benchmark(c: &mut Criterion) {
 }
 
 fn eval_benchmark(c: &mut Criterion) {
-    let program = "(doall (take 100 (map fib (range)))) (+ 1 1)";
+    let program = "(doall (take 100 (map inc (range)))) (+ 1 1)";
     let sym_table = stdlib::create_stdlib_symbol_table_no_cli();
     c.bench_function("parse doall", |b| {
         b.iter(|| {

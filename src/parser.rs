@@ -1,4 +1,4 @@
-use crate::symbols::{Expr, LispResult, Num, ProgramError};
+use crate::symbols::{Expr, LispResult, Num, ProgramError, Symbol};
 
 // s-expression parser using nom.
 // Supports the usual constructs (quotes, numbers, strings, comments)
@@ -39,7 +39,7 @@ fn is_symbol_char(c: char) -> bool {
 use crate::symbols::SymbolTable;
 use im::Vector;
 
-fn method_call(method: String) -> Expr {
+fn method_call(method: Symbol) -> Expr {
     let method_clone = method.clone();
     let method_fn = move |args: Vector<Expr>, sym: &SymbolTable| {
         let rec = match args[0].get_record() {
@@ -63,7 +63,7 @@ fn method_call(method: String) -> Expr {
 ///
 /// If there's left hand side, like `.read_to_string`,
 /// return a `Fn<method_call<read_to_string>>` instead.
-fn method_call_multiple(methods: Vec<String>) -> Expr {
+fn method_call_multiple(methods: Vec<Symbol>) -> Expr {
     if methods.len() == 1 {
         return method_call(methods[0].clone());
     }
@@ -101,7 +101,7 @@ fn parse_symbol(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
             let methods = sym
                 .split('.')
                 .filter(|s| !s.is_empty())
-                .map(|st| st.to_string())
+                .map(|st| Symbol::from(st))
                 .collect();
             method_call_multiple(methods)
         } else {

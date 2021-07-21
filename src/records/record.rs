@@ -1,3 +1,4 @@
+use crate::symbols::Symbol;
 use crate::symbols::{Expr, LispResult, ProgramError, SymbolTable};
 use anyhow::bail;
 use core::hash::Hash;
@@ -48,7 +49,7 @@ pub trait Record: Sync + Send {
     /// Return the names of the methods for help messages.
     fn methods(&self) -> Vec<String>;
     /// Return the type name for nice help messages
-    fn type_name(&self) -> String;
+    fn type_name(&self) -> Symbol;
 
     fn call_as_fn(&self, _args: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         bail!(ProgramError::NotAFunction(Expr::Record(Box::new(
@@ -103,7 +104,7 @@ impl Record for RecordType {
     fn methods(&self) -> Vec<String> {
         self.deref().methods()
     }
-    fn type_name(&self) -> String {
+    fn type_name(&self) -> Symbol {
         self.deref().type_name()
     }
     fn call_as_fn(&self, args: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {

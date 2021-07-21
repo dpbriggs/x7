@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use crate::records::{Record, RecordDoc};
-use crate::symbols::{Expr, LispResult, SymbolTable};
+use crate::symbols::{Expr, LispResult, Symbol, SymbolTable};
 use crate::{exact_len, record, try_call_method, unknown_method};
 use anyhow::anyhow;
 use im::Vector;
@@ -85,7 +85,7 @@ impl Record for RegexRecord {
             .collect()
     }
 
-    fn type_name(&self) -> String {
+    fn type_name(&self) -> Symbol {
         "Regex".into()
     }
 }

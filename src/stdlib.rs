@@ -189,7 +189,7 @@ fn quote(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 fn symbol(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     if let Ok(s) = exprs[0].get_string() {
-        Ok(Expr::Symbol(s))
+        Ok(Expr::Symbol(s.into()))
     } else {
         bad_types!("string", exprs[0])
     }
@@ -222,7 +222,12 @@ fn err(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 fn all_symbols(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 0);
     let all_syms = symbol_table.get_canonical_doc_order();
-    Ok(Expr::List(all_syms.into_iter().map(Expr::Symbol).collect()))
+    Ok(Expr::List(
+        all_syms
+            .into_iter()
+            .map(|doc| Expr::Symbol(doc.into()))
+            .collect(),
+    ))
 }
 
 fn include(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -294,7 +299,7 @@ fn comp(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         }
         Ok(Expr::List(res))
     };
-    let f = Function::new("AnonCompFn".into(), 1, Arc::new(compose), true);
+    let f = Function::new("AnonCompFn", 1, Arc::new(compose), true);
     Ok(Expr::Function(f))
 }
 
@@ -834,7 +839,7 @@ macro_rules! make_stdlib_fns {
             let mut globals = Vec::new();
             let mut docs = Vec::new();
             $(
-                let f = Function::new($sym.into(), $minargs, Arc::new($func), $eval_args);
+                let f = Function::new($sym, $minargs, Arc::new($func), $eval_args);
                 globals.push(($sym.into(), Expr::Function(f)));
                 docs.push(($sym.into(), $doc.into()));
             )*
@@ -847,7 +852,7 @@ macro_rules! document_records {
     ($sym:expr, $($rec:ident),*) => {
         $(
             // Document the record itself.
-            $sym.add_doc_item($rec::name().into(), $rec::type_doc().into());
+            $sym.add_doc_item($rec::name(), $rec::type_doc().into());
             for (method, method_doc) in $rec::method_doc() {
                 $sym.add_doc_item(format!("{}.{}", $rec::name(), method), (*method_doc).into());
             }

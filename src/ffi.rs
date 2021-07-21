@@ -133,7 +133,7 @@ impl X7Interpreter {
         };
         let x7_fn = Arc::new(x7_fn);
 
-        let f = Function::new(function_symbol.into(), minimum_args, x7_fn, true);
+        let f = Function::new(function_symbol, minimum_args, x7_fn, true);
         self.symbol_table
             .add_symbol(function_symbol, Expr::Function(f))
     }
@@ -165,7 +165,7 @@ impl X7Interpreter {
         fn_tuple: (usize, crate::symbols::X7FunctionPtr),
     ) {
         let (minimum_args, fn_ptr) = fn_tuple;
-        let f = Function::new(function_symbol.into(), minimum_args, fn_ptr, true);
+        let f = Function::new(function_symbol, minimum_args, fn_ptr, true);
         self.symbol_table
             .add_symbol(function_symbol, Expr::Function(f));
     }
@@ -182,7 +182,7 @@ impl X7Interpreter {
         fn_tuple: (usize, crate::symbols::X7FunctionPtr),
     ) {
         let (minimum_args, fn_ptr) = fn_tuple;
-        let f = Function::new(function_symbol.into(), minimum_args, fn_ptr, false);
+        let f = Function::new(function_symbol, minimum_args, fn_ptr, false);
         self.symbol_table
             .add_symbol(function_symbol, Expr::Function(f));
     }

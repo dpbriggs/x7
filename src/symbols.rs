@@ -34,7 +34,7 @@ macro_rules! bad_types {
 
 pub type Num = BigDecimal;
 pub type Dict = im::HashMap<Expr, Expr>;
-pub type Symbol = String;
+pub type Symbol = smol_str::SmolStr;
 
 #[allow(clippy::derive_hash_xor_eq)] // It's probably OK.
 #[derive(Clone, Hash)]
@@ -290,7 +290,7 @@ impl Expr {
         }
     }
 
-    pub fn get_symbol_string(&self) -> LispResult<String> {
+    pub fn get_symbol_string(&self) -> LispResult<Symbol> {
         if let Expr::Symbol(s) = self {
             Ok(s.clone())
         } else {
@@ -298,7 +298,7 @@ impl Expr {
         }
     }
 
-    pub(crate) fn rename_function(self, new_name: String) -> LispResult<Expr> {
+    pub(crate) fn rename_function(self, new_name: Symbol) -> LispResult<Expr> {
         if let Expr::Function(mut f) = self {
             f.symbol = new_name;
             Ok(Expr::Function(f))
@@ -313,12 +313,12 @@ pub(crate) type X7FunctionPtr =
 
 #[derive(Clone)]
 pub struct Function {
-    pub symbol: String,
+    pub symbol: Symbol,
     pub minimum_args: usize,
     f: X7FunctionPtr,
     pub named_args: Vec<Expr>, // Expr::Symbol
     eval_args: bool,
-    closure: Option<im::HashMap<String, Expr>>,
+    closure: Option<im::HashMap<Symbol, Expr>>,
 }
 
 use std::hash::{Hash, Hasher};
@@ -359,9 +359,14 @@ impl fmt::Display for Function {
 }
 
 impl Function {
-    pub fn new(symbol: String, minimum_args: usize, f: X7FunctionPtr, eval_args: bool) -> Self {
+    pub fn new<I: Into<Symbol>>(
+        symbol: I,
+        minimum_args: usize,
+        f: X7FunctionPtr,
+        eval_args: bool,
+    ) -> Self {
         Self {
-            symbol,
+            symbol: symbol.into(),
             minimum_args,
             f,
             named_args: Vec::with_capacity(0),
@@ -370,16 +375,16 @@ impl Function {
         }
     }
 
-    pub fn new_named_args(
-        symbol: String,
+    pub fn new_named_args<I: Into<Symbol>>(
+        symbol: I,
         minimum_args: usize,
         f: X7FunctionPtr,
         named_args: Vec<Expr>,
         eval_args: bool,
-        closure: im::HashMap<String, Expr>,
+        closure: im::HashMap<Symbol, Expr>,
     ) -> Self {
         Self {
-            symbol,
+            symbol: symbol.into(),
             minimum_args,
             f,
             named_args,
@@ -665,14 +670,14 @@ impl Doc {
 // TODO: Debug should include stdlib
 #[derive(Clone, Debug, Default)]
 pub struct SymbolTable {
-    globals: Arc<DashMap<String, Expr>>,
-    locals: Arc<DashMap<String, Expr>>,
+    globals: Arc<DashMap<Symbol, Expr>>,
+    locals: Arc<DashMap<Symbol, Expr>>,
     docs: Arc<Mutex<Doc>>,
     // TODO: Should functions be magic like this?
     // Future Dave: magic means we special case adding
     // symbols to the table whether or not a function is calling.
     // So named arguments last only as long as the function calling.
-    func_locals: im::HashMap<String, Expr>,
+    func_locals: im::HashMap<Symbol, Expr>,
 }
 
 impl SymbolTable {
@@ -681,7 +686,7 @@ impl SymbolTable {
         doc_order: Vec<(String, String)>,
     ) -> SymbolTable {
         SymbolTable {
-            globals: Arc::new(globals.into_iter().collect()),
+            globals: Arc::new(globals.into_iter().map(|(s, e)| (s.into(), e)).collect()),
             locals: Default::default(),
             docs: Arc::new(Mutex::new(Doc::with_globals(doc_order))),
             func_locals: Default::default(),
@@ -707,27 +712,27 @@ impl SymbolTable {
             .ok_or_else(|| anyhow!("Unknown Symbol {}", symbol.to_string()))
     }
 
-    pub(crate) fn symbol_exists(&self, sym: String) -> bool {
+    pub(crate) fn symbol_exists(&self, sym: Symbol) -> bool {
         match self.lookup(&Expr::Symbol(sym)) {
             Ok(_) => true,
             Err(_) => false,
         }
     }
 
-    pub(crate) fn get_func_locals(&self) -> im::HashMap<String, Expr> {
+    pub(crate) fn get_func_locals(&self) -> im::HashMap<Symbol, Expr> {
         self.func_locals.clone()
     }
 
-    pub(crate) fn with_closure(&self, other: &im::HashMap<String, Expr>) -> SymbolTable {
+    pub(crate) fn with_closure(&self, other: &im::HashMap<Symbol, Expr>) -> SymbolTable {
         SymbolTable {
             func_locals: other.clone().union(self.func_locals.clone()),
             ..self.clone()
         }
     }
 
-    pub(crate) fn add_local_item(&self, symbol: String, value: Expr) -> Self {
+    pub(crate) fn add_local_item<I: Into<Symbol>>(&self, symbol: I, value: Expr) -> Self {
         let new = self.clone();
-        new.locals.insert(symbol, value);
+        new.locals.insert(symbol.into(), value);
         new
     }
 
@@ -741,9 +746,9 @@ impl SymbolTable {
         Ok(Expr::Nil)
     }
 
-    pub(crate) fn add_doc_item(&self, symbol: String, doc: String) {
+    pub(crate) fn add_doc_item<I: Into<String>>(&self, symbol: I, doc: String) {
         let mut guard = self.docs.lock().unwrap();
-        guard.add(symbol, doc);
+        guard.add(symbol.into(), doc);
     }
 
     pub(crate) fn get_doc_item(&self, symbol: &str) -> Option<String> {
@@ -767,7 +772,7 @@ impl SymbolTable {
             .iter()
             .chain(self.locals.iter())
             .filter(|s| s.key().starts_with(prefix))
-            .map(|hit| hit.key().into())
+            .map(|hit| hit.key().to_string())
             .collect()
     }
 
@@ -821,7 +826,7 @@ impl SymbolTable {
 // (fn foo (x & rest) ...)
 // (foo 1 2 3 4) // x: 1, rest: '(2 3 4)
 
-fn get_symbol(sym: Option<Expr>) -> Option<LispResult<String>> {
+fn get_symbol(sym: Option<Expr>) -> Option<LispResult<Symbol>> {
     sym.map(|s| s.get_symbol_string())
 }
 

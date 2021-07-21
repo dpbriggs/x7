@@ -1,6 +1,6 @@
 use crate::exact_len;
 use crate::records::{Record, RecordDoc, RecordType};
-use crate::symbols::{Expr, LispResult, SymbolTable};
+use crate::symbols::{Expr, LispResult, Symbol, SymbolTable};
 use crate::{num, record, try_call_method, unknown_method};
 use anyhow::anyhow;
 use im::Vector;
@@ -162,7 +162,7 @@ impl Record for FileRecord {
         )
     }
 
-    fn type_name(&self) -> String {
+    fn type_name(&self) -> Symbol {
         "FileRecord".into()
     }
 
