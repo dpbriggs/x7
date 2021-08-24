@@ -260,19 +260,18 @@ You can do some tricks with this, like this:
   (def captures (.captures re file.read_to_string))
 #+end_src
 
-It's currently not possible to reference non-zero-arity functions.
+Zero arity functions can also be referenced:
 
 #+begin_example
->>> (def v (Vec3 0 0 0))
+>>> (def v (Vec3 1 1 1))
 nil
 >>> v.scale
-Error: Too few args supplied for Fn<Vec3.scale, 1, [ scalar ]>. Expected 1, was given  of length 0
-
-Stacktrace:
-  - Error in Fn<method_call<scale; v>, 0, [ ]>, with args ()
+Fn<curried_method_call<Vec3<scale>; #args=1>, 0, [ ]>
+>>> (v.scale 3)
+Record<Vec3, fields=[ x: 3 y: 3 z: 3 ]>
+>>> v.length
+1.73205080
 #+end_example
-
-I am working to fix this.
 
 ** Language Description
 

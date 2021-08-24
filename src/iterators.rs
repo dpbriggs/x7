@@ -1,6 +1,6 @@
 #![allow(clippy::unnecessary_wraps)]
 use crate::symbols::{Expr, Function, LispResult, SymbolTable};
-use im::Vector;
+use im::{vector, Vector};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -142,7 +142,7 @@ impl LazyFilter {
     }
 }
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 #[derive(Default, Debug)]
 struct Counter(AtomicUsize);
@@ -241,6 +241,83 @@ impl LazyIter for LazyList {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct TakeWhile {
+    pred: Function,
+    inner: IterType,
+    done: AtomicBool,
+}
+
+impl TakeWhile {
+    pub(crate) fn lisp_res(pred: Function, inner: IterType) -> LispResult<Expr> {
+        Ok(Expr::LazyIter(Box::new(TakeWhile {
+            pred,
+            inner,
+            done: AtomicBool::new(false),
+        })))
+    }
+}
+
+impl Clone for TakeWhile {
+    fn clone(&self) -> Self {
+        Self {
+            pred: self.pred.clone(),
+            inner: LazyIter::clone(&self.inner),
+            done: AtomicBool::new(self.done.load(Ordering::SeqCst)),
+        }
+    }
+}
+
+impl fmt::Display for TakeWhile {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "TakeWhile<{}, {}, {}>",
+            self.pred,
+            self.inner,
+            self.done.load(Ordering::SeqCst)
+        )
+    }
+}
+
+macro_rules! option_try {
+    ($e:expr) => {
+        match $e {
+            Ok(val) => val,
+            Err(e) => return Some(Err(e)),
+        }
+    };
+}
+
+impl LazyIter for TakeWhile {
+    fn next(&self, symbol_table: &SymbolTable) -> Option<LispResult<Expr>> {
+        if self.done.load(Ordering::SeqCst) {
+            return None;
+        }
+        let res = option_try!(self.inner.next(symbol_table)?);
+        let fn_res = option_try!(self.pred.call_fn(vector![res.clone()], symbol_table));
+        let should_stop = !option_try!(fn_res.get_bool());
+        if should_stop {
+            self.done.store(true, Ordering::SeqCst);
+            None
+        } else {
+            Some(Ok(res))
+        }
+    }
+
+    fn name(&self) -> &'static str {
+        "TakeWhile"
+    }
+
+    fn clone(&self) -> Box<dyn LazyIter> {
+        Box::new(Clone::clone(self))
+    }
+
+    fn id(&self) -> u64 {
+        random()
+    }
+}
+
 // impl Lazy {
 //     fn lisp_res(list: Vector<Expr>) -> LispResult<Expr> {
 //         Ok(Expr::LazyIter(Box::new()))
@@ -294,8 +371,8 @@ impl LazyIter for Take {
 }
 
 macro_rules! impl_dbg_inner {
-	  ($($t:ident),*) => {
-		    $(
+    ($($t:ident),*) => {
+        $(
             impl fmt::Debug for $t {
                 fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                     write!(f, "{}<{}>", self.name(), self.inner)
@@ -308,12 +385,12 @@ macro_rules! impl_dbg_inner {
             }
 
         )*
-	  };
+    };
 }
 
 macro_rules! impl_dbg {
-	  ($($t:ident),*) => {
-		    $(
+    ($($t:ident),*) => {
+        $(
             impl fmt::Debug for $t {
                 fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                     write!(f, "LazyIter<{}>", self.name())
@@ -325,7 +402,7 @@ macro_rules! impl_dbg {
                 }
             }
         )*
-	  };
+    };
 }
 
 impl_dbg_inner!(LazyMap, LazyFilter, Take);

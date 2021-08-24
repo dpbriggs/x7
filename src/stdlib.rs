@@ -1,5 +1,5 @@
 #![allow(clippy::unnecessary_wraps)]
-use crate::iterators::{LazyList, LazyMap, NaturalNumbers, Take};
+use crate::iterators::{LazyList, LazyMap, NaturalNumbers, Take, TakeWhile};
 use crate::modules::load_x7_stdlib;
 use crate::records::RecordDoc;
 use crate::records::{DynRecord, FileRecord, RegexRecord};
@@ -653,9 +653,7 @@ fn nth(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn cons(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
-    let mut list = exprs[1].get_list()?;
-    list.push_front(exprs[0].clone());
-    Ok(Expr::List(list))
+    exprs[1].push_front(exprs[0].clone())
 }
 
 fn head(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -758,6 +756,13 @@ fn take(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Take::lisp_res(num, iter)
 }
 
+fn take_while(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let pred = exprs[0].get_function()?;
+    let iter = exprs[1].get_iterator()?;
+    TakeWhile::lisp_res(pred, iter)
+}
+
 fn doall(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     use crate::iterators::LazyIter;
@@ -804,7 +809,11 @@ fn call_method(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Ex
 
 fn doc_methods(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    let sym = exprs[0].get_symbol_string()?;
+    let sym: Cow<str> = match &exprs[0] {
+        Expr::Symbol(s) => Cow::Borrowed(s),
+        Expr::Record(r) => r.type_name().into(),
+        otherwise => return bad_types!("Symbol or Record", otherwise),
+    };
     let docs = symbol_table
         .get_doc_methods(&sym)
         .into_iter()
@@ -825,6 +834,7 @@ fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::List(list))
 }
 
+use std::borrow::Cow;
 use std::time::Duration;
 use std::{sync::Arc, time::Instant};
 
@@ -1180,6 +1190,14 @@ Example:
         // Iterators
         ("take", 2, take, true, "Take the first `n` items from a list or sequence.
 Example:
+(take 2 '(1 2 3)) ; (1 2)
+(take 5 (range)) ; lazy seq of (0 1 2 3 4)
+(doall (take 5 (range))) ; (0 1 2 3 4)
+"),
+        ("take-while", 2, take_while, true, "Continue taking items while `pred` is true.
+Example:
+(defn less-than-five (x) (< x 5))
+(doall (take-while less-than-five (range))) ; (0 1 2 3 4)
 (take 2 '(1 2 3)) ; (1 2)
 (take 5 (range)) ; lazy seq of (0 1 2 3 4)
 (doall (take 5 (range))) ; (0 1 2 3 4)

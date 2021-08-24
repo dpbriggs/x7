@@ -99,10 +99,14 @@ impl DynRecord {
     pub fn defrecord(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         let name = exprs[0].get_symbol_string()?;
         let mut skip_to_fields = 1;
-        let doc = if let Ok(s) = exprs[1].get_string() {
-            skip_to_fields += 1;
-            symbol_table.add_doc_item(name.clone(), s.clone());
-            Some(s)
+        let doc = if let Some(s) = exprs.get(1) {
+            if let Ok(s) = s.get_string() {
+                skip_to_fields += 1;
+                symbol_table.add_doc_item(name.clone(), s.clone());
+                Some(s)
+            } else {
+                None
+            }
         } else {
             None
         };
