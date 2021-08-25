@@ -16,7 +16,7 @@ use nom::{
     character::complete::{char, multispace0, none_of},
     combinator::{cut, map, map_res},
     error::{context, VerboseError},
-    multi::many0,
+    multi::{many0, many1},
     number::complete::recognize_float,
     sequence::{delimited, preceded},
     IResult, Parser,
@@ -160,6 +160,7 @@ fn ignored_input(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
         take_till(|c| c == '\n'),
         multispace0,
     );
+    let comment_parse = many1(comment_parse).map(|_| "");
     alt((comment_parse, multispace0))(i)
 }
 
@@ -366,10 +367,10 @@ mod tests {
 
     #[test]
     fn parse_ignored_input() {
-        assert_eq!(ignored_input("; hello\n"), Ok(("", " hello")));
-        assert_eq!(ignored_input("; hello"), Ok(("", " hello")));
-        assert_eq!(ignored_input(";hello"), Ok(("", "hello")));
-        assert_eq!(ignored_input(" ; hello"), Ok(("", " hello")));
+        assert_eq!(ignored_input("; hello\n"), Ok(("", "")));
+        assert_eq!(ignored_input("; hello"), Ok(("", "")));
+        assert_eq!(ignored_input(";hello"), Ok(("", "")));
+        assert_eq!(ignored_input(" ; hello"), Ok(("", "")));
     }
 
     #[test]

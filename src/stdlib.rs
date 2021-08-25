@@ -476,13 +476,13 @@ fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         if let Ok(iter) = exprs[1].get_iterator() {
             return reduce_iterator(f, None, iter, symbol_table);
         }
-        let list = exprs[1].get_list()?;
+        let mut list = exprs[1].get_list()?;
         ensure!(
             !list.is_empty(),
             "Attempted to reduce without initial argument using an empty list"
         );
-        let (mut head, tail) = list.split_at(1);
-        (head.pop_front().unwrap(), tail)
+        let head = list.pop_front().unwrap();
+        (head, list)
     } else {
         if let Ok(iter) = exprs[2].get_iterator() {
             return reduce_iterator(f, Some(exprs[1].clone()), iter, symbol_table);
@@ -760,8 +760,13 @@ fn product(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
 fn rev(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     // TODO: Any number of args.
     exact_len!(exprs, 1);
-    let list = exprs[0].get_list()?;
-    Ok(Expr::List(list.into_iter().rev().collect()))
+    if let Ok(list) = exprs[0].get_list() {
+        return Ok(Expr::List(list.into_iter().rev().collect()));
+    }
+    if let Ok(s) = &exprs[0].get_string() {
+        return Ok(Expr::String(s.chars().rev().collect()));
+    }
+    bad_types!("string or list/quote/tuple", &exprs[0])
 }
 
 fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -830,6 +835,23 @@ fn random_int(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Ex
         .ok_or_else(|| anyhow!("Failed to convert {} to a usize!", &upper))?;
     let b: usize = rand::random::<usize>() % upper + lower;
     Ok(num!(b))
+}
+
+fn primes(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let num = exprs[0].get_num()?;
+    let less_than: u32 = num
+        .to_u32()
+        .ok_or_else(|| anyhow!("Could not fit {} into a u32!", num))?;
+    let mut seen = vec![2];
+    for n in (3..less_than).step_by(2) {
+        if !seen.iter().any(|e| n % e == 0) {
+            seen.push(n);
+        }
+    }
+    Ok(Expr::List(
+        seen.iter().map(|&i| Expr::Num(i.into())).collect(),
+    ))
 }
 // Records
 
@@ -1146,6 +1168,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 ... and the interpreter will stop.
 "),
+        ("primes", 1, primes, true, "Prime numbers less than `n`."),
         ("sleep", 1, sleep, true, "Sleep for n seconds.
             Example: (sleep 10) ; sleep for 10 seconds."),
         ("type", 1, type_of, true, "Return the type of the argument as a string.

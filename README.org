@@ -687,6 +687,12 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 #+END_SRC
 
+*** =primes=
+
+#+BEGIN_SRC elisp
+Prime numbers less than `n`.
+#+END_SRC
+
 *** =sleep=
 
 #+BEGIN_SRC elisp
@@ -764,6 +770,18 @@ Example:
 (defn is-odd (x) (= 1 (% x 2)))
 (filter is-odd (range 20)) ; outputs (1 3 5 7 9 11 13 15 17 19)
 
+#+END_SRC
+
+*** =any=
+
+#+BEGIN_SRC elisp
+Ask whether a predicate is true in some sequence. Short circuits.
+#+END_SRC
+
+*** =all=
+
+#+BEGIN_SRC elisp
+Ask whether a predicate is true for every element of a sequence. Short circuits.
 #+END_SRC
 
 *** =lazy=
@@ -855,6 +873,19 @@ Example:
 #+BEGIN_SRC elisp
 Take the first `n` items from a list or sequence.
 Example:
+(take 2 '(1 2 3)) ; (1 2)
+(take 5 (range)) ; lazy seq of (0 1 2 3 4)
+(doall (take 5 (range))) ; (0 1 2 3 4)
+
+#+END_SRC
+
+*** =take-while=
+
+#+BEGIN_SRC elisp
+Continue taking items while `pred` is true.
+Example:
+(defn less-than-five (x) (< x 5))
+(doall (take-while less-than-five (range))) ; (0 1 2 3 4)
 (take 2 '(1 2 3)) ; (1 2)
 (take 5 (range)) ; lazy seq of (0 1 2 3 4)
 (doall (take 5 (range))) ; (0 1 2 3 4)
@@ -1178,6 +1209,12 @@ Pretty print the doc string of a function
    Example: (docp docp) ;; Pretty print the doc string of a function...
 #+END_SRC
 
+*** =max=
+
+#+BEGIN_SRC elisp
+Maximum element in a list
+#+END_SRC
+
 *** =FileRecord=
 
 #+BEGIN_SRC elisp
@@ -1298,6 +1335,7 @@ Returns a list of lists of all captures in the input.
 #+BEGIN_SRC elisp
 Format doc strings into something org-mode will agree with.
 #+END_SRC
+
 
 
 * Thanks

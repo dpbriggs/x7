@@ -87,3 +87,11 @@ Example:
            (println "- " (nth 0 rec-method))
            (println "  - " (nth 1 rec-method))))
    (methods record)))
+
+
+(defn max
+    "Maximum element in a list"
+    (ll)
+    (reduce
+     (fn (acc x) (if (> acc x) acc x))
+     ll))
