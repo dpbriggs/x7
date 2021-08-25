@@ -179,7 +179,7 @@ fn ident(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 fn ident_exists(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let iden = exprs[0].get_symbol()?;
-    Ok(Expr::Bool(symbol_table.symbol_exists(iden)))
+    Ok(Expr::Bool(symbol_table.symbol_exists(&iden)))
 }
 
 fn quote(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {

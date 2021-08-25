@@ -205,7 +205,6 @@ impl Expr {
             .unwrap_or(false)
     }
 
-    #[inline]
     pub(crate) fn is_bool_true(&self) -> LispResult<bool> {
         if let Expr::Bool(b) = self {
             Ok(*b)
@@ -225,24 +224,6 @@ impl Expr {
             _ => return bad_types!("collection", self),
         };
         Ok(len)
-    }
-
-    #[inline]
-    pub(crate) fn is_tuple(&self) -> bool {
-        if let Expr::Tuple(_) = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    #[inline]
-    pub(crate) fn is_symbol(&self) -> bool {
-        if let Expr::Symbol(_) = self {
-            true
-        } else {
-            false
-        }
     }
 
     #[inline]
@@ -269,15 +250,6 @@ impl Expr {
             Ok(*b)
         } else {
             bad_types!("bool", self)
-        }
-    }
-
-    #[inline]
-    pub(crate) fn get_quote(&self) -> LispResult<Vector<Expr>> {
-        if let Expr::Quote(l) = self {
-            Ok(l.clone())
-        } else {
-            bad_types!("quote", self)
         }
     }
 
@@ -469,7 +441,6 @@ impl std::error::Error for ProgramError {}
 #[derive(Debug, PartialEq)]
 pub(crate) enum ProgramError {
     BadTypes, // context
-    CannotLookupNonSymbol,
     // InvalidCharacterInSymbol,
     // CannotStartExprWithNonSymbol,
     CondNoExecutionPath,
@@ -632,38 +603,23 @@ impl Expr {
     }
 
     pub fn eval(&self, symbol_table: &SymbolTable) -> LispResult<Expr> {
-        // Tuple bypass
-
-        if self.is_tuple() {
-            return Ok(self.clone());
-        }
-
-        // Eval List
-
-        if let Ok(mut list) = self.get_list() {
-            if list.is_empty() {
-                return Ok(Expr::List(Vector::new()));
+        let res = match self {
+            Expr::Symbol(sym) => {
+                return symbol_table.lookup(sym);
             }
-
-            let head = list.pop_front().unwrap();
-            let tail = list;
-
-            return head.eval(symbol_table)?.call_fn(tail, symbol_table);
-        }
-
-        // Eval quote
-
-        if let Ok(list) = self.get_quote() {
-            return Ok(Expr::List(list));
-        }
-
-        // Resolve Symbol
-
-        if self.is_symbol() {
-            return symbol_table.lookup(self);
-        }
-
-        Ok(self.clone())
+            Expr::List(list) => {
+                let head = match list.get(0) {
+                    Some(h) => h,
+                    None => return Ok(Expr::List(Vector::new())),
+                };
+                let tail = list.clone().slice(1..);
+                return head.eval(symbol_table)?.call_fn(tail, symbol_table);
+            }
+            tup @ Expr::Tuple(_) => tup.clone(),
+            Expr::Quote(inner) => Expr::Quote(inner.clone()),
+            otherwise => otherwise.clone(),
+        };
+        Ok(res)
     }
 }
 
@@ -717,12 +673,7 @@ impl SymbolTable {
         }
     }
 
-    pub(crate) fn lookup(&self, key: &Expr) -> LispResult<Expr> {
-        // Check Functions
-        let symbol = match key {
-            Expr::Symbol(ref s) => s,
-            _ => bail!(ProgramError::CannotLookupNonSymbol),
-        };
+    pub(crate) fn lookup(&self, symbol: &str) -> LispResult<Expr> {
         if let Some(expr) = self.func_locals.get(symbol) {
             return Ok(expr.clone());
         }
@@ -736,8 +687,8 @@ impl SymbolTable {
             .ok_or_else(|| anyhow!("Unknown Symbol {}", symbol.to_string()))
     }
 
-    pub(crate) fn symbol_exists(&self, sym: String) -> bool {
-        match self.lookup(&Expr::Symbol(sym)) {
+    pub(crate) fn symbol_exists(&self, sym: &str) -> bool {
+        match self.lookup(sym) {
             Ok(_) => true,
             Err(_) => false,
         }
