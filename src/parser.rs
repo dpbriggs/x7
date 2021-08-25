@@ -90,7 +90,7 @@ fn method_call_multiple(methods: Vec<String>) -> Expr {
             Arc::new(method_fn),
             true,
         );
-        Expr::List(vector![Expr::Function(f)])
+        Expr::List(im::Vector::unit(Expr::Function(f)))
     });
     ff
 }
@@ -166,7 +166,7 @@ fn ignored_input(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
 
 fn parse_tuple(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     let make_tuple = |exprs: Vec<_>| {
-        let mut tuple_list = im::vector![Expr::Symbol("tuple".into())];
+        let mut tuple_list = im::Vector::unit(Expr::Symbol("tuple".into()));
         tuple_list.append(exprs.into());
         Expr::List(tuple_list)
     };

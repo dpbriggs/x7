@@ -262,7 +262,7 @@ fn inline_transform(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResu
         functions
             .iter()
             .zip(data)
-            .map(|(f, x)| f.call_fn(vector![x], symbol_table))
+            .map(|(f, x)| f.call_fn(im::Vector::unit(x), symbol_table))
             .collect::<LispResult<Vector<Expr>>>()?,
     ))
 }
@@ -493,6 +493,36 @@ fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         init = f.call_fn(vector![init, item], symbol_table)?;
     }
     Ok(init)
+}
+
+fn any(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let pred = exprs[0].get_callable()?;
+    let body = &exprs[1].get_list()?;
+    for b in body.iter().cloned() {
+        if pred
+            .call_fn(im::Vector::unit(b), symbol_table)?
+            .get_bool()?
+        {
+            return Ok(Expr::Bool(true));
+        }
+    }
+    Ok(Expr::Bool(false))
+}
+
+fn all(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let pred = exprs[0].get_callable()?;
+    let body = &exprs[1].get_list()?;
+    for b in body.iter().cloned() {
+        if !pred
+            .call_fn(im::Vector::unit(b), symbol_table)?
+            .get_bool()?
+        {
+            return Ok(Expr::Bool(false));
+        }
+    }
+    Ok(Expr::Bool(true))
 }
 
 fn lazy(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1142,6 +1172,8 @@ Example:
 (defn is-odd (x) (= 1 (% x 2)))
 (filter is-odd (range 20)) ; outputs (1 3 5 7 9 11 13 15 17 19)
 "),
+        ("any", 2, any, true, "Ask whether a predicate is true in some sequence. Short circuits."),
+        ("all", 2, all, true, "Ask whether a predicate is true for every element of a sequence. Short circuits."),
         ("lazy", 1, lazy, true, "Turn a list into a lazy sequence. Useful for building complex iterators over some source list."),
         ("apply", 2, apply, true, "Apply a function to a given list.
 (def my-list '(1 2 3))

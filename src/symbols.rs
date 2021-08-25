@@ -238,6 +238,17 @@ impl Expr {
         }
     }
 
+    #[inline]
+    pub(crate) fn get_callable(&self) -> LispResult<&Expr> {
+        if matches!(self, Expr::Function(_)) {
+            Ok(self)
+        } else if matches!(self, Expr::Record(_)) {
+            Ok(self)
+        } else {
+            bad_types!("function or record", self)
+        }
+    }
+
     pub(crate) fn get_function(&self) -> LispResult<Function> {
         if let Expr::Function(f) = self {
             Ok(f.clone())
@@ -283,6 +294,7 @@ impl Expr {
         Ok(res)
     }
 
+    #[inline]
     pub(crate) fn get_list(&self) -> LispResult<Vector<Expr>> {
         if let Expr::List(l) = self {
             Ok(l.clone())
@@ -365,6 +377,16 @@ impl fmt::Debug for Function {
     }
 }
 
+macro_rules! try_collect {
+    ($args:expr, $symbol_table:expr) => {{
+        let mut args_clone = $args.clone();
+        for arg in args_clone.iter_mut() {
+            *arg = arg.eval(&$symbol_table)?;
+        }
+        args_clone
+    }};
+}
+
 impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -424,7 +446,7 @@ impl Function {
 
         if self.named_args.is_empty() {
             if self.eval_args {
-                let args: Vector<_> = args.iter().map(|e| e.eval(&symbol_table)).try_collect()?;
+                let args = try_collect!(args, symbol_table);
                 return (self.f)(args.clone(), &symbol_table).with_context(|| {
                     format!("Error in {}, with args {}", &self, format_args(&args))
                 });
@@ -434,8 +456,7 @@ impl Function {
         }
 
         let args = if self.eval_args {
-            let args: Vector<_> = args.iter().map(|e| e.eval(&symbol_table)).try_collect()?;
-            args
+            try_collect!(args, symbol_table)
         } else {
             args
         };
@@ -603,6 +624,7 @@ impl Ord for Expr {
 }
 
 impl Expr {
+    #[inline]
     pub(crate) fn call_fn(
         &self,
         args: Vector<Expr>,

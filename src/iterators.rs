@@ -295,7 +295,9 @@ impl LazyIter for TakeWhile {
             return None;
         }
         let res = option_try!(self.inner.next(symbol_table)?);
-        let fn_res = option_try!(self.pred.call_fn(vector![res.clone()], symbol_table));
+        let fn_res = option_try!(self
+            .pred
+            .call_fn(im::Vector::unit(res.clone()), symbol_table));
         let should_stop = !option_try!(fn_res.get_bool());
         if should_stop {
             self.done.store(true, Ordering::SeqCst);
