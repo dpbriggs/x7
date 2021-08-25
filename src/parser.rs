@@ -8,7 +8,6 @@ use crate::symbols::{Expr, LispResult, Num, ProgramError};
 // https://github.com/Geal/nom/blob/master/examples/s_expression.rs
 
 use crate::symbols::Function;
-use im::vector;
 use nom::bytes::complete::escaped;
 use nom::{
     branch::alt,
@@ -55,7 +54,7 @@ fn method_call(method: String) -> Expr {
         Arc::new(method_fn),
         true,
     );
-    Expr::Function(f)
+    Expr::function(f)
 }
 
 /// Massage a symbol like `Record.field.inner_field`
@@ -90,7 +89,7 @@ fn method_call_multiple(methods: Vec<String>) -> Expr {
             Arc::new(method_fn),
             true,
         );
-        Expr::List(im::Vector::unit(Expr::Function(f)))
+        Expr::List(im::Vector::unit(Expr::function(f)))
     });
     ff
 }

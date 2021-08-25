@@ -42,7 +42,7 @@ pub enum Expr {
     Num(Num),
     Symbol(Symbol),
     List(Vector<Expr>),
-    Function(Function),
+    Function(Arc<Function>),
     Nil,
     String(String),
     Quote(Vector<Expr>),
@@ -129,6 +129,10 @@ impl Expr {
         }
     }
 
+    pub(crate) fn function(f: Function) -> Self {
+        Expr::Function(Arc::new(f))
+    }
+
     pub(crate) fn get_type_str(&self) -> &'static str {
         match self {
             Expr::Num(_) => "num",
@@ -201,6 +205,7 @@ impl Expr {
             .unwrap_or(false)
     }
 
+    #[inline]
     pub(crate) fn is_bool_true(&self) -> LispResult<bool> {
         if let Expr::Bool(b) = self {
             Ok(*b)
@@ -222,6 +227,7 @@ impl Expr {
         Ok(len)
     }
 
+    #[inline]
     pub(crate) fn is_tuple(&self) -> bool {
         if let Expr::Tuple(_) = self {
             true
@@ -230,6 +236,7 @@ impl Expr {
         }
     }
 
+    #[inline]
     pub(crate) fn is_symbol(&self) -> bool {
         if let Expr::Symbol(_) = self {
             true
@@ -239,24 +246,15 @@ impl Expr {
     }
 
     #[inline]
-    pub(crate) fn get_callable(&self) -> LispResult<&Expr> {
-        if matches!(self, Expr::Function(_)) {
-            Ok(self)
-        } else if matches!(self, Expr::Record(_)) {
-            Ok(self)
-        } else {
-            bad_types!("function or record", self)
-        }
-    }
-
-    pub(crate) fn get_function(&self) -> LispResult<Function> {
+    pub(crate) fn get_function(&self) -> LispResult<&Function> {
         if let Expr::Function(f) = self {
-            Ok(f.clone())
+            Ok(f)
         } else {
             bad_types!("func", self)
         }
     }
 
+    #[inline]
     pub(crate) fn get_iterator(&self) -> LispResult<IterType> {
         if let Expr::LazyIter(l) = self {
             Ok(l.clone())
@@ -265,6 +263,7 @@ impl Expr {
         }
     }
 
+    #[inline]
     pub(crate) fn get_bool(&self) -> LispResult<bool> {
         if let Expr::Bool(b) = self {
             Ok(*b)
@@ -273,6 +272,7 @@ impl Expr {
         }
     }
 
+    #[inline]
     pub(crate) fn get_quote(&self) -> LispResult<Vector<Expr>> {
         if let Expr::Quote(l) = self {
             Ok(l.clone())
@@ -282,6 +282,7 @@ impl Expr {
     }
 
     // HACK: This is a very ugly. Should remove.
+    #[inline]
     pub(crate) fn push_front(&self, item: Expr) -> LispResult<Expr> {
         let mut list = self.get_list()?;
         list.push_front(item);
@@ -307,6 +308,7 @@ impl Expr {
         }
     }
 
+    #[inline]
     pub(crate) fn symbol_matches(&self, sym: &'static str) -> bool {
         if let Expr::Symbol(s) = self {
             s == sym
@@ -315,20 +317,12 @@ impl Expr {
         }
     }
 
+    #[inline]
     pub fn get_symbol_string(&self) -> LispResult<String> {
         if let Expr::Symbol(s) = self {
             Ok(s.clone())
         } else {
             bad_types!("symbol", self)
-        }
-    }
-
-    pub(crate) fn rename_function(self, new_name: String) -> LispResult<Expr> {
-        if let Expr::Function(mut f) = self {
-            f.symbol = new_name;
-            Ok(Expr::Function(f))
-        } else {
-            bad_types!("function", self)
         }
     }
 }

@@ -135,7 +135,7 @@ impl X7Interpreter {
 
         let f = Function::new(function_symbol.into(), minimum_args, x7_fn, true);
         self.symbol_table
-            .add_symbol(function_symbol, Expr::Function(f))
+            .add_symbol(function_symbol, Expr::function(f))
     }
 
     /// Add a foreign function to this x7 interpreter instance.
@@ -167,7 +167,7 @@ impl X7Interpreter {
         let (minimum_args, fn_ptr) = fn_tuple;
         let f = Function::new(function_symbol.into(), minimum_args, fn_ptr, true);
         self.symbol_table
-            .add_symbol(function_symbol, Expr::Function(f));
+            .add_symbol(function_symbol, Expr::function(f));
     }
 
     /// Add a foreign function to this x7 interpreter instance, that doesn't
@@ -184,7 +184,7 @@ impl X7Interpreter {
         let (minimum_args, fn_ptr) = fn_tuple;
         let f = Function::new(function_symbol.into(), minimum_args, fn_ptr, false);
         self.symbol_table
-            .add_symbol(function_symbol, Expr::Function(f));
+            .add_symbol(function_symbol, Expr::function(f));
     }
 
     /// Manually construct an x7 function, and add it to the interpreter.
@@ -232,7 +232,7 @@ impl X7Interpreter {
         );
 
         self.symbol_table
-            .add_symbol(function_sym, Expr::Function(f));
+            .add_symbol(function_sym, Expr::function(f));
         Ok(Expr::Nil)
     }
 

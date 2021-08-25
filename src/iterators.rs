@@ -1,6 +1,6 @@
 #![allow(clippy::unnecessary_wraps)]
 use crate::symbols::{Expr, Function, LispResult, SymbolTable};
-use im::{vector, Vector};
+use im::Vector;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;

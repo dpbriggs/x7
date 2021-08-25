@@ -295,7 +295,7 @@ fn comp(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         Ok(Expr::List(res))
     };
     let f = Function::new("AnonCompFn".into(), 1, Arc::new(compose), true);
-    Ok(Expr::Function(f))
+    Ok(Expr::function(f))
 }
 
 fn def(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -398,7 +398,7 @@ fn map(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let f = &exprs[0];
     if let Ok(iter) = exprs[1].get_iterator() {
-        return LazyMap::lisp_res(iter, f.get_function()?);
+        return LazyMap::lisp_res(iter, f.get_function()?.clone());
     }
     let mut l = exprs[1].get_list()?;
     for expr in l.iter_mut() {
@@ -435,7 +435,7 @@ fn filter(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let f = &exprs[0];
     if let Ok(iter) = exprs[1].get_iterator() {
-        return LazyFilter::lisp_res(iter, f.get_function()?);
+        return LazyFilter::lisp_res(iter, f.get_function()?.clone());
     }
     let l = exprs[1].get_list()?;
     let mut res = Vector::new();
@@ -497,7 +497,7 @@ fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn any(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
-    let pred = exprs[0].get_callable()?;
+    let pred = exprs[0].get_function()?;
     let body = &exprs[1].get_list()?;
     for b in body.iter().cloned() {
         if pred
@@ -512,7 +512,7 @@ fn any(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn all(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
-    let pred = exprs[0].get_callable()?;
+    let pred = exprs[0].get_function()?;
     let body = &exprs[1].get_list()?;
     for b in body.iter().cloned() {
         if !pred
@@ -555,7 +555,7 @@ fn bind(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exprs[1].eval(&sym_copy)
 }
 
-fn func(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn make_func(exprs: Vector<Expr>, symbol_table: &SymbolTable, name: String) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let arg_symbols = exprs[0].get_list()?;
     let min_args = match arg_symbols.iter().position(|e| e.symbol_matches("&")) {
@@ -565,14 +565,18 @@ fn func(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     let body = exprs[1].clone();
     let f = Arc::new(move |_args: Vector<Expr>, sym: &SymbolTable| body.eval(sym));
     let f = Function::new_named_args(
-        "AnonFn".to_string(),
+        name,
         min_args,
         f,
         arg_symbols.iter().cloned().collect(),
         true,
         symbol_table.get_func_locals(),
     );
-    Ok(Expr::Function(f))
+    Ok(Expr::function(f))
+}
+
+fn func(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    make_func(exprs, symbol_table, "AnonFn".into())
 }
 
 fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -591,7 +595,7 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     let sym_name = name.get_symbol_string()?;
 
     // Make a function
-    let func = func(vector![args, body], symbol_table)?.rename_function(sym_name.clone())?;
+    let func = make_func(vector![args, body], symbol_table, sym_name.clone())?;
 
     // Add the function to the symbol table
     def(vector![name, func.clone()], symbol_table)?;
@@ -790,7 +794,7 @@ fn take_while(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Ex
     exact_len!(exprs, 2);
     let pred = exprs[0].get_function()?;
     let iter = exprs[1].get_iterator()?;
-    TakeWhile::lisp_res(pred, iter)
+    TakeWhile::lisp_res(pred.clone(), iter)
 }
 
 fn doall(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -875,7 +879,7 @@ macro_rules! make_stdlib_fns {
             let mut docs = Vec::new();
             $(
                 let f = Function::new($sym.into(), $minargs, Arc::new($func), $eval_args);
-                globals.push(($sym.into(), Expr::Function(f)));
+                globals.push(($sym.into(), Expr::function(f)));
                 docs.push(($sym.into(), $doc.into()));
             )*
             SymbolTable::with_globals(globals, docs)

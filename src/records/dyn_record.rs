@@ -221,7 +221,7 @@ impl DynRecord {
                         true,
                         im::HashMap::new(),
                     );
-                    Ok(Expr::Function(f))
+                    Ok(Expr::function(f))
                 } else {
                     let augmented_sym = symbol_table.with_closure(
                         &self
