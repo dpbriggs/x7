@@ -1,4 +1,4 @@
-;; Does this work
+;; Does this work? Probably
 
 (def image-height 256)
 (def image-width 256)

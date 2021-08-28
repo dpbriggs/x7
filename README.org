@@ -507,6 +507,29 @@ Test if the first item is greater than or equal to the rest.
 
 #+BEGIN_SRC elisp
 Increment the given number.
+Example:
+(inc 2.2) ;; 3.3
+(inc 1) ;; 2
+
+#+END_SRC
+
+*** =pow=
+
+#+BEGIN_SRC elisp
+Raise a number to an exponent.
+Example:
+(pow 2 3) ;; 8
+(pow 10 3) ;; 1000
+
+#+END_SRC
+
+*** =floor=
+
+#+BEGIN_SRC elisp
+Floor a number.
+Example:
+(floor 5.5) ;; 5.5
+
 #+END_SRC
 
 *** =int=
@@ -1052,6 +1075,15 @@ Example:
 Sort a given homogeneously typed list in ascending order. Returns an error if types are all not the same.
 Example:
 (sort '(3 7 0 5 4 8 1 2 6 9)) ; (0 1 2 3 4 5 6 7 8 9)
+
+#+END_SRC
+
+*** =distinct=
+
+#+BEGIN_SRC elisp
+Remove all duplicates from a list. This will sort the list.
+Example:
+(distinct '(1 1 1 2 2 0 0)) ; (0 1 2)
 
 #+END_SRC
 

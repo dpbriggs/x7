@@ -616,7 +616,7 @@ impl Expr {
                 return head.eval(symbol_table)?.call_fn(tail, symbol_table);
             }
             tup @ Expr::Tuple(_) => tup.clone(),
-            Expr::Quote(inner) => Expr::Quote(inner.clone()),
+            Expr::Quote(inner) => Expr::List(inner.clone()),
             otherwise => otherwise.clone(),
         };
         Ok(res)

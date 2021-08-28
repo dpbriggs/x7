@@ -157,6 +157,20 @@ fn sqrt_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Ex
         .ok_or_else(|| anyhow!("Cannot square root a negative number!"))
 }
 
+fn pow(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let base = exprs[0].get_num()?;
+    let exp = exprs[1].get_num()?.round(0).to_u32().unwrap(); // TODO: Handle error
+    if exp == 0 {
+        return Ok(Expr::Num(BigDecimal::one()));
+    }
+    let mut res = base.clone();
+    for _ in 0..(exp - 1) {
+        res *= &base;
+    }
+    Ok(Expr::Num(res))
+}
+
 fn int(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     if let Ok(s) = exprs[0].get_string() {
@@ -167,6 +181,18 @@ fn int(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     }
     let num = exprs[0].get_num()?;
     Ok(Expr::Num(num.round(0)))
+}
+
+fn floor(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let n = exprs[0]
+        .get_num()?
+        .to_f64()
+        .unwrap()
+        .trunc()
+        .to_u64()
+        .unwrap(); // jesus
+    Ok(Expr::Num(BigDecimal::from(n)))
 }
 
 // MISC
@@ -890,6 +916,13 @@ fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::List(list))
 }
 
+fn distinct(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let sorted = sort(exprs, _symbol_table)?.get_list().unwrap();
+    let mut v: Vec<_> = sorted.into_iter().collect();
+    v.dedup();
+    Ok(Expr::List(v.drain(..).collect()))
+}
+
 use std::borrow::Cow;
 use std::time::Duration;
 use std::{sync::Arc, time::Instant};
@@ -1032,7 +1065,20 @@ Example: (= 1 1) ; true
             "Test if the first item is greater than or equal to the rest.
             Example: (>= 10 10 5) ; true"
         ),
-        ("inc", 1, inc_exprs, true, "Increment the given number."),
+        ("inc", 1, inc_exprs, true, "Increment the given number.
+Example:
+(inc 2.2) ;; 3.3
+(inc 1) ;; 2
+"),
+        ("pow", 2, pow, true, "Raise a number to an exponent.
+Example:
+(pow 2 3) ;; 8
+(pow 10 3) ;; 1000
+"),
+        ("floor", 1, floor, true, "Floor a number.
+Example:
+(floor 5.5) ;; 5.5
+"),
         ("int", 1, int, true, "Create an integer from the input.
 
 Example:
@@ -1337,6 +1383,11 @@ Example:
 Example:
 (sort '(3 7 0 5 4 8 1 2 6 9)) ; (0 1 2 3 4 5 6 7 8 9)
 "),
+        ("distinct", 1, distinct, true, "Remove all duplicates from a list. This will sort the list.
+Example:
+(distinct '(1 1 1 2 2 0 0)) ; (0 1 2)
+"),
+
         ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
         ("re::compile", 1, RegexRecord::compile_x7, true, "Compile a regex. Under construction."),
         ("defrecord", 1, DynRecord::defrecord, false, "Define a Record structure.

@@ -7,7 +7,7 @@
 (defn test-eq (name msg expected exp)
   (cond
     (= expected exp) (TestResult true name msg)
-    true (TestResult false name msg)))
+    true (panic msg)))
 
 (defn float-eq (l r threshold)
   (and
