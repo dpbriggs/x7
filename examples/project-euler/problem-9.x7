@@ -1,0 +1,23 @@
+(include "examples/project-euler/utils.x7")
+
+(def all-tuples (lazy (product (range 1 999) (range 1 999))))
+(def all-tuples (filter (fn (x) (<= (reduce + x) 1000)) all-tuples))
+
+(defn candidate-pythagorean-triplet (a b)
+  (bind
+   (c (sqrt (+ (* a a) (* b b))))
+   (cond
+     (= (int c) c)   (tuple (<= (+ a b c) 1000) a b (int c))
+     true            (tuple false a b (int c)))))
+
+(def triples (filter (fn (x) (nth 0 x))
+                     (map (fn (tup) (candidate-pythagorean-triplet (nth 0 tup) (nth 1 tup))) all-tuples)))
+
+
+(def answer (find
+             (fn (x)
+                 (do
+                  (println "curr: " x)
+                  (= 1000 (reduce + (tail x))))) triples))
+
+(print-res (reduce * (tail answer)))

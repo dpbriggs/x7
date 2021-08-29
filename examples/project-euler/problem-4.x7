@@ -1,0 +1,41 @@
+(defn get-digit
+    "Get the nth digit of a number"
+    (num digit)
+    (floor (/ (% num (pow 10 digit)) (pow 10 (- digit 1)))))
+
+(def test-num 123456)
+(test-eq "1" "bad" (get-digit test-num 1) 6)
+(test-eq "2" "bad" (get-digit test-num 2) 5)
+(test-eq "3" "bad" (get-digit test-num 3) 4)
+(test-eq "4" "bad" (get-digit test-num 4) 3)
+(test-eq "5" "bad" (get-digit test-num 5) 2)
+(test-eq "6" "bad" (get-digit test-num 6) 1)
+
+
+(defn is-palidrome? (num)
+  (if (and (< num 100000) (> 1000000 num))
+      (err "num need to be six digits")
+      (and
+       (= (get-digit num 1) (get-digit num 6))
+       (= (get-digit num 2) (get-digit num 5))
+       (= (get-digit num 3) (get-digit num 4)))))
+
+(def all-tuples (product (range 100 1000) (range 100 1000)))
+(def multiplied (map (fn (tup) (* (nth 0 tup) (nth 1 tup))) all-tuples))
+;; I'd like a progress report from the foreach below, so let's make it lazy
+(def distinct-nums (lazy (distinct multiplied)))
+(def at-least-six-dig (filter (fn (x) (> x 100000)) distinct-nums))
+(def palindromes (filter is-palidrome? at-least-six-dig))
+
+(def max 0)
+
+(foreach
+ (fn (x)
+     (do
+      (if (> x max) (def max x) ())
+      (println "curr palin: " x)))
+ palindromes)
+
+(println "----------------------------")
+(println max)
+(println "----------------------------")

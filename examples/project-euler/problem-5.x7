@@ -1,0 +1,45 @@
+(def prime-factors
+    '(
+      (tuple 2)
+      (tuple 3)
+      (tuple 2 2)
+      (tuple 5)
+      (tuple 2 3)
+      (tuple 7)
+      (tuple 2 2 2)
+      (tuple 3 3)
+      (tuple 2 5)
+      (tuple 11)
+      (tuple 2 2 3)
+      (tuple 2 2 3)
+      (tuple 13)
+      (tuple 2 7)
+      (tuple 3 5)
+      (tuple 2 2 2 2)
+      (tuple 17)
+      (tuple 2 3 3)
+      (tuple 19)
+      (tuple 2 2 5)
+      ))
+
+;; Check the list above is correct
+;; (foreach println (map (fn (x) (reduce * x)) prime-factors))
+
+(def distinct-primes (distinct (sort (apply + prime-factors))))
+(println distinct-primes)
+
+(defn num-contained
+  "Get the number of times n occurs in ll"
+  (n ll)
+  (len (filter (fn (x) (= x n)) ll)))
+
+(defn get-most
+  "Find the list in prime-factors for which num appears the most"
+  (num)
+  (reduce (fn (acc x) (if (> (num-contained num x) (num-contained num acc)) x acc)) prime-factors))
+
+(def smallest-prime-factors (apply + (map get-most distinct-primes)))
+
+(println "-------------------------------")
+(println (reduce * smallest-prime-factors))
+(println "-------------------------------")

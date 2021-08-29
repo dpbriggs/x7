@@ -1,0 +1,6 @@
+(defn is-div (x by)
+  (= 0 (% x by)))
+
+(println (apply + (filter
+                   (fn (x) (or (is-div x 3) (is-div x 5)))
+                   (range 1000))))

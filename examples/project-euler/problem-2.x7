@@ -1,0 +1,10 @@
+(defn even-fibs ()
+  (filter is-even? (map fib (range))))  ;; it would be way more efficient to not re-calc fib
+                                        ;; every step.
+
+(def four-million 4000000)
+
+(println (reduce +
+                 (take-while
+                  (fn (x) (< x four-million))
+                  (even-fibs))))

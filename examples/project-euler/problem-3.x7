@@ -1,0 +1,26 @@
+(def num-to-test 600851475143)
+;; (def primes-lower-bound (int (sqrt num-to-test)))
+
+(defn prime-factors-of (x)
+  (filter
+   (fn (prime) (= 0 (% x prime)))
+   (primes (+ 2 (int (sqrt x))))))
+
+;; Sadly this is too slow :C
+;; TODO: Make x7 much faster. I spent a few hours and made it twice as fast, but
+;;       some very quadratic is happening.
+;; (defn none-divide (l to-check)
+;;   (not (any
+;;         (fn (x) (= 0 (% to-check x)))
+;;         l)))
+
+;; (defn sieve-e-step
+;;     (primes-list to-check)
+;;   (if (none-divide primes-list to-check)
+;;       (cons to-check primes-list)
+;;       primes-list))
+
+;; (defn primes-under (x)
+;;   (reduce sieve-e-step (tuple 2) (range 3 x)))
+
+(println (max (prime-factors-of num-to-test)))

@@ -703,11 +703,14 @@ fn nth(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
             .map(|c| Expr::String(c.into()))
             .unwrap_or(Expr::Nil))
     } else {
-        exprs[1]
-            .get_list()?
-            .get(index)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!(ProgramError::BadTypes))
+        let list = exprs[1].get_list()?;
+        list.get(index).cloned().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Failed to nth as list has length {} but attempted to index {}",
+                list.len(),
+                index
+            )
+        })
     }
 }
 
@@ -817,6 +820,14 @@ fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 fn take(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let num = exprs[0].get_usize()?;
+    if let Ok(list) = exprs[1].get_list() {
+        if num >= list.len() {
+            return Ok(Expr::List(list));
+        }
+        let mut list = list.clone();
+        list.split_off(num);
+        return Ok(Expr::List(list));
+    }
     let iter = exprs[1].get_iterator()?;
     Take::lisp_res(num, iter)
 }
@@ -826,6 +837,38 @@ fn take_while(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Ex
     let pred = exprs[0].get_function()?;
     let iter = exprs[1].get_iterator()?;
     TakeWhile::lisp_res(pred.clone(), iter)
+}
+
+fn find(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let pred = exprs[0].get_function()?;
+    let iter = exprs[1].get_iterator()?; // todo handle other iterable types
+    while let Some(item) = iter.next(symbol_table) {
+        let item = item?;
+        if pred
+            .call_fn(Vector::unit(item.clone()), symbol_table)?
+            .get_bool()?
+        {
+            return Ok(item);
+        }
+    }
+    return Ok(Expr::Nil);
+}
+
+fn slice(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 3);
+    let lower = exprs[0].get_usize()?;
+    let upper = exprs[1].get_usize()?;
+    let mut list = exprs[2].get_list()?;
+    if lower >= list.len() {
+        return Ok(Expr::Tuple(Vector::new()));
+    }
+    if upper < list.len() {
+        let (left, _) = list.split_at(upper);
+        list = left;
+    }
+    list = list.split_off(lower);
+    Ok(Expr::Tuple(list))
 }
 
 fn doall(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1299,6 +1342,8 @@ Example:
 (take 5 (range)) ; lazy seq of (0 1 2 3 4)
 (doall (take 5 (range))) ; (0 1 2 3 4)
 "),
+        ("find", 2, find, true, "DOC TBD"),
+        ("slice", 3, slice, true, "DOC TBD"),
         ("take-while", 2, take_while, true, "Continue taking items while `pred` is true.
 Example:
 (defn less-than-five (x) (< x 5))

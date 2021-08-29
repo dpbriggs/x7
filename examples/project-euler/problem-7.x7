@@ -1,0 +1,12 @@
+(include "examples/project-euler/utils.x7")
+
+;; A little lame, but x7 has a `primes` function that gives all numbers less than `n`
+;; I sat in the REPL and played around, and found this:
+;; >>> (len (primes 104700))
+;; 9994
+;; >>> (len (primes 104770))
+;; 10003
+;; >>> (len (primes 104750))
+;; 10001
+
+(print-res (head (rev (primes 104750))))

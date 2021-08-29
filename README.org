@@ -902,6 +902,18 @@ Example:
 
 #+END_SRC
 
+*** =find=
+
+#+BEGIN_SRC elisp
+DOC TBD
+#+END_SRC
+
+*** =slice=
+
+#+BEGIN_SRC elisp
+DOC TBD
+#+END_SRC
+
 *** =take-while=
 
 #+BEGIN_SRC elisp
@@ -1367,7 +1379,6 @@ Returns a list of lists of all captures in the input.
 #+BEGIN_SRC elisp
 Format doc strings into something org-mode will agree with.
 #+END_SRC
-
 
 
 * Thanks

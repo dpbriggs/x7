@@ -1,0 +1,13 @@
+(def up-to 100)
+
+(def the-range (range 1 (inc up-to)))
+
+(def sum-of-squares (apply + (map (fn (x) (* x x)) the-range)))
+(println sum-of-squares)
+
+(def square-of-sum (pow (apply + the-range) 2))
+(println square-of-sum)
+
+(println "------------------")
+(println (- square-of-sum sum-of-squares))
+(println "------------------")
