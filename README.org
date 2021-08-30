@@ -813,6 +813,12 @@ Ask whether a predicate is true for every element of a sequence. Short circuits.
 Turn a list into a lazy sequence. Useful for building complex iterators over some source list.
 #+END_SRC
 
+*** =skip=
+
+#+BEGIN_SRC elisp
+Skip some amount in a lazy iterator.
+#+END_SRC
+
 *** =apply=
 
 #+BEGIN_SRC elisp
@@ -960,6 +966,16 @@ Example:
 Remove a key-value pair from a dict.
 Example:
 (remove (dict 1 2) 1) ; {}
+
+#+END_SRC
+
+*** =set=
+
+#+BEGIN_SRC elisp
+Set a key to a value in a dict. It'll return the new dict.
+Example:
+(set (dict 1 2) 3 4) ; {1: 2, 3: 4}
+(get (dict) 1 2) ; {1: 2}
 
 #+END_SRC
 
