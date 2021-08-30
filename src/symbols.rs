@@ -218,6 +218,7 @@ impl Expr {
         }
     }
 
+    #[inline]
     pub(crate) fn num<T: ToNumericExpr>(number: T) -> Self {
         number.to_expr()
     }
@@ -869,8 +870,8 @@ impl SymbolTable {
         new
     }
 
-    pub(crate) fn add_symbol(&self, sym: &str, value: Expr) {
-        self.locals.write().insert(sym.into(), value);
+    pub(crate) fn add_symbol(&self, sym: InternedString, value: Expr) {
+        self.locals.write().insert(sym, value);
     }
 
     pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {

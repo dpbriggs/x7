@@ -461,7 +461,7 @@ Example: (/ 8 2 2 2) ; 1
 *** =sqrt=
 
 #+BEGIN_SRC elisp
-Take the square root of a number.
+Take the square root of a number. There's minor precision loss as it's way faster to convert to floats internally over using a bigdecimal.
 Example: (sqrt 9) ; 3
 
 #+END_SRC
