@@ -207,6 +207,9 @@ impl Expr {
             let head = &list[0];
             if !list.iter().skip(1).all(|e| match (head, e) {
                 (Expr::Num(_), Expr::Num(_)) => true,
+                (Expr::Integer(_), Expr::Integer(_)) => true,
+                (Expr::Num(_), Expr::Integer(_)) => true,
+                (Expr::Integer(_), Expr::Num(_)) => true,
                 (Expr::String(_), Expr::String(_)) => true,
                 _ => false,
             }) {
