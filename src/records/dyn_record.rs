@@ -6,6 +6,7 @@ use anyhow::bail;
 use dashmap::DashMap;
 use im::Vector;
 use itertools::Itertools;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Default, Debug, Clone)]
@@ -151,7 +152,7 @@ impl DynRecord {
             Arc::new(method_fn),
             arg_list.iter().cloned().collect(),
             true,
-            im::HashMap::new(),
+            HashMap::new(),
         );
         self.methods.insert(method_name, f);
         Ok(Expr::Nil)
@@ -219,7 +220,7 @@ impl DynRecord {
                         Arc::new(curry_fn),
                         named_args,
                         true,
-                        im::HashMap::new(),
+                        HashMap::new(),
                     );
                     Ok(Expr::function(f))
                 } else {

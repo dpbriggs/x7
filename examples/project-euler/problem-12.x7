@@ -1,0 +1,38 @@
+(include "examples/project-euler/utils.x7")
+
+;; evil mutation outside of scope. I could use closures, but that may be too slow
+(def curr-num 0)
+(defn triag-iterator
+  ()
+  (skip 3 (map
+           (fn (x) (do
+                    (def curr-num (+ curr-num x))
+                    curr-num))
+           (range))))
+
+(def primes-list (primes 200000))
+
+(defn prime-divisors-of (num)
+  (bind
+   (ceiling (inc (int (sqrt num)))) ;; this isn't totally correct, but seems to work
+   (reduce (fn (acc x) (if (= 0 (% num x)) (cons x acc) acc))
+           (tuple)
+           (take-while (fn (x) (<= x ceiling)) primes-list))))
+
+(defn count-times-divides (n divisor)
+  (cond
+    (= 0 (% n divisor)) (+ 1 (count-times-divides (/ n divisor) divisor))
+    true 0))
+
+(defn prime-powers-of (num)
+  (map (fn (prime) (count-times-divides num prime)) (prime-divisors-of num)))
+
+(defn number-of-divisors (num)
+  (reduce * (map inc (prime-powers-of num))))
+
+(def res (find (fn (x) (do
+                        (println "curr = " x)
+                        (> (number-of-divisors x) 500)))
+               (triag-iterator)))
+
+(print-res res)

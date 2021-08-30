@@ -1,4 +1,4 @@
-use crate::symbols::{Expr, LispResult, Num, ProgramError};
+use crate::symbols::{Expr, Integer, LispResult, Num, ProgramError};
 
 // s-expression parser using nom.
 // Supports the usual constructs (quotes, numbers, strings, comments)
@@ -185,7 +185,10 @@ fn parse_quote(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
 
 fn parse_num(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     map_res(recognize_float, |digit_str: &str| {
-        digit_str.parse::<Num>().map(Expr::Num)
+        match digit_str.parse::<Integer>() {
+            Ok(i) => Ok(Expr::Integer(i)),
+            Err(_) => digit_str.parse::<Num>().map(Expr::num),
+        }
     })(i)
 }
 
@@ -265,7 +268,7 @@ mod tests {
 
     macro_rules! num_f {
         ($n:expr) => {
-            Expr::Num(BigDecimal::from_f64($n).unwrap())
+            Expr::num(BigDecimal::from_f64($n).unwrap())
         };
     }
 

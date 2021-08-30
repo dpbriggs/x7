@@ -1,5 +1,5 @@
 #![allow(clippy::unnecessary_wraps)]
-use crate::iterators::{LazyList, LazyMap, NaturalNumbers, Take, TakeWhile};
+use crate::iterators::{LazyList, LazyMap, NaturalNumbers, Skip, Take, TakeWhile};
 use crate::modules::load_x7_stdlib;
 use crate::records::RecordDoc;
 use crate::records::{DynRecord, FileRecord, RegexRecord};
@@ -42,7 +42,7 @@ macro_rules! exact_len {
 macro_rules! num {
     ($n:expr) => {{
         use bigdecimal::{BigDecimal, FromPrimitive};
-        Expr::Num(BigDecimal::from_usize($n).unwrap()) // should never fail.
+        Expr::num(BigDecimal::from_usize($n).unwrap()) // should never fail.
     }};
 }
 
@@ -121,14 +121,20 @@ fn eq_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr
 }
 
 fn add_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    let init = exprs[0].clone();
-    exprs.iter().skip(1).try_fold(init, |acc, x| acc + x)
+    let mut init = exprs[0].clone();
+    for e in exprs.iter().skip(1) {
+        init = (init + e)?;
+    }
+    // TODO: Figure out why this is slightly slower
+    // exprs.iter().skip(1).try_fold(init, |acc, x| acc + x)
+
+    Ok(init)
 }
 
 fn sub_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let init = exprs[0].clone();
     if exprs.len() == 1 {
-        return Ok(Expr::Num(BigDecimal::from(-1) * init.get_num()?));
+        return Ok(Expr::num(BigDecimal::from(-1) * init.get_num()?));
     }
     exprs.iter().skip(1).try_fold(init, |acc, x| acc - x)
 }
@@ -146,14 +152,14 @@ fn div_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Exp
 fn inc_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let n = &exprs[0].get_num()?;
-    Ok(Expr::Num(n + bigdecimal::BigDecimal::one()))
+    Ok(Expr::num(n + bigdecimal::BigDecimal::one()))
 }
 
 fn sqrt_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let num = exprs[0].get_num()?;
     num.sqrt()
-        .map(Expr::Num)
+        .map(Expr::num)
         .ok_or_else(|| anyhow!("Cannot square root a negative number!"))
 }
 
@@ -162,13 +168,13 @@ fn pow(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let base = exprs[0].get_num()?;
     let exp = exprs[1].get_num()?.round(0).to_u32().unwrap(); // TODO: Handle error
     if exp == 0 {
-        return Ok(Expr::Num(BigDecimal::one()));
+        return Ok(Expr::num(BigDecimal::one()));
     }
     let mut res = base.clone();
     for _ in 0..(exp - 1) {
         res *= &base;
     }
-    Ok(Expr::Num(res))
+    Ok(Expr::num(res))
 }
 
 fn int(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -177,10 +183,14 @@ fn int(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         let res: u64 = s
             .parse()
             .map_err(|_| anyhow!("Could not convert to an int."))?;
-        return Ok(Expr::Num(res.into()));
+        return Ok(Expr::num(res));
     }
-    let num = exprs[0].get_num()?;
-    Ok(Expr::Num(num.round(0)))
+    let res = match &exprs[0] {
+        Expr::Integer(i) => Expr::Integer(*i),
+        Expr::Num(i) => Expr::num(i.round(0)),
+        otherwise => return bad_types!("num", otherwise),
+    };
+    Ok(res)
 }
 
 fn floor(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -192,7 +202,7 @@ fn floor(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         .trunc()
         .to_u64()
         .unwrap(); // jesus
-    Ok(Expr::Num(BigDecimal::from(n)))
+    Ok(Expr::num(BigDecimal::from(n)))
 }
 
 // MISC
@@ -499,7 +509,8 @@ fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2, 3);
     let f = &exprs[0];
     let (mut init, list) = if exprs.len() == 2 {
-        if let Ok(iter) = exprs[1].get_iterator() {
+        if exprs[1].is_iterator() {
+            let iter = exprs[1].get_iterator()?;
             return reduce_iterator(f, None, iter, symbol_table);
         }
         let mut list = exprs[1].get_list()?;
@@ -510,7 +521,8 @@ fn reduce(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         let head = list.pop_front().unwrap();
         (head, list)
     } else {
-        if let Ok(iter) = exprs[2].get_iterator() {
+        if exprs[2].is_iterator() {
+            let iter = exprs[2].get_iterator()?;
             return reduce_iterator(f, Some(exprs[1].clone()), iter, symbol_table);
         }
         (exprs[1].clone(), exprs[2].get_list()?)
@@ -549,6 +561,13 @@ fn all(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         }
     }
     Ok(Expr::Bool(true))
+}
+
+fn skip(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let skips_left = exprs[0].get_usize()?;
+    let inner = exprs[1].get_iterator()?;
+    Skip::lisp_res(skips_left, inner)
 }
 
 fn lazy(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -596,7 +615,11 @@ fn make_func(exprs: Vector<Expr>, symbol_table: &SymbolTable, name: String) -> L
         f,
         arg_symbols.iter().cloned().collect(),
         true,
-        symbol_table.get_func_locals(),
+        symbol_table
+            .get_func_locals()
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
     );
     Ok(Expr::function(f))
 }
@@ -676,12 +699,21 @@ fn get_dict(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr
     Ok(res)
 }
 
+fn set_dict(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 3);
+    let mut dict = exprs[0].get_dict()?;
+    let key = exprs[1].clone();
+    let value = exprs[2].clone();
+    dict.insert(key, value);
+    Ok(Expr::Dict(dict))
+}
+
 fn time(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let start = Instant::now();
     let _ = exprs[0].eval(symbol_table)?;
     let end = start.elapsed().as_millis() as u64;
-    Ok(Expr::Num(end.into()))
+    Ok(Expr::num(end))
 }
 
 // LISTS
@@ -800,8 +832,9 @@ fn rev(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     if exprs.is_empty() {
-        return NaturalNumbers::lisp_res();
+        return NaturalNumbers::lisp_res(None, None);
     }
+    // TODO: Always lazy calculate range, or add a new function for it.
     exact_len!(exprs, 1, 2);
     let (mut start, end) = if exprs.len() == 1 {
         use bigdecimal::Zero;
@@ -809,12 +842,18 @@ fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     } else {
         (exprs[0].get_num()?, exprs[1].get_num()?)
     };
-    let mut ret = Vector::new();
-    while start < end {
-        ret.push_back(Expr::Num(start.clone()));
-        start += BigDecimal::one();
+    match (start.to_i64(), end.to_i64()) {
+        // fast path
+        (Some(start), Some(end)) => Ok(Expr::List((start..end).map(Expr::num).collect())),
+        _ => {
+            let mut ret = Vector::new();
+            while start < end {
+                ret.push_back(Expr::num(start.clone()));
+                start += BigDecimal::one();
+            }
+            Ok(Expr::List(ret))
+        }
     }
-    Ok(Expr::List(ret))
 }
 
 fn take(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -824,7 +863,7 @@ fn take(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         if num >= list.len() {
             return Ok(Expr::List(list));
         }
-        let mut list = list.clone();
+        let mut list = list;
         list.split_off(num);
         return Ok(Expr::List(list));
     }
@@ -832,9 +871,22 @@ fn take(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Take::lisp_res(num, iter)
 }
 
-fn take_while(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn take_while(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let pred = exprs[0].get_function()?;
+    if let Ok(list) = exprs[1].get_list() {
+        let mut new_list = Vector::new();
+        for value in list.into_iter() {
+            if !pred
+                .call_fn(Vector::unit(value.clone()), symbol_table)?
+                .get_bool()?
+            {
+                return Ok(Expr::List(new_list));
+            }
+            new_list.push_back(value);
+        }
+        todo!()
+    }
     let iter = exprs[1].get_iterator()?;
     TakeWhile::lisp_res(pred.clone(), iter)
 }
@@ -852,14 +904,20 @@ fn find(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
             return Ok(item);
         }
     }
-    return Ok(Expr::Nil);
+    Ok(Expr::Nil)
 }
 
 fn slice(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 3);
     let lower = exprs[0].get_usize()?;
     let upper = exprs[1].get_usize()?;
-    let mut list = exprs[2].get_list()?;
+    let mut list = {
+        if let Ok(s) = exprs[2].get_string() {
+            return Ok(Expr::String(s[lower..upper].to_string()));
+        } else {
+            exprs[2].get_list()?
+        }
+    };
     if lower >= list.len() {
         return Ok(Expr::Tuple(Vector::new()));
     }
@@ -918,9 +976,7 @@ fn primes(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> 
             seen.push(n);
         }
     }
-    Ok(Expr::List(
-        seen.iter().map(|&i| Expr::Num(i.into())).collect(),
-    ))
+    Ok(Expr::List(seen.iter().map(|&i| Expr::num(i)).collect()))
 }
 // Records
 
@@ -1291,6 +1347,7 @@ Example:
         ("any", 2, any, true, "Ask whether a predicate is true in some sequence. Short circuits."),
         ("all", 2, all, true, "Ask whether a predicate is true for every element of a sequence. Short circuits."),
         ("lazy", 1, lazy, true, "Turn a list into a lazy sequence. Useful for building complex iterators over some source list."),
+        ("skip", 2, skip, true, "Skip some amount in a lazy iterator."),
         ("apply", 2, apply, true, "Apply a function to a given list.
 (def my-list '(1 2 3))
 (apply + my-list) ; outputs 6
@@ -1369,6 +1426,12 @@ Example:
 Example:
 (remove (dict 1 2) 1) ; {}
 "),
+        ("set", 3, set_dict, true, "Set a key to a value in a dict. It'll return the new dict.
+Example:
+(set (dict 1 2) 3 4) ; {1: 2, 3: 4}
+(get (dict) 1 2) ; {1: 2}
+"),
+
         ("get", 2, get_dict, true, "Get a value from a dict by key.
 Example:
 (get (dict 1 2) 1) ; 2

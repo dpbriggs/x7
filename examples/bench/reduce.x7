@@ -1,0 +1,12 @@
+(def n 1000000)
+
+(def foo (range n))
+
+(defn bench (f repeat)
+  (foreach
+   (fn (_) (println (time (f))))
+   (range repeat)))
+
+(bench
+ (fn () (println (reduce + foo)))
+ 5)

@@ -1,7 +1,7 @@
 #![allow(clippy::unnecessary_wraps)]
 use crate::symbols::{Expr, Function, LispResult, SymbolTable};
 use im::Vector;
-use std::fmt;
+use std::fmt::{self, Display};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
@@ -155,6 +155,14 @@ impl Clone for Counter {
 }
 
 impl Counter {
+    fn new(value: usize) -> Self {
+        Counter(AtomicUsize::new(value))
+    }
+
+    fn value(&self) -> usize {
+        self.0.load(Ordering::SeqCst)
+    }
+
     fn zero() -> Counter {
         Counter(AtomicUsize::new(0))
     }
@@ -164,16 +172,24 @@ impl Counter {
     }
 }
 
+impl Display for Counter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value())
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct NaturalNumbers {
     counter: Counter,
+    end: Option<usize>,
     id: u64,
 }
 
 impl NaturalNumbers {
-    pub(crate) fn lisp_res() -> LispResult<Expr> {
+    pub(crate) fn lisp_res(start: Option<usize>, end: Option<usize>) -> LispResult<Expr> {
         Ok(Expr::LazyIter(Box::new(NaturalNumbers {
-            counter: Counter::zero(),
+            counter: Counter::new(start.unwrap_or(0)),
+            end,
             id: random(),
         })))
     }
@@ -182,9 +198,11 @@ impl NaturalNumbers {
 impl LazyIter for NaturalNumbers {
     fn next(&self, _symbol_table: &SymbolTable) -> Option<LispResult<Expr>> {
         let res = self.counter.fetch_add_one();
-        // let res: usize = *self.counter.borrow();
-        // *self.counter.borrow_mut() += 1;
-        Some(Ok(Expr::Num((res as u64).into())))
+        if res >= self.end.unwrap_or(usize::MAX) {
+            None
+        } else {
+            Some(Ok(Expr::num(res as u64)))
+        }
     }
 
     fn name(&self) -> &'static str {
@@ -238,6 +256,65 @@ impl LazyIter for LazyList {
 
     fn id(&self) -> u64 {
         0
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct Skip {
+    inner: IterType,
+    skipped: usize,
+    have_skipped: AtomicBool,
+}
+
+impl Clone for Skip {
+    fn clone(&self) -> Self {
+        Self {
+            inner: LazyIter::clone(&self.inner),
+            skipped: self.skipped,
+            have_skipped: AtomicBool::new(self.have_skipped.load(Ordering::SeqCst)),
+        }
+    }
+}
+
+impl Skip {
+    pub(crate) fn lisp_res(skips_left: usize, inner: IterType) -> LispResult<Expr> {
+        Ok(Expr::LazyIter(Box::new(Skip {
+            inner,
+            have_skipped: AtomicBool::new(false),
+            skipped: skips_left,
+        })))
+    }
+}
+
+impl fmt::Display for Skip {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Skip<{}, {}>", self.skipped, self.inner,)
+    }
+}
+
+impl LazyIter for Skip {
+    fn next(&self, symbol_table: &SymbolTable) -> Option<LispResult<Expr>> {
+        if !self.have_skipped.load(Ordering::SeqCst) {
+            self.have_skipped.store(true, Ordering::SeqCst);
+            for _ in 0..self.skipped {
+                if let Err(e) = self.inner.next(symbol_table)? {
+                    return Some(Err(e));
+                }
+            }
+        }
+        self.inner.next(symbol_table)
+    }
+
+    fn name(&self) -> &'static str {
+        "Skip"
+    }
+
+    fn clone(&self) -> Box<dyn LazyIter> {
+        Box::new(Clone::clone(self))
+    }
+
+    fn id(&self) -> u64 {
+        random()
     }
 }
 

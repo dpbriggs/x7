@@ -2,7 +2,7 @@
 use crate::iterators::IterType;
 use crate::records::RecordType;
 use anyhow::{anyhow, bail, Context};
-use bigdecimal::{BigDecimal, ToPrimitive, Zero};
+use bigdecimal::{BigDecimal, FromPrimitive, ToPrimitive, Zero};
 use core::cmp::Ordering;
 use dashmap::DashMap;
 use im::Vector;
@@ -32,6 +32,7 @@ macro_rules! bad_types {
     };
 }
 
+pub type Integer = i64;
 pub type Num = BigDecimal;
 pub type Dict = im::HashMap<Expr, Expr>;
 pub type Symbol = String;
@@ -40,6 +41,7 @@ pub type Symbol = String;
 #[derive(Clone, Hash)]
 pub enum Expr {
     Num(Num),
+    Integer(Integer),
     Symbol(Symbol),
     List(Vector<Expr>),
     Function(Arc<Function>),
@@ -57,6 +59,7 @@ impl PartialEq for Expr {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Expr::Num(l), Expr::Num(r)) => l.eq(r),
+            (Expr::Integer(l), Expr::Integer(r)) => l.eq(r),
             (Expr::Symbol(l), Expr::Symbol(r)) => l.eq(r),
             (Expr::String(l), Expr::String(r)) => l.eq(r),
             (Expr::List(l), Expr::List(r)) => l.eq(r),
@@ -87,6 +90,7 @@ impl fmt::Debug for Expr {
             Expr::Nil => write!(f, "nil"),
             Expr::String(s) => write!(f, "\"{}\"", s),
             Expr::Num(n) => write!(f, "{}", n),
+            Expr::Integer(n) => write!(f, "{}", n),
             Expr::Symbol(s) => write!(f, "{}", s),
             Expr::Function(ff) => write!(f, "{}", ff),
             Expr::LazyIter(i) => write!(f, "{}", i),
@@ -106,6 +110,90 @@ impl fmt::Display for Expr {
             Expr::String(s) => write!(f, "{}", s),
             rest => write!(f, "{:?}", rest),
         }
+    }
+}
+
+pub(crate) trait ToNumericExpr {
+    fn to_expr(self) -> Expr;
+    fn to_bigdecimal(self) -> Num;
+}
+
+impl ToNumericExpr for usize {
+    #[inline]
+    fn to_expr(self) -> Expr {
+        Expr::Num(FromPrimitive::from_usize(self).unwrap())
+    }
+
+    #[inline]
+    fn to_bigdecimal(self) -> Num {
+        FromPrimitive::from_usize(self).unwrap()
+    }
+}
+
+impl ToNumericExpr for u64 {
+    #[inline]
+    fn to_expr(self) -> Expr {
+        Expr::Num(FromPrimitive::from_u64(self).unwrap())
+    }
+
+    #[inline]
+    fn to_bigdecimal(self) -> Num {
+        FromPrimitive::from_u64(self).unwrap()
+    }
+}
+
+impl ToNumericExpr for u32 {
+    #[inline]
+    fn to_expr(self) -> Expr {
+        Expr::Num(FromPrimitive::from_u32(self).unwrap())
+    }
+
+    #[inline]
+    fn to_bigdecimal(self) -> Num {
+        FromPrimitive::from_u32(self).unwrap()
+    }
+}
+
+impl ToNumericExpr for i32 {
+    #[inline]
+    fn to_expr(self) -> Expr {
+        Expr::Integer(self as Integer)
+    }
+
+    #[inline]
+    fn to_bigdecimal(self) -> Num {
+        FromPrimitive::from_i32(self).unwrap()
+    }
+}
+
+impl ToNumericExpr for Integer {
+    #[inline]
+    fn to_expr(self) -> Expr {
+        Expr::Integer(self)
+    }
+
+    #[inline]
+    fn to_bigdecimal(self) -> Num {
+        FromPrimitive::from_i64(self).unwrap()
+    }
+}
+
+impl ToNumericExpr for BigDecimal {
+    #[inline]
+    fn to_expr(self) -> Expr {
+        if self.is_integer() {
+            match self.to_i64() {
+                Some(i) => Expr::Integer(i),
+                None => Expr::Num(self),
+            }
+        } else {
+            Expr::Num(self)
+        }
+    }
+
+    #[inline]
+    fn to_bigdecimal(self) -> Num {
+        self
     }
 }
 
@@ -129,6 +217,10 @@ impl Expr {
         }
     }
 
+    pub(crate) fn num<T: ToNumericExpr>(number: T) -> Self {
+        number.to_expr()
+    }
+
     pub(crate) fn function(f: Function) -> Self {
         Expr::Function(Arc::new(f))
     }
@@ -138,6 +230,7 @@ impl Expr {
             Expr::Num(_) => "num",
             Expr::String(_) => "str",
             Expr::Quote(_) => "quote",
+            Expr::Integer(_) => "int",
             Expr::Bool(_) => "bool",
             Expr::Function(_) => "func",
             Expr::Symbol(_) => "symbol",
@@ -151,10 +244,10 @@ impl Expr {
     }
 
     pub(crate) fn get_num(&self) -> LispResult<Num> {
-        if let Expr::Num(n) = self {
-            Ok(n.clone())
-        } else {
-            bad_types!("num", self)
+        match self {
+            Expr::Num(n) => Ok(n.clone()),
+            Expr::Integer(n) => Ok(n.to_bigdecimal()),
+            _ => bad_types!("num", self),
         }
     }
 
@@ -236,6 +329,14 @@ impl Expr {
     }
 
     #[inline]
+    pub(crate) fn is_iterator(&self) -> bool {
+        match self {
+            Expr::LazyIter(_) => true,
+            _ => false,
+        }
+    }
+
+    #[inline]
     pub(crate) fn get_iterator(&self) -> LispResult<IterType> {
         if let Expr::LazyIter(l) = self {
             Ok(l.clone())
@@ -309,7 +410,7 @@ pub struct Function {
     f: X7FunctionPtr,
     pub named_args: Vec<Expr>, // Expr::Symbol
     eval_args: bool,
-    closure: Option<im::HashMap<String, Expr>>,
+    closure: Option<HashMap<String, Expr>>,
 }
 
 use std::hash::{Hash, Hasher};
@@ -345,7 +446,7 @@ impl fmt::Debug for Function {
 
 macro_rules! try_collect {
     ($args:expr, $symbol_table:expr) => {{
-        let mut args_clone = $args.clone();
+        let mut args_clone = $args;
         for arg in args_clone.iter_mut() {
             *arg = arg.eval(&$symbol_table)?;
         }
@@ -377,7 +478,7 @@ impl Function {
         f: X7FunctionPtr,
         named_args: Vec<Expr>,
         eval_args: bool,
-        closure: im::HashMap<String, Expr>,
+        closure: HashMap<String, Expr>,
     ) -> Self {
         Self {
             symbol,
@@ -405,10 +506,18 @@ impl Function {
             ));
         }
 
-        let symbol_table = match &self.closure {
-            None => symbol_table.clone(),
-            Some(close) => symbol_table.with_closure(close),
-        };
+        let closure;
+        let mut symbol_table = symbol_table;
+
+        // TODO: Turn this into something less nasty.
+        if let Some(close) = &self.closure {
+            closure = Some(symbol_table.with_closure(close));
+            symbol_table = closure.as_ref().unwrap();
+        }
+        // let symbol_table = match &self.closure {
+        //     None => symbol_table.clone(),
+        //     Some(close) => ,
+        // };
 
         if self.named_args.is_empty() {
             if self.eval_args {
@@ -471,7 +580,10 @@ impl std::ops::Rem<&Expr> for Expr {
     type Output = LispResult<Expr>;
     fn rem(self, other: &Expr) -> LispResult<Expr> {
         match (&self, &other) {
-            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l % r))),
+            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::num(l % r))),
+            (Expr::Integer(l), Expr::Integer(r)) => (Ok(Expr::num(l % r))),
+            (Expr::Integer(l), Expr::Num(r)) => (Ok(Expr::num(l.to_bigdecimal() % r))),
+            (Expr::Num(l), Expr::Integer(r)) => (Ok(Expr::num(l % r.to_bigdecimal()))),
             _ => bad_types!(format!(
                 "Remainder requires left and right are num types, was given {:?} % {:?}",
                 &self, &other
@@ -482,9 +594,16 @@ impl std::ops::Rem<&Expr> for Expr {
 
 impl std::ops::Add<&Expr> for Expr {
     type Output = LispResult<Expr>;
+    #[inline]
     fn add(self, other: &Expr) -> LispResult<Expr> {
         match (&self, &other) {
-            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l + r))),
+            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::num(l + r))),
+            (Expr::Integer(l), Expr::Integer(r)) => match l.checked_add(*r) {
+                Some(res) => Ok(Expr::num(res)),
+                None => Ok(Expr::num(l.to_bigdecimal() + r.to_bigdecimal())),
+            },
+            (Expr::Integer(l), Expr::Num(r)) => Ok(Expr::num(l.to_bigdecimal() + r)),
+            (Expr::Num(l), Expr::Integer(r)) => Ok(Expr::num(l + r.to_bigdecimal())),
             (Expr::String(l), Expr::String(r)) => Ok(Expr::String(l.to_string() + r)),
             (Expr::Num(l), Expr::String(r)) => (Ok(Expr::String(format!("{}{}", l, r)))),
             (Expr::String(l), Expr::Num(r)) => (Ok(Expr::String(format!("{}{}", l, r)))),
@@ -513,7 +632,13 @@ impl std::ops::Sub<&Expr> for Expr {
     type Output = LispResult<Expr>;
     fn sub(self, other: &Expr) -> LispResult<Expr> {
         match (&self, &other) {
-            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l - r))),
+            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::num(l - r))),
+            (Expr::Integer(l), Expr::Integer(r)) => match l.checked_sub(*r) {
+                Some(res) => Ok(Expr::num(res)),
+                None => Ok(Expr::num(l.to_bigdecimal() - r.to_bigdecimal())),
+            },
+            (Expr::Integer(l), Expr::Num(r)) => Ok(Expr::num(l.to_bigdecimal() - r)),
+            (Expr::Num(l), Expr::Integer(r)) => Ok(Expr::num(l - r.to_bigdecimal())),
             _ => bad_types!(format!(
                 "Subtraction between these types doesn't make sense: {} - {}",
                 &self, other
@@ -526,11 +651,17 @@ impl std::ops::Mul<&Expr> for Expr {
     type Output = LispResult<Expr>;
     fn mul(self, other: &Expr) -> LispResult<Expr> {
         match (&self, &other) {
-            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::Num(l * r))),
+            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::num(l * r))),
+            (Expr::Integer(l), Expr::Integer(r)) => match l.checked_mul(*r) {
+                Some(res) => Ok(Expr::num(res)),
+                None => Ok(Expr::Num(l.to_bigdecimal() * r.to_bigdecimal())), // res is larger than i64
+            },
+            (Expr::Integer(l), Expr::Num(r)) => Ok(Expr::num(l.to_bigdecimal() * r)),
+            (Expr::Num(l), Expr::Integer(r)) => Ok(Expr::num(l * r.to_bigdecimal())),
             (Expr::String(l), Expr::Num(r)) => {
                 if *r >= BigDecimal::zero() {
                     Ok(Expr::String(
-                        l.to_string().repeat(Expr::Num(r.clone()).get_usize()?),
+                        l.to_string().repeat(Expr::num(r.clone()).get_usize()?),
                     ))
                 } else {
                     bad_types!(format!(
@@ -555,7 +686,19 @@ impl std::ops::Div<&Expr> for Expr {
                 if *r == BigDecimal::zero() {
                     bail!(ProgramError::DivisionByZero);
                 } else {
-                    Ok(Expr::Num(l / r))
+                    Ok(Expr::num(l / r))
+                }
+            }
+            (_, Expr::Integer(0)) => bail!(ProgramError::DivisionByZero),
+            (Expr::Integer(l), Expr::Integer(r)) => {
+                Ok(Expr::num(l.to_bigdecimal() / r.to_bigdecimal()))
+            }
+            (Expr::Num(l), Expr::Integer(r)) => Ok(Expr::num(l / r.to_bigdecimal())),
+            (Expr::Integer(l), Expr::Num(r)) => {
+                if *r == BigDecimal::zero() {
+                    bail!(ProgramError::DivisionByZero)
+                } else {
+                    Ok(Expr::num(l.to_bigdecimal() / r))
                 }
             }
             _ => bad_types!(format!(
@@ -570,6 +713,9 @@ impl PartialOrd for Expr {
     fn partial_cmp(&self, other: &Expr) -> Option<Ordering> {
         match (self, other) {
             (Expr::Num(l), Expr::Num(r)) => l.partial_cmp(r),
+            (Expr::Integer(l), Expr::Integer(r)) => l.partial_cmp(r),
+            (Expr::Num(l), Expr::Integer(r)) => l.partial_cmp(&r.to_bigdecimal()),
+            (Expr::Integer(l), Expr::Num(r)) => l.to_bigdecimal().partial_cmp(r),
             (Expr::String(l), Expr::String(r)) => l.partial_cmp(r),
             _ => None,
         }
@@ -582,6 +728,9 @@ impl Ord for Expr {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
             (Expr::Num(l), Expr::Num(r)) => l.cmp(r),
+            (Expr::Integer(l), Expr::Integer(r)) => l.cmp(r),
+            (Expr::Num(l), Expr::Integer(r)) => l.cmp(&r.to_bigdecimal()),
+            (Expr::Integer(l), Expr::Num(r)) => l.to_bigdecimal().cmp(r),
             (Expr::String(l), Expr::String(r)) => l.cmp(r),
             _ => Ordering::Less,
         }
@@ -657,7 +806,7 @@ pub struct SymbolTable {
     // Future Dave: magic means we special case adding
     // symbols to the table whether or not a function is calling.
     // So named arguments last only as long as the function calling.
-    func_locals: im::HashMap<String, Expr>,
+    func_locals: HashMap<String, Expr>,
 }
 
 impl SymbolTable {
@@ -688,19 +837,21 @@ impl SymbolTable {
     }
 
     pub(crate) fn symbol_exists(&self, sym: &str) -> bool {
-        match self.lookup(sym) {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+        self.lookup(sym).is_ok()
     }
 
-    pub(crate) fn get_func_locals(&self) -> im::HashMap<String, Expr> {
+    pub(crate) fn get_func_locals(&self) -> HashMap<String, Expr> {
         self.func_locals.clone()
     }
 
-    pub(crate) fn with_closure(&self, other: &im::HashMap<String, Expr>) -> SymbolTable {
+    pub(crate) fn with_closure(&self, other: &HashMap<String, Expr>) -> SymbolTable {
         SymbolTable {
-            func_locals: other.clone().union(self.func_locals.clone()),
+            func_locals: self
+                .func_locals
+                .iter()
+                .chain(other)
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
             ..self.clone()
         }
     }

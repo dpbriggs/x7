@@ -1,4 +1,5 @@
 use num_traits::cast::ToPrimitive;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::{error::Error, path::Path};
 
@@ -228,7 +229,7 @@ impl X7Interpreter {
             f,
             arg_symbols.into_iter().collect(),
             true,
-            im::HashMap::new(),
+            HashMap::new(),
         );
 
         self.symbol_table

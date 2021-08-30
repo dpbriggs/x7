@@ -37,4 +37,6 @@
 (println (get-single-horizontal 0 1))
 (println (get-single-vertical 0 0))
 
+(print-res "TODO")
+
 ;; TODO: This problem. Kind of a pain to index everything.
