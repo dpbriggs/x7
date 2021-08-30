@@ -224,7 +224,7 @@ impl X7Interpreter {
         let args_len = arg_symbols.len();
         let f = Arc::new(move |_args: Vector<Expr>, sym: &SymbolTable| body.eval(sym));
         let f = Function::new_named_args(
-            function_sym.to_string(),
+            function_sym.into(),
             args_len,
             f,
             arg_symbols.into_iter().collect(),

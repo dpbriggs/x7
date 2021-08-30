@@ -270,7 +270,7 @@ impl Expr {
 
     pub fn get_symbol(&self) -> LispResult<Symbol> {
         if let Expr::Symbol(s) = self {
-            Ok(s.clone())
+            Ok(*s)
         } else {
             bad_types!("symbol", self)
         }
@@ -394,7 +394,7 @@ impl Expr {
     #[inline]
     pub fn get_symbol_string(&self) -> LispResult<InternedString> {
         if let Expr::Symbol(s) = self {
-            Ok(s.clone())
+            Ok(*s)
         } else {
             bad_types!("symbol", self)
         }
@@ -406,7 +406,7 @@ pub(crate) type X7FunctionPtr =
 
 #[derive(Clone)]
 pub struct Function {
-    pub symbol: String,
+    pub symbol: InternedString,
     pub minimum_args: usize,
     f: X7FunctionPtr,
     pub named_args: Vec<Expr>, // Expr::Symbol
@@ -464,7 +464,7 @@ impl fmt::Display for Function {
 impl Function {
     pub fn new(symbol: String, minimum_args: usize, f: X7FunctionPtr, eval_args: bool) -> Self {
         Self {
-            symbol,
+            symbol: symbol.into(),
             minimum_args,
             f,
             named_args: Vec::with_capacity(0),
@@ -474,7 +474,7 @@ impl Function {
     }
 
     pub fn new_named_args(
-        symbol: String,
+        symbol: InternedString,
         minimum_args: usize,
         f: X7FunctionPtr,
         named_args: Vec<Expr>,
@@ -857,7 +857,7 @@ impl SymbolTable {
                 .func_locals
                 .iter()
                 .chain(other)
-                .map(|(k, v)| (k.clone(), v.clone()))
+                .map(|(k, v)| (*k, v.clone()))
                 .collect(),
             ..self.clone()
         }

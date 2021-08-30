@@ -1,4 +1,5 @@
 #![allow(clippy::unnecessary_wraps)]
+use crate::interner::InternedString;
 use crate::iterators::{LazyList, LazyMap, NaturalNumbers, Skip, Take, TakeWhile};
 use crate::modules::load_x7_stdlib;
 use crate::records::RecordDoc;
@@ -282,7 +283,7 @@ fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 
     let sym_eval = exprs[0].eval(symbol_table)?;
     if let Ok(f) = sym_eval.get_function() {
-        if let Some(doc) = symbol_table.get_doc_item(&f.symbol) {
+        if let Some(doc) = symbol_table.get_doc_item(&f.symbol.to_string()) {
             return Ok(Expr::String(doc));
         }
     }
@@ -605,7 +606,11 @@ fn bind(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exprs[1].eval(&sym_copy)
 }
 
-fn make_func(exprs: Vector<Expr>, symbol_table: &SymbolTable, name: String) -> LispResult<Expr> {
+fn make_func(
+    exprs: Vector<Expr>,
+    symbol_table: &SymbolTable,
+    name: InternedString,
+) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let arg_symbols = exprs[0].get_list()?;
     let min_args = match arg_symbols.iter().position(|e| e.symbol_matches("&")) {
@@ -623,7 +628,7 @@ fn make_func(exprs: Vector<Expr>, symbol_table: &SymbolTable, name: String) -> L
         symbol_table
             .get_func_locals()
             .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
+            .map(|(k, v)| (*k, v.clone()))
             .collect(),
     );
     Ok(Expr::function(f))
@@ -649,7 +654,7 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     let sym_name = name.get_symbol_string()?;
 
     // Make a function
-    let func = make_func(vector![args, body], symbol_table, sym_name.to_string())?;
+    let func = make_func(vector![args, body], symbol_table, sym_name)?;
 
     // Add the function to the symbol table
     def(vector![name, func.clone()], symbol_table)?;

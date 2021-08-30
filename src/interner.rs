@@ -3,13 +3,27 @@ use parking_lot::RwLock;
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
-    ops::Deref,
 };
 
-#[derive(Hash, PartialEq, Eq, Copy, Clone)]
+#[derive(Copy, Clone, Eq)]
 pub struct InternedString(u32, usize);
 
+impl PartialEq for InternedString {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl std::hash::Hash for InternedString {
+    #[inline]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
+
 impl Default for InternedString {
+    #[inline]
     fn default() -> Self {
         Self(0, 0)
     }
@@ -33,18 +47,21 @@ impl InternedString {
 }
 
 impl PartialEq<str> for InternedString {
+    #[inline]
     fn eq(&self, other: &str) -> bool {
         self.read() == other
     }
 }
 
 impl From<&str> for InternedString {
+    #[inline]
     fn from(s: &str) -> Self {
         InternedString::new(s.to_string())
     }
 }
 
 impl From<String> for InternedString {
+    #[inline]
     fn from(s: String) -> Self {
         InternedString::new(s)
     }
@@ -63,8 +80,14 @@ impl Debug for InternedString {
 }
 
 impl PartialOrd for InternedString {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.read().partial_cmp(&other.read())
+        // TODO: Is this valid?
+        match self.1.partial_cmp(&other.1)? {
+            std::cmp::Ordering::Equal => self.read().partial_cmp(&other.read()),
+            other => Some(other),
+        }
+        // self.read().partial_cmp(&other.read())
     }
 }
 

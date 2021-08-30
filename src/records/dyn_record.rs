@@ -147,7 +147,7 @@ impl DynRecord {
         };
         let method_fn = move |_args: Vector<Expr>, sym: &SymbolTable| body.eval(sym);
         let f = Function::new_named_args(
-            method_symbol,
+            method_symbol.into(),
             arg_list.len(),
             Arc::new(method_fn),
             arg_list.iter().cloned().collect(),
@@ -217,7 +217,7 @@ impl DynRecord {
                         }
                     };
                     let f = Function::new_named_args(
-                        name,
+                        name.into(),
                         0,
                         Arc::new(curry_fn),
                         named_args,
@@ -230,7 +230,7 @@ impl DynRecord {
                         &self
                             .fields
                             .iter()
-                            .map(|e| (e.key().clone(), e.value().clone()))
+                            .map(|e| (*e.key(), e.value().clone()))
                             .collect(),
                     );
                     // Add "self" to the symbol table
