@@ -8,7 +8,7 @@ use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use crate::{bad_types, iterators::LazyFilter};
 use crate::{cli::Options, iterators::IterType};
 use anyhow::{anyhow, bail, ensure, Context};
-use bigdecimal::{BigDecimal, One, ToPrimitive};
+use bigdecimal::{BigDecimal, FromPrimitive, One, ToPrimitive};
 use im::{vector, Vector};
 use itertools::Itertools;
 
@@ -158,10 +158,21 @@ fn inc_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Exp
 
 fn sqrt_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    let num = exprs[0].get_num()?;
-    num.sqrt()
-        .map(Expr::num)
-        .ok_or_else(|| anyhow!("Cannot square root a negative number!"))
+    let num_f64 = match &exprs[0] {
+        Expr::Integer(i) => *i as f64,
+        Expr::Num(i) => {
+            if let Some(f) = i.to_f64() {
+                f
+            } else {
+                return i
+                    .sqrt()
+                    .map(Expr::num)
+                    .ok_or_else(|| anyhow!("Cannot square root a negative number!"));
+            }
+        }
+        otherwise => return bad_types!("num or int", otherwise),
+    };
+    Ok(Expr::num(BigDecimal::from_f64(num_f64.sqrt()).unwrap()))
 }
 
 fn pow(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1128,7 +1139,7 @@ Example: (/ 8 2 2 2) ; 1
             1,
             sqrt_exprs,
             true,
-            "Take the square root of a number.
+            "Take the square root of a number. There's minor precision loss as it's way faster to convert to floats internally over using a bigdecimal.
 Example: (sqrt 9) ; 3
 "
         ),
