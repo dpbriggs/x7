@@ -293,7 +293,7 @@ impl X7Interpreter {
             .map(|e| e.to_x7())
             .collect::<Result<_, _>>()?;
         self.symbol_table
-            .lookup(fn_name)
+            .lookup(&fn_name.into())
             .and_then(|f| f.call_fn(args, &self.symbol_table))
             .map_err(ErrorBridge::new)
             .and_then(|e| Out::from_x7(&e))

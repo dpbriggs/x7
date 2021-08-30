@@ -1,12 +1,13 @@
 #![allow(clippy::match_like_matches_macro)]
+use crate::interner::InternedString;
 use crate::iterators::IterType;
 use crate::records::RecordType;
 use anyhow::{anyhow, bail, Context};
 use bigdecimal::{BigDecimal, FromPrimitive, ToPrimitive, Zero};
 use core::cmp::Ordering;
-use dashmap::DashMap;
 use im::Vector;
 use itertools::Itertools;
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
@@ -35,7 +36,7 @@ macro_rules! bad_types {
 pub type Integer = i64;
 pub type Num = BigDecimal;
 pub type Dict = im::HashMap<Expr, Expr>;
-pub type Symbol = String;
+pub type Symbol = InternedString;
 
 #[allow(clippy::derive_hash_xor_eq)] // It's probably OK.
 #[derive(Clone, Hash)]
@@ -294,7 +295,7 @@ impl Expr {
     pub(crate) fn is_symbol_underscore(&self) -> bool {
         self.get_symbol_string()
             .ok()
-            .map(|s| s == "_")
+            .map(|s| s.to_string() == "_")
             .unwrap_or(false)
     }
 
@@ -391,7 +392,7 @@ impl Expr {
     }
 
     #[inline]
-    pub fn get_symbol_string(&self) -> LispResult<String> {
+    pub fn get_symbol_string(&self) -> LispResult<InternedString> {
         if let Expr::Symbol(s) = self {
             Ok(s.clone())
         } else {
@@ -410,7 +411,7 @@ pub struct Function {
     f: X7FunctionPtr,
     pub named_args: Vec<Expr>, // Expr::Symbol
     eval_args: bool,
-    closure: Option<HashMap<String, Expr>>,
+    closure: Option<HashMap<InternedString, Expr>>,
 }
 
 use std::hash::{Hash, Hasher};
@@ -478,7 +479,7 @@ impl Function {
         f: X7FunctionPtr,
         named_args: Vec<Expr>,
         eval_args: bool,
-        closure: HashMap<String, Expr>,
+        closure: HashMap<InternedString, Expr>,
     ) -> Self {
         Self {
             symbol,
@@ -522,11 +523,11 @@ impl Function {
         if self.named_args.is_empty() {
             if self.eval_args {
                 let args = try_collect!(args, symbol_table);
-                return (self.f)(args.clone(), &symbol_table).with_context(|| {
+                return (self.f)(args.clone(), symbol_table).with_context(|| {
                     format!("Error in {}, with args {}", &self, format_args(&args))
                 });
             } else {
-                return (self.f)(args, &symbol_table);
+                return (self.f)(args, symbol_table);
             }
         }
 
@@ -799,14 +800,14 @@ impl Doc {
 // TODO: Debug should include stdlib
 #[derive(Clone, Debug, Default)]
 pub struct SymbolTable {
-    globals: Arc<DashMap<String, Expr>>,
-    locals: Arc<DashMap<String, Expr>>,
+    globals: Arc<RwLock<HashMap<InternedString, Expr>>>,
+    locals: Arc<RwLock<HashMap<InternedString, Expr>>>,
     docs: Arc<Mutex<Doc>>,
     // TODO: Should functions be magic like this?
     // Future Dave: magic means we special case adding
     // symbols to the table whether or not a function is calling.
     // So named arguments last only as long as the function calling.
-    func_locals: HashMap<String, Expr>,
+    func_locals: HashMap<InternedString, Expr>,
 }
 
 impl SymbolTable {
@@ -815,36 +816,42 @@ impl SymbolTable {
         doc_order: Vec<(String, String)>,
     ) -> SymbolTable {
         SymbolTable {
-            globals: Arc::new(globals.into_iter().collect()),
+            globals: Arc::new(RwLock::new(
+                globals
+                    .into_iter()
+                    .map(|(s, e)| (InternedString::new(s), e))
+                    .collect(),
+            )),
             locals: Default::default(),
             docs: Arc::new(Mutex::new(Doc::with_globals(doc_order))),
             func_locals: Default::default(),
         }
     }
 
-    pub(crate) fn lookup(&self, symbol: &str) -> LispResult<Expr> {
+    pub(crate) fn lookup(&self, symbol: &InternedString) -> LispResult<Expr> {
         if let Some(expr) = self.func_locals.get(symbol) {
             return Ok(expr.clone());
         }
-        if let Some(expr) = self.locals.get(symbol) {
+        if let Some(expr) = self.locals.read().get(symbol) {
             return Ok(expr.clone());
         }
         // Check global scope
         self.globals
+            .read()
             .get(symbol)
-            .map(|e| e.clone())
+            .cloned()
             .ok_or_else(|| anyhow!("Unknown Symbol {}", symbol.to_string()))
     }
 
-    pub(crate) fn symbol_exists(&self, sym: &str) -> bool {
+    pub(crate) fn symbol_exists(&self, sym: &InternedString) -> bool {
         self.lookup(sym).is_ok()
     }
 
-    pub(crate) fn get_func_locals(&self) -> HashMap<String, Expr> {
+    pub(crate) fn get_func_locals(&self) -> HashMap<InternedString, Expr> {
         self.func_locals.clone()
     }
 
-    pub(crate) fn with_closure(&self, other: &HashMap<String, Expr>) -> SymbolTable {
+    pub(crate) fn with_closure(&self, other: &HashMap<InternedString, Expr>) -> SymbolTable {
         SymbolTable {
             func_locals: self
                 .func_locals
@@ -856,18 +863,19 @@ impl SymbolTable {
         }
     }
 
-    pub(crate) fn add_local_item(&self, symbol: String, value: Expr) -> Self {
+    pub(crate) fn add_local_item(&self, symbol: InternedString, value: Expr) -> Self {
         let new = self.clone();
-        new.locals.insert(symbol, value);
+        new.locals.write().insert(symbol, value);
         new
     }
 
     pub(crate) fn add_symbol(&self, sym: &str, value: Expr) {
-        self.locals.insert(sym.into(), value);
+        self.locals.write().insert(sym.into(), value);
     }
 
     pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {
         self.locals
+            .write()
             .insert(symbol.get_symbol_string()?, value.clone());
         Ok(Expr::Nil)
     }
@@ -894,11 +902,12 @@ impl SymbolTable {
     }
 
     pub(crate) fn query_symbol_starts_with(&self, prefix: &str) -> Vec<String> {
-        self.globals
+        let guard = self.globals.read();
+        guard
             .iter()
-            .chain(self.locals.iter())
-            .filter(|s| s.key().starts_with(prefix))
-            .map(|hit| hit.key().into())
+            .chain(self.locals.read().iter())
+            .filter(|(s, _)| s.to_string().starts_with(prefix))
+            .map(|(hit, _)| hit.to_string())
             .collect()
     }
 
@@ -916,13 +925,14 @@ impl SymbolTable {
                 break;
             };
 
-            if symbol == "&" {
+            if symbol.to_string() == "&" {
                 let rest_sym = if let Some(sym) = get_symbol(symbol_iter.next()) {
                     sym?
                 } else {
                     bail!(ProgramError::ExpectedRestSymbol);
                 };
                 copy.locals
+                    .write()
                     .insert(rest_sym, Expr::List(values_iter.collect()));
                 break;
             }
@@ -952,7 +962,7 @@ impl SymbolTable {
 // (fn foo (x & rest) ...)
 // (foo 1 2 3 4) // x: 1, rest: '(2 3 4)
 
-fn get_symbol(sym: Option<Expr>) -> Option<LispResult<String>> {
+fn get_symbol(sym: Option<Expr>) -> Option<LispResult<InternedString>> {
     sym.map(|s| s.get_symbol_string())
 }
 

@@ -57,7 +57,7 @@ impl Record for DynRecord {
     }
 
     fn type_name(&self) -> String {
-        self.name.clone()
+        self.name.to_string()
     }
 
     fn call_as_fn(&self, args: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -103,7 +103,7 @@ impl DynRecord {
         let doc = if let Some(s) = exprs.get(1) {
             if let Ok(s) = s.get_string() {
                 skip_to_fields += 1;
-                symbol_table.add_doc_item(name.clone(), s.clone());
+                symbol_table.add_doc_item(name.to_string(), s.clone());
                 Some(s)
             } else {
                 None
@@ -173,13 +173,15 @@ impl DynRecord {
             )
         }
 
+        let method_name = method_name.into();
+
         // First check attributes
-        if let Some(field_value) = self.fields.get(method_name) {
+        if let Some(field_value) = self.fields.get(&method_name) {
             return Ok(field_value.clone());
         }
 
         // Finally, look it up
-        match self.methods.get(method_name) {
+        match self.methods.get(&method_name) {
             Some(method) => {
                 if args.len() < method.minimum_args {
                     // In this branch, we auto-curry function methods.

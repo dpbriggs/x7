@@ -225,7 +225,7 @@ fn quote(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 fn symbol(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     if let Ok(s) = exprs[0].get_string() {
-        Ok(Expr::Symbol(s))
+        Ok(Expr::Symbol(s.into()))
     } else {
         bad_types!("string", exprs[0])
     }
@@ -258,7 +258,12 @@ fn err(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 fn all_symbols(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 0);
     let all_syms = symbol_table.get_canonical_doc_order();
-    Ok(Expr::List(all_syms.into_iter().map(Expr::Symbol).collect()))
+    Ok(Expr::List(
+        all_syms
+            .into_iter()
+            .map(|e| Expr::Symbol(e.into()))
+            .collect(),
+    ))
 }
 
 fn include(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -271,7 +276,7 @@ fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     // TODO: Make records nice (merge Record and RecordDoc?)
     let sym = exprs[0].get_symbol_string()?;
-    if let Some(doc) = symbol_table.get_doc_item(&sym) {
+    if let Some(doc) = symbol_table.get_doc_item(&sym.to_string()) {
         return Ok(Expr::String(doc));
     }
 
@@ -284,7 +289,7 @@ fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 
     // Last ditch effort: eval it
     let doc = symbol_table
-        .get_doc_item(&sym_eval.get_symbol_string()?)
+        .get_doc_item(&sym_eval.get_symbol_string()?.to_string())
         .unwrap_or_else(|| format!("No documentation for {}", sym));
     Ok(Expr::String(doc))
 }
@@ -644,14 +649,14 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     let sym_name = name.get_symbol_string()?;
 
     // Make a function
-    let func = make_func(vector![args, body], symbol_table, sym_name.clone())?;
+    let func = make_func(vector![args, body], symbol_table, sym_name.to_string())?;
 
     // Add the function to the symbol table
     def(vector![name, func.clone()], symbol_table)?;
 
     // If given docs, add it to the symbol table
     if let Some(doc) = doc {
-        symbol_table.add_doc_item(sym_name, doc);
+        symbol_table.add_doc_item(sym_name.to_string(), doc);
     }
 
     // return the function
@@ -991,7 +996,7 @@ fn call_method(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Ex
 fn doc_methods(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let sym: Cow<str> = match &exprs[0] {
-        Expr::Symbol(s) => Cow::Borrowed(s),
+        Expr::Symbol(s) => Cow::Owned(s.to_string()),
         Expr::Record(r) => r.type_name().into(),
         otherwise => return bad_types!("Symbol or Record", otherwise),
     };

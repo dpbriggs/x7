@@ -68,7 +68,7 @@ fn method_call_multiple(methods: Vec<String>) -> Expr {
     }
     let ff: Expr = methods.into_iter().fold(Expr::Nil, |acc, method| {
         if matches!(acc, Expr::Nil) {
-            return Expr::Symbol(method);
+            return Expr::Symbol(method.into());
         }
         let acc_clone = acc.clone();
         let method_clone = method.clone();
