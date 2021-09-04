@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use num_traits::cast::ToPrimitive;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -227,10 +228,10 @@ impl X7Interpreter {
             function_sym.into(),
             args_len,
             f,
-            arg_symbols.into_iter().collect(),
+            arg_symbols.into_iter().map(|e| e.get_symbol_string()).try_collect()?,
             true,
             HashMap::new(),
-        );
+        )?;
 
         self.symbol_table
             .add_symbol(function_sym.into(), Expr::function(f));

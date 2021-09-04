@@ -638,14 +638,14 @@ fn make_func(
         name,
         min_args,
         f,
-        arg_symbols.iter().cloned().collect(),
+        arg_symbols.iter().map(|e| e.get_symbol_string()).try_collect()?,
         true,
         symbol_table
             .get_func_locals()
             .iter()
             .map(|(k, v)| (*k, v.clone()))
             .collect(),
-    );
+    )?;
     Ok(Expr::function(f))
 }
 

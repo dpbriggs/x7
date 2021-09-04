@@ -150,10 +150,10 @@ impl DynRecord {
             method_symbol.into(),
             arg_list.len(),
             Arc::new(method_fn),
-            arg_list.iter().cloned().collect(),
+            arg_list.into_iter().map(|e| e.get_symbol_string()).try_collect()?,
             true,
             HashMap::new(),
-        );
+        )?;
         self.methods.insert(method_name, f);
         Ok(Expr::Nil)
     }
@@ -223,7 +223,7 @@ impl DynRecord {
                         named_args,
                         true,
                         HashMap::new(),
-                    );
+                    )?;
                     Ok(Expr::function(f))
                 } else {
                     let augmented_sym = symbol_table.with_closure(

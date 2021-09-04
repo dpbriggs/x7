@@ -1,9 +1,6 @@
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Display},
-};
+use std::{collections::HashMap, fmt::{Debug, Display}};
 
 #[derive(Copy, Clone, Eq)]
 pub struct InternedString(u32, usize);
@@ -43,6 +40,10 @@ impl InternedString {
     #[inline]
     fn read(&self) -> String {
         INTERNER.read().fetch(*self)
+    }
+
+    pub(crate) fn extra_arg_symbol() -> Self {
+        "&".into()
     }
 }
 

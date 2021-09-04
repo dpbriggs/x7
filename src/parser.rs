@@ -103,12 +103,10 @@ fn parse_symbol(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
                 .map(|st| st.to_string())
                 .collect();
             method_call_multiple(methods)
+        } else if sym == "nil" {
+            Expr::Nil
         } else {
-            if sym == "nil" {
-                Expr::Nil
-            } else {
-                Expr::Symbol(sym.into())
-            }
+            Expr::Symbol(sym.into())
         }
     })(i)
 }

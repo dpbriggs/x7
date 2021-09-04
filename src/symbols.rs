@@ -413,7 +413,8 @@ pub struct Function {
     pub symbol: InternedString,
     pub minimum_args: usize,
     f: X7FunctionPtr,
-    pub named_args: Vec<Expr>, // Expr::Symbol
+    pub named_args: Box<[InternedString]>,
+    extra_arg: Option<InternedString>,
     eval_args: bool,
     closure: Option<HashMap<InternedString, Expr>>,
 }
@@ -441,9 +442,11 @@ impl PartialEq for Function {
 impl fmt::Debug for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Fn<{}, {}, [ ", self.symbol, self.minimum_args)?;
-        for arg in &self.named_args {
-            let sym = arg.get_symbol_string().unwrap_or_else(|_| "??".into());
-            write!(f, "{} ", sym)?;
+        for arg in self.named_args.iter() {
+            write!(f, "{} ", arg)?;
+        }
+        if let Some(extra_arg) = self.extra_arg {
+            write!(f, "& {} ", extra_arg)?;
         }
         write!(f, "]>")
     }
@@ -471,7 +474,8 @@ impl Function {
             symbol: symbol.into(),
             minimum_args,
             f,
-            named_args: Vec::with_capacity(0),
+            named_args: Vec::with_capacity(0).into_boxed_slice(),
+            extra_arg: None,
             eval_args,
             closure: None,
         }
@@ -481,18 +485,33 @@ impl Function {
         symbol: InternedString,
         minimum_args: usize,
         f: X7FunctionPtr,
-        named_args: Vec<Expr>,
+        named_args: Vec<InternedString>,
         eval_args: bool,
         closure: HashMap<InternedString, Expr>,
-    ) -> Self {
-        Self {
+    ) -> LispResult<Self> {
+
+        let extra_arg_symbol = InternedString::extra_arg_symbol();
+
+        let (named_args, extra_arg) = if let Some(pos) = named_args.iter().position(|e| *e == extra_arg_symbol) {
+            debug_assert!(named_args[pos] == extra_arg_symbol);
+            let mut named_args = named_args;
+            let rest = named_args.split_off(pos + 1);
+            let extra_arg = *rest.get(0).ok_or_else(|| anyhow!(ProgramError::ExpectedRestSymbol))?;
+            named_args.pop();
+            (named_args, Some(extra_arg))
+        } else {
+            (named_args, None)
+        };
+
+        Ok(Self {
             symbol,
             minimum_args,
             f,
-            named_args,
+            named_args: named_args.into_boxed_slice(),
+            extra_arg,
             eval_args,
             closure: Some(closure),
-        }
+        })
     }
 
     // TODO: Refactor this into something cleaner.
@@ -542,7 +561,7 @@ impl Function {
         };
 
         // Add local variables to symbol table
-        let new_sym = symbol_table.with_locals(&self.named_args, args.clone())?;
+        let new_sym = symbol_table.with_locals(self.named_args.as_ref(), self.extra_arg, args.clone())?;
 
         // Call the function
         (self.f)(args.clone(), &new_sym)
@@ -921,35 +940,46 @@ impl SymbolTable {
             .collect()
     }
 
-    pub(crate) fn with_locals(&self, symbols: &[Expr], values: Vector<Expr>) -> LispResult<Self> {
-        let mut copy = self.clone();
-        let mut symbol_iter = symbols.iter().cloned();
-        let mut values_iter = values.iter().cloned();
-        let new_func_locals = &mut copy.func_locals;
-        // TODO: Find nicer way to express argument collapsing.
-        #[allow(clippy::while_let_loop)]
-        loop {
-            let symbol = if let Some(sym) = get_symbol(symbol_iter.next()) {
-                sym?
-            } else {
-                break;
-            };
+    pub(crate) fn with_locals(&self, symbols: &[InternedString], extra_args: Option<InternedString>, values: Vector<Expr>) -> LispResult<Self> {
+        let copy = self.clone();
+        // let mut symbol_iter = symbols.iter().cloned();
+        // let mut values_iter = values.iter().cloned();
+        // let new_func_locals = &mut copy.func_locals;
 
-            if symbol.to_string() == "&" {
-                let rest_sym = if let Some(sym) = get_symbol(symbol_iter.next()) {
-                    sym?
-                } else {
-                    bail!(ProgramError::ExpectedRestSymbol);
-                };
-                copy.locals
-                    .write()
-                    .insert(rest_sym, Expr::List(values_iter.collect()));
-                break;
-            }
+        let (left, rest) = values.split_at(symbols.len());
 
-            let value = values_iter.next().unwrap();
-            new_func_locals.insert(symbol, value);
+        for (key, value) in symbols.iter().zip(left) {
+            copy.locals.write().insert(*key, value);
         }
+
+        if let Some(rest_sym) = extra_args {
+            copy.locals.write().insert(rest_sym, Expr::Tuple(rest));
+        }
+        // TODO: Handle everything else
+        // TODO: Find nicer way to express argument collapsing.
+        // #[allow(clippy::while_let_loop)]
+        // loop {
+        //     let symbol = if let Some(sym) = get_symbol(symbol_iter.next()) {
+        //         sym?
+        //     } else {
+        //         break;
+        //     };
+
+        //     if symbol.to_string() == "&" {
+        //         let rest_sym = if let Some(sym) = get_symbol(symbol_iter.next()) {
+        //             sym?
+        //         } else {
+        //             bail!(ProgramError::ExpectedRestSymbol);
+        //         };
+        //         copy.locals
+        //             .write()
+        //             .insert(rest_sym, Expr::List(values_iter.collect()));
+        //         break;
+        //     }
+
+        //     let value = values_iter.next().unwrap();
+        //     new_func_locals.insert(symbol, value);
+        // }
         Ok(copy)
     }
 
@@ -967,13 +997,6 @@ impl SymbolTable {
         }
         Ok(Expr::Nil)
     }
-}
-
-// (fn foo (x & rest) ...)
-// (foo 1 2 3 4) // x: 1, rest: '(2 3 4)
-
-fn get_symbol(sym: Option<Expr>) -> Option<LispResult<InternedString>> {
-    sym.map(|s| s.get_symbol_string())
 }
 
 fn format_args(args: &Vector<Expr>) -> String {
