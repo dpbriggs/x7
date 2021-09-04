@@ -1,0 +1,80 @@
+(include "examples/project-euler/utils.x7")
+
+;; 333
+;; 300
+;;  30
+;;   3
+
+;; 920
+;; 900
+;;  20
+
+;; We could make this much faster by not using strings, but
+;; honestly it's nice. Doesn't slow things down by much either.
+
+(defn basic-num-to-word (x)
+  (match x
+         0 ""
+         1 "one"
+         2 "two"
+         3 "three"
+         4 "four"
+         5 "five"
+         6 "six"
+         7 "seven"
+         8 "eight"
+         9 "nine"
+         10 "ten"
+         11 "eleven"
+         12 "twelve"
+         13 "thirteen"
+         14 "fourteen"
+         15 "fifteen"
+         16 "sixteen"
+         17 "seventeen"
+         18 "eighteen"
+         19 "nineteen"
+         20 "twenty"
+         30 "thirty"
+         40 "forty"
+         50 "fifty"
+         60 "sixty"
+         70 "seventy"
+         80 "eighty"
+         90 "ninety"
+         1000 "onethousand"
+         _  nil))
+
+
+(defn num-to-word-two-digit
+  (x)
+  (bind
+   (easy-word  (basic-num-to-word x)
+    last-digit (% x 10)
+    first-digit (- x last-digit))
+   (if (not= nil easy-word)
+       easy-word
+     (+ (basic-num-to-word first-digit) (basic-num-to-word last-digit)))))
+
+(defn num-to-word-three-digit
+  (x)
+  (bind
+   (last-two (% x 100)
+    upper    (/ (- x last-two) 100)
+    last-two-words (num-to-word-two-digit last-two)
+    upper-word    (+ (basic-num-to-word upper) "hundred")
+    )
+   (if (empty? last-two-words)
+       upper-word
+       (+ upper-word "and" last-two-words))))
+
+(defn num-to-word (x)
+  (bind
+   (easy-word (basic-num-to-word x))
+   (if (not= nil easy-word)
+       easy-word
+     (cond
+      (< x 100) (num-to-word-two-digit x)
+      true      (num-to-word-three-digit x)))))
+
+(print-res (apply + (map len (map num-to-word (range 1 1001)))))

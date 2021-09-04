@@ -1,0 +1,9 @@
+(include "examples/project-euler/utils.x7")
+
+;; I remember having a clever way to calculate this from university,
+;; but I can't remember nor found it in my notes...
+
+
+;; Computers are thankfully fast.
+
+(print-res (apply + (map int (chars (str (pow 2 1000))))))
