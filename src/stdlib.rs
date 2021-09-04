@@ -152,8 +152,12 @@ fn div_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Exp
 
 fn inc_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    let n = &exprs[0].get_num()?;
-    Ok(Expr::num(n + bigdecimal::BigDecimal::one()))
+    let res = match exprs[0].clone() {
+        Expr::Integer(i) => Expr::Integer(i + 1),  // TODO: Handle overflow
+        Expr::Num(n) => Expr::num(n + bigdecimal::BigDecimal::one()),
+        otherwise => return bad_types!("num or int", otherwise)
+    };
+    Ok(res)
 }
 
 fn sqrt_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -682,10 +686,6 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 // Dict
 
 fn make_dict(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    // ensure!(
-    //     exprs.len() % 2 == 0,
-    //     anyhow!("Error: dict requires an even list of expressions, but was given a list of length {}. List given was: {}", exprs.len(), exprs)
-    // );
     ensure!(
         exprs.len() % 2 == 0,
         "Error: dict requires an even list of arguments."
@@ -765,6 +765,11 @@ fn nth(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
             )
         })
     }
+}
+
+fn chars(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    Ok(Expr::Tuple(exprs[0].get_string()?.chars().map(|c| Expr::String(c.into())).collect()))
 }
 
 fn cons(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1041,6 +1046,31 @@ fn distinct(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr
     let mut v: Vec<_> = sorted.into_iter().collect();
     v.dedup();
     Ok(Expr::List(v.drain(..).collect()))
+}
+
+fn max_by(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2); // TODO: Allow init arg
+    let max_by_fn = exprs[0].get_function()?;
+    let collection = &exprs[1].get_iterator()?;
+
+    let mut curr_max = match collection.next(symbol_table) {
+        Some(res) => res?,
+        None => bail!("max-by called on an empty collection!"),
+    };
+
+    let mut curr_max_f = max_by_fn.call_fn(Vector::unit(curr_max.clone()), symbol_table)?;
+
+    while let Some(item) = collection.next(symbol_table) {
+        let item = item?;
+        let item_f = max_by_fn.call_fn(Vector::unit(item.clone()), symbol_table)?;
+        if item_f > curr_max_f {
+            curr_max = item;
+            curr_max_f = item_f;
+        }
+
+    }
+
+    Ok(curr_max)
 }
 
 use std::borrow::Cow;
@@ -1473,6 +1503,10 @@ Example
 (nth 0 ^(1 2 3)) ; 1
 (nth 1 '(1 2 3)) ; 2
 "),
+        ("chars", 1, chars, true, "Get a tuple of characters from a string.
+Example:
+(chars \"hello\") ;; (tuple \"h\" \"e\" \"l\" \"l\" \"o\")
+"),
         ("head", 1, head, true, "Get the first item in a list.
 Example:
 (head ()) ; nil
@@ -1517,6 +1551,11 @@ Example:
 (distinct '(1 1 1 2 2 0 0)) ; (0 1 2)
 "),
 
+        ("max-by", 2, max_by, true, "Get the maximum value of an iterator by a some function f. Throws an error if called with an empty iteratable.
+Example:
+(max-by
+  (fn (x) (nth 0 x))
+  (lazy (zip (range 10) (range 10)))) ;; (tuple 9 9)"),
         ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
         ("re::compile", 1, RegexRecord::compile_x7, true, "Compile a regex. Under construction."),
         ("defrecord", 1, DynRecord::defrecord, false, "Define a Record structure.

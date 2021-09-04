@@ -696,7 +696,13 @@ impl std::ops::Div<&Expr> for Expr {
             }
             (_, Expr::Integer(0)) => bail!(ProgramError::DivisionByZero),
             (Expr::Integer(l), Expr::Integer(r)) => {
-                Ok(Expr::num(l.to_bigdecimal() / r.to_bigdecimal()))
+                if *r == 0 {
+                    bail!(ProgramError::DivisionByZero);
+                }
+                match (l / r, l % r) {
+                    (res, 0) => Ok(Expr::Integer(res)),
+                    _ => Ok(Expr::num(l.to_bigdecimal() / r.to_bigdecimal()))
+                }
             }
             (Expr::Num(l), Expr::Integer(r)) => Ok(Expr::num(l / r.to_bigdecimal())),
             (Expr::Integer(l), Expr::Num(r)) => {
