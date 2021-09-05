@@ -1,6 +1,8 @@
 #![allow(clippy::unnecessary_wraps)]
 use crate::symbols::{Expr, Function, LispResult, SymbolTable};
 use im::Vector;
+use itertools::Itertools;
+use parking_lot::Mutex;
 use std::fmt::{self, Display};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -446,6 +448,140 @@ impl LazyIter for Take {
     }
     fn id(&self) -> u64 {
         self.id
+    }
+}
+
+// struct IndexGenerator {
+//     max_values: Vec<usize>,
+// }
+
+// impl IndexGenerator {
+//     fn new(max_values: Vec<usize>) -> Self {
+//         Self { max_values }
+//     }
+
+//     fn get_indices(&self, count: usize) -> Vec<usize> {
+//         let mut curr_count = count;
+//         Vec::with_capacity(self.max_values.len()).iter_mut().zip(&self.max_values).for_each(|()| )
+//         todo!()
+//     }
+// }
+
+#[derive(Clone, Debug)]
+struct Digit {
+    curr: usize,
+    max: usize,
+}
+
+impl Digit {
+    fn new(max: usize) -> Self {
+        Digit { curr: 0, max }
+    }
+
+    fn inc(&mut self) -> bool {
+        self.curr += 1;
+        if self.curr >= self.max {
+            self.curr = 0;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn value(&self) -> usize {
+        self.curr
+    }
+}
+
+#[derive(Clone, Debug)]
+struct IndexGenerator {
+    digits: Arc<Mutex<Vec<Digit>>>,
+    max_count: usize,
+    counter: Counter,
+}
+
+impl IndexGenerator {
+    fn new(max_values: &[usize]) -> Self {
+        let digits = max_values.iter().copied().map(Digit::new).collect();
+        let max_count = max_values.iter().product();
+        IndexGenerator {
+            digits: Arc::new(Mutex::new(digits)),
+            max_count,
+            counter: Counter::zero(),
+        }
+    }
+
+    fn fetch_inc(&self) -> Option<Vec<usize>> {
+        if self.counter.value() >= self.max_count {
+            return None;
+        }
+        let mut digits = self.digits.lock();
+        let ret = digits.iter().map(|d| d.value()).collect();
+        for index in 0..digits.len() {
+            if !digits[index].inc() {
+                break;
+            }
+        }
+        self.counter.fetch_add_one();
+        Some(ret)
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct CartesianProduct {
+    lists: Box<[Vector<Expr>]>,
+    index_generator: IndexGenerator,
+}
+
+impl fmt::Debug for CartesianProduct {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CartesianProduct")
+            .field("lists", &self.lists)
+            .field("indices", &self.index_generator)
+            .finish()
+    }
+}
+
+impl CartesianProduct {
+    pub(crate) fn lisp_res(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+        // TODO: Avoid of all these intermediate allocations.
+        let lists: Vec<Vector<Expr>> = exprs.into_iter().map(|e| e.get_list()).try_collect()?;
+        let max_values: Vec<_> = lists.iter().map(|e| e.len()).collect();
+        let index_generator = IndexGenerator::new(&max_values);
+        let me = CartesianProduct {
+            lists: lists.into_boxed_slice(),
+            index_generator,
+        };
+        Ok(Expr::LazyIter(Box::new(me)))
+    }
+}
+
+impl Display for CartesianProduct {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "CartesianProduct<{:?}>", self.lists)
+    }
+}
+
+impl LazyIter for CartesianProduct {
+    fn next(&self, _symbol_table: &SymbolTable) -> Option<LispResult<Expr>> {
+        let indices = self.index_generator.fetch_inc()?;
+        let mut ret = Vector::new();
+        for (idx, list) in indices.iter().zip(self.lists.iter()) {
+            ret.push_back(list.get(*idx).cloned().unwrap_or(Expr::Nil));
+        }
+        Some(Ok(Expr::Tuple(ret)))
+    }
+
+    fn name(&self) -> &'static str {
+        "CartesianProduct"
+    }
+
+    fn clone(&self) -> Box<dyn LazyIter> {
+        Box::new(Clone::clone(self))
+    }
+
+    fn id(&self) -> u64 {
+        random()
     }
 }
 

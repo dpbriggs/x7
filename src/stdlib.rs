@@ -1,6 +1,8 @@
 #![allow(clippy::unnecessary_wraps)]
 use crate::interner::InternedString;
-use crate::iterators::{LazyList, LazyMap, NaturalNumbers, Skip, Take, TakeWhile};
+use crate::iterators::{
+    CartesianProduct, LazyList, LazyMap, NaturalNumbers, Skip, Take, TakeWhile,
+};
 use crate::modules::load_x7_stdlib;
 use crate::records::RecordDoc;
 use crate::records::{DynRecord, FileRecord, RegexRecord};
@@ -153,9 +155,19 @@ fn div_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Exp
 fn inc_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let res = match exprs[0].clone() {
-        Expr::Integer(i) => Expr::Integer(i + 1),  // TODO: Handle overflow
+        Expr::Integer(i) => Expr::Integer(i + 1), // TODO: Handle overflow
         Expr::Num(n) => Expr::num(n + bigdecimal::BigDecimal::one()),
-        otherwise => return bad_types!("num or int", otherwise)
+        otherwise => return bad_types!("num or int", otherwise),
+    };
+    Ok(res)
+}
+
+fn dec_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let res = match exprs[0].clone() {
+        Expr::Integer(i) => Expr::Integer(i - 1), // TODO: Handle overflow
+        Expr::Num(n) => Expr::num(n - bigdecimal::BigDecimal::one()),
+        otherwise => return bad_types!("num or int", otherwise),
     };
     Ok(res)
 }
@@ -638,7 +650,10 @@ fn make_func(
         name,
         min_args,
         f,
-        arg_symbols.iter().map(|e| e.get_symbol_string()).try_collect()?,
+        arg_symbols
+            .iter()
+            .map(|e| e.get_symbol_string())
+            .try_collect()?,
         true,
         symbol_table
             .get_func_locals()
@@ -729,6 +744,12 @@ fn set_dict(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr
     Ok(Expr::Dict(dict))
 }
 
+fn values(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let dict = exprs[0].get_dict()?;
+    Ok(Expr::Tuple(dict.values().cloned().collect()))
+}
+
 fn time(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let start = Instant::now();
@@ -767,9 +788,30 @@ fn nth(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     }
 }
 
+fn flatten(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let l = exprs[0].get_list()?;
+    let mut res = Vector::new();
+    for item in l {
+        match item {
+            Expr::List(l) | Expr::Tuple(l) | Expr::Quote(l) => {
+                l.into_iter().for_each(|i| res.push_back(i));
+            }
+            otherwise => res.push_back(otherwise),
+        }
+    }
+    Ok(Expr::Tuple(res))
+}
+
 fn chars(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    Ok(Expr::Tuple(exprs[0].get_string()?.chars().map(|c| Expr::String(c.into())).collect()))
+    Ok(Expr::Tuple(
+        exprs[0]
+            .get_string()?
+            .chars()
+            .map(|c| Expr::String(c.into()))
+            .collect(),
+    ))
 }
 
 fn cons(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -829,21 +871,6 @@ fn zip(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     ))
 }
 
-fn product(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    // TODO: Any number of args.
-    exact_len!(exprs, 2);
-    let first = exprs[0].get_list()?;
-    let second = exprs[1].get_list()?;
-    let mut out = Vector::new();
-    // TODO: use fancy itertools
-    for x in &first {
-        for y in &second {
-            out.push_back(Expr::Tuple(vector![x.clone(), y.clone()]));
-        }
-    }
-    Ok(Expr::Tuple(out))
-}
-
 fn rev(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     // TODO: Any number of args.
     exact_len!(exprs, 1);
@@ -870,14 +897,14 @@ fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     };
     match (start.to_i64(), end.to_i64()) {
         // fast path
-        (Some(start), Some(end)) => Ok(Expr::List((start..end).map(Expr::num).collect())),
+        (Some(start), Some(end)) => Ok(Expr::Tuple((start..end).map(Expr::num).collect())),
         _ => {
             let mut ret = Vector::new();
             while start < end {
                 ret.push_back(Expr::num(start.clone()));
                 start += BigDecimal::one();
             }
-            Ok(Expr::List(ret))
+            Ok(Expr::Tuple(ret))
         }
     }
 }
@@ -911,7 +938,7 @@ fn take_while(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Exp
             }
             new_list.push_back(value);
         }
-        todo!()
+        return Ok(Expr::List(new_list));
     }
     let iter = exprs[1].get_iterator()?;
     TakeWhile::lisp_res(pred.clone(), iter)
@@ -1067,7 +1094,6 @@ fn max_by(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
             curr_max = item;
             curr_max_f = item_f;
         }
-
     }
 
     Ok(curr_max)
@@ -1219,6 +1245,11 @@ Example: (= 1 1) ; true
 Example:
 (inc 2.2) ;; 3.3
 (inc 1) ;; 2
+"),
+        ("dec", 1, dec_exprs, true, "Decrement the given number.
+Example:
+(dec 2.2) ;; 3.3
+(dec 1) ;; 2
 "),
         ("pow", 2, pow, true, "Raise a number to an exponent.
 Example:
@@ -1399,6 +1430,20 @@ Example:
         ("all", 2, all, true, "Ask whether a predicate is true for every element of a sequence. Short circuits."),
         ("lazy", 1, lazy, true, "Turn a list into a lazy sequence. Useful for building complex iterators over some source list."),
         ("skip", 2, skip, true, "Skip some amount in a lazy iterator."),
+        ("product", 1, CartesianProduct::lisp_res, true, "Cartesian Product every list passed in.
+Example:
+>>> (doall (product '(0 1) '(0 1) '(0 1)))
+(
+  (tuple 0 0 0)
+  (tuple 1 0 0)
+  (tuple 0 1 0)
+  (tuple 1 1 0)
+  (tuple 0 0 1)
+  (tuple 1 0 1)
+  (tuple 0 1 1)
+  (tuple 1 1 1)
+)
+"),
         ("apply", 2, apply, true, "Apply a function to a given list.
 (def my-list '(1 2 3))
 (apply + my-list) ; outputs 6
@@ -1482,7 +1527,10 @@ Example:
 (set (dict 1 2) 3 4) ; {1: 2, 3: 4}
 (get (dict) 1 2) ; {1: 2}
 "),
-
+        ("values", 1, values, true, "Get the values of a dict.
+Example:
+>>> (values (dict 1 2 3 4))
+(tuple 2 4)"),
         ("get", 2, get_dict, true, "Get a value from a dict by key.
 Example:
 (get (dict 1 2) 1) ; 2
@@ -1502,6 +1550,11 @@ Example:
 Example
 (nth 0 ^(1 2 3)) ; 1
 (nth 1 '(1 2 3)) ; 2
+"),
+        ("flatten", 1, flatten, true, "Flatten a list of lists.
+Example:
+>>> (flatten '('(1 2 3) '(4 5 6) 7))
+(tuple 1 2 3 4 5 6 7)
 "),
         ("chars", 1, chars, true, "Get a tuple of characters from a string.
 Example:
@@ -1528,7 +1581,7 @@ Example:
 (range 5) ; (0 1 2 3 4)
 (range 5 10); (5 6 7 8 9)
 "),
-        ("product", 2, product, true, "Cartesian product two lists"),
+        // ("product", 2, product, true, "Cartesian product two lists"),
         ("len", 1, len, true, "Get the number of items in a list or tuple.
 Example:
 (len '(0 0 0)) ; 3

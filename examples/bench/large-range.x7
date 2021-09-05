@@ -1,0 +1,8 @@
+(defn bench (f repeat)
+  (foreach
+   (fn (_) (println (time (f))))
+   (range repeat)))
+
+(bench
+ (fn () (map inc (map inc (range 100000))))
+ 5)

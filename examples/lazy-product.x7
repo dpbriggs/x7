@@ -1,0 +1,1 @@
+(println (doall (product (range 2) (range 2))))

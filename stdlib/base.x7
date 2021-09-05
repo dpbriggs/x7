@@ -11,7 +11,7 @@ Example:
 (defn empty?
   "Test if a collection is empty."
   (x)
-  (or (= x ()) (= x (list)) (= x "")))
+  (= 0 (len x)))
 
 ;; Test if a collection is non-empty
 

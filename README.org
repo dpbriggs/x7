@@ -513,6 +513,16 @@ Example:
 
 #+END_SRC
 
+*** =dec=
+
+#+BEGIN_SRC elisp
+Decrement the given number.
+Example:
+(dec 2.2) ;; 3.3
+(dec 1) ;; 2
+
+#+END_SRC
+
 *** =pow=
 
 #+BEGIN_SRC elisp
@@ -819,6 +829,25 @@ Turn a list into a lazy sequence. Useful for building complex iterators over som
 Skip some amount in a lazy iterator.
 #+END_SRC
 
+*** =product=
+
+#+BEGIN_SRC elisp
+Cartesian Product every list passed in.
+Example:
+>>> (doall (product '(0 1) '(0 1) '(0 1)))
+(
+  (tuple 0 0 0)
+  (tuple 1 0 0)
+  (tuple 0 1 0)
+  (tuple 1 1 0)
+  (tuple 0 0 1)
+  (tuple 1 0 1)
+  (tuple 0 1 1)
+  (tuple 1 1 1)
+)
+
+#+END_SRC
+
 *** =apply=
 
 #+BEGIN_SRC elisp
@@ -979,6 +1008,15 @@ Example:
 
 #+END_SRC
 
+*** =values=
+
+#+BEGIN_SRC elisp
+Get the values of a dict.
+Example:
+>>> (values (dict 1 2 3 4))
+(tuple 2 4)
+#+END_SRC
+
 *** =get=
 
 #+BEGIN_SRC elisp
@@ -1015,6 +1053,16 @@ Extract the nth item from a list or tuple. Throws error if this fails.
 Example
 (nth 0 ^(1 2 3)) ; 1
 (nth 1 '(1 2 3)) ; 2
+
+#+END_SRC
+
+*** =flatten=
+
+#+BEGIN_SRC elisp
+Flatten a list of lists.
+Example:
+>>> (flatten '('(1 2 3) '(4 5 6) 7))
+(tuple 1 2 3 4 5 6 7)
 
 #+END_SRC
 
@@ -1066,12 +1114,6 @@ Example:
 (range 5) ; (0 1 2 3 4)
 (range 5 10); (5 6 7 8 9)
 
-#+END_SRC
-
-*** =product=
-
-#+BEGIN_SRC elisp
-Cartesian product two lists
 #+END_SRC
 
 *** =len=
@@ -1218,6 +1260,12 @@ Grab all documentation for a record's methods
 Return the time taken to evaluate an expression in milliseconds.
 #+END_SRC
 
+*** =TestResult=
+
+#+BEGIN_SRC elisp
+Result of a test
+#+END_SRC
+
 *** =not==
 
 #+BEGIN_SRC elisp
@@ -1286,12 +1334,6 @@ Pretty print the doc string of a function
 
 #+BEGIN_SRC elisp
 Maximum element in a list
-#+END_SRC
-
-*** =TestResult=
-
-#+BEGIN_SRC elisp
-Result of a test
 #+END_SRC
 
 *** =FileRecord=
@@ -1414,6 +1456,7 @@ Returns a list of lists of all captures in the input.
 #+BEGIN_SRC elisp
 Format doc strings into something org-mode will agree with.
 #+END_SRC
+
 
 * Thanks
 
