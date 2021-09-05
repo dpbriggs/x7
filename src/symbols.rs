@@ -489,19 +489,21 @@ impl Function {
         eval_args: bool,
         closure: HashMap<InternedString, Expr>,
     ) -> LispResult<Self> {
-
         let extra_arg_symbol = InternedString::extra_arg_symbol();
 
-        let (named_args, extra_arg) = if let Some(pos) = named_args.iter().position(|e| *e == extra_arg_symbol) {
-            debug_assert!(named_args[pos] == extra_arg_symbol);
-            let mut named_args = named_args;
-            let rest = named_args.split_off(pos + 1);
-            let extra_arg = *rest.get(0).ok_or_else(|| anyhow!(ProgramError::ExpectedRestSymbol))?;
-            named_args.pop();
-            (named_args, Some(extra_arg))
-        } else {
-            (named_args, None)
-        };
+        let (named_args, extra_arg) =
+            if let Some(pos) = named_args.iter().position(|e| *e == extra_arg_symbol) {
+                debug_assert!(named_args[pos] == extra_arg_symbol);
+                let mut named_args = named_args;
+                let rest = named_args.split_off(pos + 1);
+                let extra_arg = *rest
+                    .get(0)
+                    .ok_or_else(|| anyhow!(ProgramError::ExpectedRestSymbol))?;
+                named_args.pop();
+                (named_args, Some(extra_arg))
+            } else {
+                (named_args, None)
+            };
 
         Ok(Self {
             symbol,
@@ -561,7 +563,8 @@ impl Function {
         };
 
         // Add local variables to symbol table
-        let new_sym = symbol_table.with_locals(self.named_args.as_ref(), self.extra_arg, args.clone())?;
+        let new_sym =
+            symbol_table.with_locals(self.named_args.as_ref(), self.extra_arg, args.clone())?;
 
         // Call the function
         (self.f)(args.clone(), &new_sym)
@@ -720,7 +723,7 @@ impl std::ops::Div<&Expr> for Expr {
                 }
                 match (l / r, l % r) {
                     (res, 0) => Ok(Expr::Integer(res)),
-                    _ => Ok(Expr::num(l.to_bigdecimal() / r.to_bigdecimal()))
+                    _ => Ok(Expr::num(l.to_bigdecimal() / r.to_bigdecimal())),
                 }
             }
             (Expr::Num(l), Expr::Integer(r)) => Ok(Expr::num(l / r.to_bigdecimal())),
@@ -940,7 +943,12 @@ impl SymbolTable {
             .collect()
     }
 
-    pub(crate) fn with_locals(&self, symbols: &[InternedString], extra_args: Option<InternedString>, values: Vector<Expr>) -> LispResult<Self> {
+    pub(crate) fn with_locals(
+        &self,
+        symbols: &[InternedString],
+        extra_args: Option<InternedString>,
+        values: Vector<Expr>,
+    ) -> LispResult<Self> {
         let copy = self.clone();
         // let mut symbol_iter = symbols.iter().cloned();
         // let mut values_iter = values.iter().cloned();
