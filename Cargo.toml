@@ -30,7 +30,7 @@ rustyline = "7.1.0"
 rand = "0.7.3"
 im = "15.0.0"
 nom = "6.0.1"
-bigdecimal = { git = "https://github.com/dpbriggs/bigdecimal-rs", rev="02ba26b" }
+bigdecimal = { git = "https://github.com/dpbriggs/bigdecimal-rs", rev="6528f36b15bcc69ec7d8b8a476db94b5ccd2815a" }
 structopt = "0.3.15"
 anyhow = "1.0.31"
 thiserror = "1.0.20"
