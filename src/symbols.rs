@@ -540,12 +540,8 @@ impl Function {
             closure = Some(symbol_table.with_closure(close));
             symbol_table = closure.as_ref().unwrap();
         }
-        // let symbol_table = match &self.closure {
-        //     None => symbol_table.clone(),
-        //     Some(close) => ,
-        // };
 
-        if self.named_args.is_empty() {
+        if self.named_args.is_empty() && self.extra_arg.is_none() {
             if self.eval_args {
                 let args = try_collect!(args, symbol_table);
                 return (self.f)(args.clone(), symbol_table).with_context(|| {
@@ -950,9 +946,6 @@ impl SymbolTable {
         values: Vector<Expr>,
     ) -> LispResult<Self> {
         let copy = self.clone();
-        // let mut symbol_iter = symbols.iter().cloned();
-        // let mut values_iter = values.iter().cloned();
-        // let new_func_locals = &mut copy.func_locals;
 
         let (left, rest) = values.split_at(symbols.len());
 
@@ -963,31 +956,7 @@ impl SymbolTable {
         if let Some(rest_sym) = extra_args {
             copy.locals.write().insert(rest_sym, Expr::Tuple(rest));
         }
-        // TODO: Handle everything else
-        // TODO: Find nicer way to express argument collapsing.
-        // #[allow(clippy::while_let_loop)]
-        // loop {
-        //     let symbol = if let Some(sym) = get_symbol(symbol_iter.next()) {
-        //         sym?
-        //     } else {
-        //         break;
-        //     };
 
-        //     if symbol.to_string() == "&" {
-        //         let rest_sym = if let Some(sym) = get_symbol(symbol_iter.next()) {
-        //             sym?
-        //         } else {
-        //             bail!(ProgramError::ExpectedRestSymbol);
-        //         };
-        //         copy.locals
-        //             .write()
-        //             .insert(rest_sym, Expr::List(values_iter.collect()));
-        //         break;
-        //     }
-
-        //     let value = values_iter.next().unwrap();
-        //     new_func_locals.insert(symbol, value);
-        // }
         Ok(copy)
     }
 

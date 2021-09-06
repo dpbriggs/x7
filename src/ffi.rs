@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::{error::Error, path::Path};
 
+use crate::interner::InternedString;
 use crate::symbols::{Expr, Function, SymbolTable};
 use crate::{parser::read, symbols::LispResult};
 use anyhow::anyhow;
@@ -120,7 +121,7 @@ impl X7Interpreter {
     /// ```
     ///
     /// For further help, please find the ffi example at:
-    /// https://github.com/dpbriggs/x7/blob/master/examples/ffi.rs
+    /// <https://github.com/dpbriggs/x7/blob/master/examples/ffi.rs>
     #[allow(clippy::type_complexity)]
     pub fn add_function_ptr<T: 'static + ForeignData>(
         &self,
@@ -160,7 +161,7 @@ impl X7Interpreter {
     /// ```
     ///
     /// For further help, please find the ffi example at:
-    /// https://github.com/dpbriggs/x7/blob/master/examples/ffi.rs
+    /// <https://github.com/dpbriggs/x7/blob/master/examples/ffi.rs>
     pub fn add_function(
         &self,
         function_symbol: &'static str,
@@ -208,33 +209,37 @@ impl X7Interpreter {
     ///         };
     ///         let f_args = args[1].clone(); // (arg1 arg2)
     ///         let f_body = args[2].clone(); // (redis "set" arg1 arg2)
-    ///         let res = interpreter_clone.add_dynamic_function(&fn_name, f_args, f_body);
+    ///         let res = interpreter_clone.add_dynamic_function(fn_name, f_args, f_body);
     ///         res
     ///     };
     ///     interpreter
     ///         .add_unevaled_function("def-dyn-function", f.to_x7_fn());
     /// }
     /// ```
-    pub fn add_dynamic_function(
+    pub fn add_dynamic_function<I: Into<InternedString>>(
         &self,
-        function_sym: &str,
+        function_sym: I,
         named_args: Expr,
         body: Expr,
     ) -> LispResult<Expr> {
         let arg_symbols = named_args.get_list()?;
         let args_len = arg_symbols.len();
+        let interned_fn_name = function_sym.into();
         let f = Arc::new(move |_args: Vector<Expr>, sym: &SymbolTable| body.eval(sym));
         let f = Function::new_named_args(
-            function_sym.into(),
+            interned_fn_name.clone(),
             args_len,
             f,
-            arg_symbols.into_iter().map(|e| e.get_symbol_string()).try_collect()?,
+            arg_symbols
+                .into_iter()
+                .map(|e| e.get_symbol_string())
+                .try_collect()?,
             true,
             HashMap::new(),
         )?;
 
         self.symbol_table
-            .add_symbol(function_sym.into(), Expr::function(f));
+            .add_symbol(interned_fn_name, Expr::function(f));
         Ok(Expr::Nil)
     }
 
@@ -255,7 +260,7 @@ impl X7Interpreter {
     /// ```
     ///
     /// For further help, please find the ffi example at:
-    /// https://github.com/dpbriggs/x7/blob/master/examples/ffi.rs
+    /// <https://github.com/dpbriggs/x7/blob/master/examples/ffi.rs>
     pub fn run_program<T: 'static + ForeignData>(
         &self,
         program: &str,

@@ -1,9 +1,12 @@
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::{collections::HashMap, fmt::{Debug, Display}};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+};
 
 #[derive(Copy, Clone, Eq)]
-pub struct InternedString(u32, usize);
+pub struct InternedString(u32);
 
 impl PartialEq for InternedString {
     #[inline]
@@ -22,7 +25,7 @@ impl std::hash::Hash for InternedString {
 impl Default for InternedString {
     #[inline]
     fn default() -> Self {
-        Self(0, 0)
+        Self(0)
     }
 }
 
@@ -34,7 +37,7 @@ impl InternedString {
 
     #[inline]
     pub(crate) fn len(&self) -> usize {
-        self.1
+        self.read().len()
     }
 
     #[inline]
@@ -83,12 +86,7 @@ impl Debug for InternedString {
 impl PartialOrd for InternedString {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        // TODO: Is this valid?
-        match self.1.partial_cmp(&other.1)? {
-            std::cmp::Ordering::Equal => self.read().partial_cmp(&other.read()),
-            other => Some(other),
-        }
-        // self.read().partial_cmp(&other.read())
+        self.read().partial_cmp(&other.read())
     }
 }
 
@@ -104,7 +102,7 @@ struct Interner {
 impl Interner {
     fn new() -> Self {
         let mut mapping = HashMap::new();
-        mapping.insert("".into(), InternedString(0, 0));
+        mapping.insert("".into(), InternedString(0));
         let strings = vec!["".into()];
         Interner {
             id: 0,
@@ -123,7 +121,7 @@ impl Interner {
         if let Some(id) = self.mapping.get(s.as_str()) {
             return *id;
         }
-        let i = InternedString(self.get_new_id(), s.len());
+        let i = InternedString(self.get_new_id());
         self.strings.push(s.clone());
         self.mapping.insert(s, i);
         i

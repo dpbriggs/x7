@@ -7,6 +7,8 @@
    (fn (_) (println (time (f))))
    (range repeat)))
 
+(println "Adding the first " n " integers together!")
+
 (bench
  (fn () (println (reduce + foo)))
  5)
