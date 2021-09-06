@@ -814,6 +814,26 @@ fn chars(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     ))
 }
 
+fn split(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let split_by = exprs[0].get_string()?;
+    let string = exprs[1].get_string()?;
+    Ok(Expr::Tuple(
+        string
+            .split(&split_by)
+            .map(|substr| Expr::String(substr.into()))
+            .collect(),
+    ))
+}
+
+fn replace(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 3);
+    let from = exprs[0].get_string()?;
+    let to = exprs[1].get_string()?;
+    let string = exprs[2].get_string()?;
+    Ok(Expr::String(string.replace(&from, &to)))
+}
+
 fn cons(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     exprs[1].push_front(exprs[0].clone())
@@ -1317,6 +1337,27 @@ Example:
             println,
             true,
             "Print the given argument WITH a newline."
+        ),
+        (
+            "split",
+            2,
+            split,
+            true,
+            "Split a string with some substring.
+Example:
+>>> (split \",\" \"hello, world\")
+(tuple \"hello\" \" world\")
+"
+        ),
+        (
+            "replace",
+            3,
+            replace,
+            true,
+            "Replace a substring in a string with some other string.
+Example:
+>>> (replace \"abc\" \"OwO\" \"abc def\")
+\"OwO def\""
         ),
         (
             "ident-exists",

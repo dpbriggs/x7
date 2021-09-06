@@ -612,6 +612,25 @@ Print the given argument WITHOUT a newline.
 Print the given argument WITH a newline.
 #+END_SRC
 
+*** =split=
+
+#+BEGIN_SRC elisp
+Split a string with some substring.
+Example:
+>>> (split "," "hello, world")
+(tuple "hello" " world")
+
+#+END_SRC
+
+*** =replace=
+
+#+BEGIN_SRC elisp
+Replace a substring in a string with some other string.
+Example:
+>>> (replace "abc" "OwO" "abc def")
+"OwO def"
+#+END_SRC
+
 *** =ident-exists=
 
 #+BEGIN_SRC elisp

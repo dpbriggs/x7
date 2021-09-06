@@ -44,6 +44,7 @@ impl ForeignData for MyData {
     fn from_x7(expr: &x7::symbols::Expr) -> Result<Self, Box<dyn std::error::Error + Send>> {
         let res = match expr {
             Expr::Num(n) => MyData::Int(n.to_u64()?),
+            Expr::Integer(n) => MyData::Int(*n as u64),
             Expr::String(s) => MyData::String(s.into()),
             bad_type => {
                 return Err(Box::new(MyError(format!(
