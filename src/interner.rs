@@ -41,7 +41,7 @@ impl InternedString {
     }
 
     #[inline]
-    fn read(&self) -> String {
+    pub fn read(&self) -> String {
         INTERNER.read().fetch(*self)
     }
 
@@ -68,6 +68,12 @@ impl From<String> for InternedString {
     #[inline]
     fn from(s: String) -> Self {
         InternedString::new(s)
+    }
+}
+
+impl From<&InternedString> for InternedString {
+    fn from(i: &InternedString) -> Self {
+        *i
     }
 }
 
