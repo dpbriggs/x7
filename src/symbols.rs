@@ -560,7 +560,7 @@ impl Function {
 
         // Add local variables to symbol table
         let new_sym =
-            symbol_table.with_locals(self.named_args.as_ref(), self.extra_arg, args.clone())?;
+            symbol_table.with_locals(self.named_args.as_ref(), self.extra_arg, args.clone());
 
         // Call the function
         (self.f)(args.clone(), &new_sym)
@@ -901,6 +901,8 @@ impl SymbolTable {
         self.locals.write().insert(sym, value);
     }
 
+    // FIXME: We should more carefully pollute the global scope.
+    //        Ideally add proper lexical scopes (which we.... kinda have)
     pub(crate) fn add_local(&self, symbol: &Expr, value: &Expr) -> LispResult<Expr> {
         self.locals
             .write()
@@ -944,20 +946,20 @@ impl SymbolTable {
         symbols: &[InternedString],
         extra_args: Option<InternedString>,
         values: Vector<Expr>,
-    ) -> LispResult<Self> {
-        let copy = self.clone();
+    ) -> Self {
+        let mut copy = self.clone();
 
         let (left, rest) = values.split_at(symbols.len());
 
         for (key, value) in symbols.iter().zip(left) {
-            copy.locals.write().insert(*key, value);
+            copy.func_locals.insert(*key, value);
         }
 
         if let Some(rest_sym) = extra_args {
-            copy.locals.write().insert(rest_sym, Expr::Tuple(rest));
+            copy.func_locals.insert(rest_sym, Expr::Tuple(rest));
         }
 
-        Ok(copy)
+        copy
     }
 
     pub(crate) fn get_canonical_doc_order(&self) -> Vec<String> {

@@ -698,6 +698,21 @@ fn defn(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(func)
 }
 
+// TODO: Find a nicer name for this
+fn anon_fn_sugar(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let body = exprs[0].clone();
+    let f = Arc::new(move |args: Vector<Expr>, sym: &SymbolTable| {
+        let sym_args: Vec<_> = (1..args.len() + 1)
+            .map(|i| format!("${}", i).into())
+            .collect();
+        let new_sym = sym.with_locals(&sym_args, None, args);
+        body.eval(&new_sym)
+    });
+    let f = Function::new("AnonFn".into(), 0, f, true);
+    Ok(Expr::Function(Arc::new(f)))
+}
+
 // Dict
 
 fn make_dict(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1514,6 +1529,25 @@ Example:
   \"Extract the odd numbers out of the given sequence `x`\"
   (x)
   (filter is-odd? x)) ; for fun, try (doc get-odd-numbers)
+"),
+        ("anon-fn-sugar", 1, anon_fn_sugar, false,
+         "Create an anonymous, automatic binding function. You normally want to use the #(+ 1 2) syntax. Fields are labelled $1, $2, $3, and so on.
+
+Example:
+
+(#(+ $1 $2) 1 2) ;; 3
+(anon-fn-sugar (+ $1 $2)) ;; Fn<AnonFn, 0, [ ]>
+
+
+Note: This currently does not capture values.
+
+;; >>> (def foo (fn (x) #(+ $1 x)))
+;; nil
+;; >>> ((foo 3) 5)
+;; Error: Unknown Symbol x
+;;
+;; Stacktrace:
+;;   - Error in Fn<AnonFn, 0, [ ]>, with args (5)
 "),
         ("bind", 2, bind, false, "Bind symbol-value pairs, adding them to the symbol table.
 Example:

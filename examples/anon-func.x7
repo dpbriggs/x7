@@ -1,0 +1,3 @@
+(def jj (anon-fn-sugar (+ $1 $2)))
+
+(println (jj 1 2))

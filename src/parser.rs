@@ -208,7 +208,15 @@ where
 fn parse_list(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     let application_inner = map(many0(parse_expr), |l| Expr::List(l.into()));
     // finally, we wrap it in an s-expression
-    s_exp(application_inner)(i)
+
+    let anon_fn_sugar = map(
+        preceded(
+            tag("#"),
+            s_exp(map(many0(parse_expr), |l| Expr::List(l.into()))),
+        ),
+        |e: Expr| Expr::List(im::vector![Expr::Symbol("anon-fn-sugar".into()), e]),
+    );
+    alt((anon_fn_sugar, s_exp(application_inner)))(i)
 }
 
 fn parse_expr(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {

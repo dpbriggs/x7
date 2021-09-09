@@ -273,6 +273,19 @@ Record<Vec3, fields=[ x: 3 y: 3 z: 3 ]>
 1.73205080
 #+end_example
 
+
+*** Anonymous Function Syntactic Sugar
+
+You can easily create anonymous functions with =#(...)=. Here's an example:
+
+#+begin_src lisp
+  (filter #(< $1 10) (range 100)) ;; (0 1 2 3 4 5 6 7 8 9)
+
+  (map #(+ 10 $1) (range 10)) ;; (10 11 12 13 14 15 16 17 18 19)
+#+end_src
+
+Fields are labelled =$1, $2, ...=.
+
 ** Language Description
 
 x7 is a quirky lisp which sort of evolved naturally. It has the following data-types:
@@ -923,6 +936,29 @@ Example:
   "Extract the odd numbers out of the given sequence `x`"
   (x)
   (filter is-odd? x)) ; for fun, try (doc get-odd-numbers)
+
+#+END_SRC
+
+*** =anon-fn-sugar=
+
+#+BEGIN_SRC elisp
+Create an anonymous, automatic binding function. You normally want to use the #(+ 1 2) syntax. Fields are labelled $1, $2, $3, and so on.
+
+Example:
+
+(#(+ $1 $2) 1 2) ;; 3
+(anon-fn-sugar (+ $1 $2)) ;; Fn<AnonFn, 0, [ ]>
+
+
+Note: This currently does not capture values.
+
+;; >>> (def foo (fn (x) #(+ $1 x)))
+;; nil
+;; >>> ((foo 3) 5)
+;; Error: Unknown Symbol x
+;;
+;; Stacktrace:
+;;   - Error in Fn<AnonFn, 0, [ ]>, with args (5)
 
 #+END_SRC
 
