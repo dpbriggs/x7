@@ -1,0 +1,51 @@
+(include "examples/project-euler/utils.x7")
+
+(def input-file (fs::open "examples/project-euler/p022_names.txt"))
+
+(def names (split "," (replace "\"" "" (.read_to_string input-file))))
+
+(def names (sort names))
+
+;; Generated with:
+;; (zip (chars "ABCDEFGHIJKLMNOPQRSTUVWXYZ") (range 1 100))
+;; and some emacs / vim to format it
+(defn char-to-num (char)
+  (match char
+         "A" 1
+         "B" 2
+         "C" 3
+         "D" 4
+         "E" 5
+         "F" 6
+         "G" 7
+         "H" 8
+         "I" 9
+         "J" 10
+         "K" 11
+         "L" 12
+         "M" 13
+         "N" 14
+         "O" 15
+         "P" 16
+         "Q" 17
+         "R" 18
+         "S" 19
+         "T" 20
+         "U" 21
+         "V" 22
+         "W" 23
+         "X" 24
+         "Y" 25
+         "Z" 26
+         _   0))
+
+(defn name-score (name)
+  (apply + (map char-to-num (chars name))))
+
+(defn sum-name-scores
+    ()
+  (apply +
+         (map (fn (tup) (* (name-score (head tup)) (head (tail tup))))
+              (zip names (range 1 10000)))))
+
+(print-res (sum-name-scores))
