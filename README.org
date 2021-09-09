@@ -169,7 +169,6 @@ Outputs:
 #+end_example
 ** More Features
 *** Dynamic Records and Syntactic Sugar
-<<record>>
 
 A recent addition to the language is the =defrecord= and =defmethod= functions,
 which allow you to define records in =x7= and add methods to the them respectively.
@@ -446,7 +445,7 @@ Example:
 
 *** =Record=
 
-Objects in =x7=. See the [[record][record section above]]
+Objects in =x7=. See the [[https://github.com/dpbriggs/x7#dynamic-records-and-syntactic-sugar][record section above]].
 
 ** Standard Library Reference
 
