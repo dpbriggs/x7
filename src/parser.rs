@@ -173,7 +173,7 @@ fn parse_tuple(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
         Expr::List(tuple_list)
     };
     map(
-        context("quote", preceded(tag("^"), cut(s_exp(many0(parse_expr))))),
+        context("tuple", preceded(tag("^"), cut(s_exp(many0(parse_expr))))),
         make_tuple,
     )(i)
 }
@@ -205,18 +205,17 @@ where
     )
 }
 
+fn s_exp_inner(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
+    map(many0(parse_expr), |l| Expr::List(l.into()))(i)
+}
+
 fn parse_list(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
-    let application_inner = map(many0(parse_expr), |l| Expr::List(l.into()));
     // finally, we wrap it in an s-expression
 
-    let anon_fn_sugar = map(
-        preceded(
-            tag("#"),
-            s_exp(map(many0(parse_expr), |l| Expr::List(l.into()))),
-        ),
-        |e: Expr| Expr::List(im::vector![Expr::Symbol("anon-fn-sugar".into()), e]),
-    );
-    alt((anon_fn_sugar, s_exp(application_inner)))(i)
+    let anon_fn_sugar = map(preceded(tag("#"), s_exp(s_exp_inner)), |e: Expr| {
+        Expr::List(im::vector![Expr::Symbol("anon-fn-sugar".into()), e])
+    });
+    alt((anon_fn_sugar, s_exp(s_exp_inner)))(i)
 }
 
 fn parse_expr(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {

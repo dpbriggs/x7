@@ -203,7 +203,7 @@ impl LazyIter for NaturalNumbers {
         if res >= self.end.unwrap_or(usize::MAX) {
             None
         } else {
-            Some(Ok(Expr::num(res as u64)))
+            Some(Ok(Expr::num(res)))
         }
     }
 

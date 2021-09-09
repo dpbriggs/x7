@@ -1466,7 +1466,15 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
         ("map", 1, map, true, "Apply a function to each element of a sequence and return a list.
 Example: (map inc '(1 2 3)) ; (2 3 4)
 "),
-        ("inline_transform", 2, inline_transform, true, "doc tbd"),
+        ("inline_transform", 2, inline_transform, true, "Given a list of data and another of functions, apply each function pairwise onto the list.
+Example:
+
+(defn adder-maker (x) (fn (y) (+ x y)))
+
+(inline_transform
+  '(1 1 1)
+   (list (adder-maker 1) (adder-maker 2) (adder-maker 3)))  ;; ^(2 3 4)
+"),
         ("foreach", 2, foreach, true, "Eagerly apply the given function to a sequence or list.
 Example:
 (foreach
@@ -1570,8 +1578,25 @@ Example:
 (take 5 (range)) ; lazy seq of (0 1 2 3 4)
 (doall (take 5 (range))) ; (0 1 2 3 4)
 "),
-        ("find", 2, find, true, "DOC TBD"),
-        ("slice", 3, slice, true, "DOC TBD"),
+        ("find", 2, find, true, "Find and return some value matching a predicate in an iterator.
+
+Note: This will stop iterating once it's found an item. If nothing is found, nil is returned.
+
+Example:
+
+>>> (find #(= $1 3) (take 4 (range)))
+3
+>>> (find #(= $1 300) (take 4 (range)))
+nil
+"),
+        ("slice", 3, slice, true, "Slice a list.
+Example:
+
+>>> (def ll '(1 2 3 4 5 6))
+nil
+>>> (slice 0 2 ll)
+(tuple 1 2)
+"),
         ("take-while", 2, take_while, true, "Continue taking items while `pred` is true.
 Example:
 (defn less-than-five (x) (< x 5))

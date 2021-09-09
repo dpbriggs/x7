@@ -9,6 +9,7 @@ use im::Vector;
 use itertools::Itertools;
 use parking_lot::RwLock;
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
@@ -61,6 +62,8 @@ impl PartialEq for Expr {
         match (self, other) {
             (Expr::Num(l), Expr::Num(r)) => l.eq(r),
             (Expr::Integer(l), Expr::Integer(r)) => l.eq(r),
+            (Expr::Num(l), Expr::Integer(r)) => l.eq(&r.to_bigdecimal()),
+            (Expr::Integer(l), Expr::Num(r)) => l.to_bigdecimal().eq(r),
             (Expr::Symbol(l), Expr::Symbol(r)) => l.eq(r),
             (Expr::String(l), Expr::String(r)) => l.eq(r),
             (Expr::List(l), Expr::List(r)) => l.eq(r),
@@ -122,7 +125,10 @@ pub(crate) trait ToNumericExpr {
 impl ToNumericExpr for usize {
     #[inline]
     fn to_expr(self) -> Expr {
-        Expr::Num(FromPrimitive::from_usize(self).unwrap())
+        match self.try_into() {
+            Ok(res) => Expr::Integer(res),
+            _ => Expr::Num(FromPrimitive::from_usize(self).unwrap()),
+        }
     }
 
     #[inline]

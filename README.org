@@ -169,6 +169,7 @@ Outputs:
 #+end_example
 ** More Features
 *** Dynamic Records and Syntactic Sugar
+<<record>>
 
 A recent addition to the language is the =defrecord= and =defmethod= functions,
 which allow you to define records in =x7= and add methods to the them respectively.
@@ -291,17 +292,20 @@ Fields are labelled =$1, $2, ...=.
 x7 is a quirky lisp which sort of evolved naturally. It has the following data-types:
 
 #+begin_src rust
-pub(crate) enum Expr {
+  pub enum Expr {
     Num(Num),
-    Symbol(String),
+    Integer(Integer),
+    Symbol(Symbol),
     List(Vector<Expr>),
-    Function(Function),
+    Function(Arc<Function>),
     Nil,
     String(String),
     Quote(Vector<Expr>),
     Tuple(Vector<Expr>),
     Bool(bool),
     LazyIter(IterType),
+    Dict(Dict),
+    Record(crate::records::RecordType),
 }
 #+end_src
 
@@ -315,6 +319,18 @@ Example:
 0.0
 1.1
 1000000000000000000
+#+end_example
+
+*** =Integer=
+
+A fast-path for integer heavy calculations.
+If you can avoid non-whole numbers this is substantially faster than the =Num= type.
+
+Example:
+#+begin_example
+1
+2
+-5
 #+end_example
 
 *** =Symbol=
@@ -360,29 +376,40 @@ Example:
   (not (apply = args)))
 #+end_src
 
-*** Nil
+*** =Nil=
 
 Null type. Usually equal to an empty list.
 
-*** String
+*** =String=
 
 A UTF-8 string of characters between two quotes: "hello world!"
 
-*** Quote
+*** =Quote=
 
 An unevaluated list. When evaluated, it turns into a list.
 
 Has special syntax: ='(1 2 3)=
 And a keyword: =(quote 1 2 3)=
 
-*** Tuple
+*** =Tuple=
 
 Same thing as a list, but always evals to itself.
 
 Has special syntax: =^(1 2 3)=
 And a keyword: =(tuple 1 2 3)=
 
-*** LazyIter
+*** =Bool=
+
+Classic boolean. True or false.
+
+Example:
+#+begin_example
+true
+false
+(= 1 0) ;; false
+#+end_example
+
+*** =LazyIter=
 
 A sequence of values backed by a Rust iterator. These are useful for working
 with infinite sequences.
@@ -400,6 +427,26 @@ Example:
   println
   (take 5 (map inc (range)))) ; prints one through five
 #+end_example
+
+*** =Dict=
+
+Classic immutable dictionary. This is certainly a work in progress.
+
+Example:
+#+begin_example
+(def foo (dict "key1" "value1" 3 4))
+
+(get foo 3)  ;; 4
+(get foo "key1")  ;; "value1"
+
+(set foo 5 6)  ;; {"key1": "value1", 3: 4, 5: 6}
+               ;; This does not mutate `foo`!
+(get foo 5)  ;; nil
+#+end_example
+
+*** =Record=
+
+Objects in =x7=. See the [[record][record section above]]
 
 ** Standard Library Reference
 
@@ -809,7 +856,15 @@ Example: (map inc '(1 2 3)) ; (2 3 4)
 *** =inline_transform=
 
 #+BEGIN_SRC elisp
-doc tbd
+Given a list of data and another of functions, apply each function pairwise onto the list.
+Example:
+
+(defn adder-maker (x) (fn (y) (+ x y)))
+
+(inline_transform
+  '(1 1 1)
+   (list (adder-maker 1) (adder-maker 2) (adder-maker 3)))  ;; ^(2 3 4)
+
 #+END_SRC
 
 *** =foreach=
@@ -995,13 +1050,30 @@ Example:
 *** =find=
 
 #+BEGIN_SRC elisp
-DOC TBD
+Find and return some value matching a predicate in an iterator.
+
+Note: This will stop iterating once it's found an item. If nothing is found, nil is returned.
+
+Example:
+
+>>> (find #(= $1 3) (take 4 (range)))
+3
+>>> (find #(= $1 300) (take 4 (range)))
+nil
+
 #+END_SRC
 
 *** =slice=
 
 #+BEGIN_SRC elisp
-DOC TBD
+Slice a list.
+Example:
+
+>>> (def ll '(1 2 3 4 5 6))
+nil
+>>> (slice 0 2 ll)
+(tuple 1 2)
+
 #+END_SRC
 
 *** =take-while=
