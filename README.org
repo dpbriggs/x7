@@ -358,8 +358,8 @@ Example:
 *** =Function=
 
 A function is a type defined by the =fn= or =defn= keywords. They accept a variable number
-of arguments and carry a local scope. Variables shadow each other, but be aware that functions
-don't currently close over values.
+of arguments and carry a local scope. Variables shadow each other, and functions will close over arguments.
+
 
 Example:
 #+begin_src elisp
