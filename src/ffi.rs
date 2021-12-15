@@ -227,7 +227,7 @@ impl X7Interpreter {
         let interned_fn_name = function_sym.into();
         let f = Arc::new(move |_args: Vector<Expr>, sym: &SymbolTable| body.eval(sym));
         let f = Function::new_named_args(
-            interned_fn_name.clone(),
+            interned_fn_name,
             args_len,
             f,
             arg_symbols
@@ -539,6 +539,7 @@ where
     fn to_x7_fn(self) -> (usize, crate::symbols::X7FunctionPtr) {
         let f = move |args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 1);
+            #[allow(clippy::redundant_closure)]
             let res = A::from_x7(&args[0]).map(|e| (self)(e));
             res.and_then(|e| e.to_x7()).map_err(|e| anyhow!("{:?}", e))
         };

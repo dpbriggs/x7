@@ -118,7 +118,7 @@ impl DynRecord {
         if let Some(s) = exprs.get(1) {
             if let Ok(s) = s.get_string() {
                 skip_to_fields += 1;
-                symbol_table.add_doc_item(name.to_string(), s.clone());
+                symbol_table.add_doc_item(name.to_string(), s);
             }
         }
         let fields_order = exprs

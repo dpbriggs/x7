@@ -5,7 +5,7 @@ use std::{
     fmt::{Debug, Display},
 };
 
-#[derive(Copy, Clone, Eq)]
+#[derive(Copy, Clone, Eq, Default)]
 pub struct InternedString(u32);
 
 impl PartialEq for InternedString {
@@ -19,13 +19,6 @@ impl std::hash::Hash for InternedString {
     #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
-    }
-}
-
-impl Default for InternedString {
-    #[inline]
-    fn default() -> Self {
-        Self(0)
     }
 }
 
