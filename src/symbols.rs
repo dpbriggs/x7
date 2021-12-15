@@ -101,7 +101,7 @@ impl fmt::Debug for Expr {
             Expr::Quote(l) => write!(f, "'({})", debug_join(l)),
             Expr::Bool(b) => write!(f, "{}", b),
             Expr::List(l) => write!(f, "({})", debug_join(l)),
-            Expr::Tuple(l) => write!(f, "(tuple {})", debug_join(l)),
+            Expr::Tuple(l) => write!(f, "^({})", debug_join(l)),
             Expr::Dict(l) => write!(f, "{:?}", l),
             Expr::Record(l) => write!(f, "{:?}", l),
         }
@@ -258,6 +258,14 @@ impl Expr {
         match self {
             Expr::Num(n) => Ok(n.clone()),
             Expr::Integer(n) => Ok(n.to_bigdecimal()),
+            _ => bad_types!("num", self),
+        }
+    }
+
+    pub(crate) fn get_int(&self) -> LispResult<Integer> {
+        match self {
+            // Expr::Num(n) => Ok(n.clone()), // TODO: Handle num being non-int
+            Expr::Integer(n) => Ok(*n),
             _ => bad_types!("num", self),
         }
     }

@@ -41,14 +41,6 @@ macro_rules! exact_len {
 
 }
 
-#[macro_export]
-macro_rules! num {
-    ($n:expr) => {{
-        use bigdecimal::{BigDecimal, FromPrimitive};
-        Expr::num(BigDecimal::from_usize($n).unwrap()) // should never fail.
-    }};
-}
-
 // ARITHMETIC
 
 // TODO: Check if the types make sense to compare. (i.e. ordering, etc)
@@ -406,7 +398,7 @@ fn print(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in &exprs {
         print!("{}", expr);
     }
-    Ok(num!(exprs.len()))
+    Ok(Expr::num(exprs.len()))
 }
 
 fn println(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -474,7 +466,7 @@ fn map(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         let old = expr.clone();
         *expr = f.call_fn(Vector::unit(old), symbol_table)?;
     }
-    Ok(Expr::List(l))
+    Ok(Expr::Tuple(l))
 }
 
 // Like map, but doesn't produce a list.
@@ -1049,7 +1041,7 @@ fn random_int(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Ex
         .to_usize()
         .ok_or_else(|| anyhow!("Failed to convert {} to a usize!", &upper))?;
     let b: usize = rand::random::<usize>() % upper + lower;
-    Ok(num!(b))
+    Ok(Expr::num(b))
 }
 
 fn primes(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1066,6 +1058,19 @@ fn primes(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> 
     }
     Ok(Expr::List(seen.iter().map(|&i| Expr::num(i)).collect()))
 }
+
+fn divisors(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let num = exprs[0].get_int()?;
+    let mut res = Vector::new();
+    for i in 1..=num {
+        if num % i == 0 {
+            res.push_back(Expr::Integer(i));
+        }
+    }
+    Ok(Expr::Tuple(res))
+}
+
 // Records
 
 fn call_method(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1093,7 +1098,7 @@ fn doc_methods(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Ex
 
 fn len(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    Ok(num!(exprs[0].len()?))
+    Ok(Expr::num(exprs[0].len()?))
 }
 
 fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1330,7 +1335,7 @@ Example:
             0,
             symbol,
             false,
-            "tbd"
+            "Turn a string into a symbol"
         ),
         (
             "str",
@@ -1452,6 +1457,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 ... and the interpreter will stop.
 "),
         ("primes", 1, primes, true, "Prime numbers less than `n`."),
+        ("divisors", 1, divisors, true, "Divisors of `n`."),
         ("sleep", 1, sleep, true, "Sleep for n seconds.
             Example: (sleep 10) ; sleep for 10 seconds."),
         ("type", 1, type_of, true, "Return the type of the argument as a string.

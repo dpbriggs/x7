@@ -1,7 +1,7 @@
 use crate::exact_len;
 use crate::records::{Record, RecordDoc, RecordType};
 use crate::symbols::{Expr, LispResult, SymbolTable};
-use crate::{num, record, try_call_method, unknown_method};
+use crate::{record, try_call_method, unknown_method};
 use anyhow::anyhow;
 use im::Vector;
 use parking_lot::Mutex;
@@ -94,7 +94,7 @@ impl FileRecord {
     fn write(&self, args: Vector<Expr>) -> LispResult<Expr> {
         exact_len!(args, 1);
         let content = args[0].get_string()?;
-        let content_len = num!(content.len());
+        let content_len = Expr::num(content.len());
         let mut guard = self.file.lock();
         // Set the length to 0.
         self.try_shrink(&mut guard)?;
@@ -119,7 +119,7 @@ impl FileRecord {
     }
 
     fn append(&self, content: &str) -> LispResult<Expr> {
-        let content_len = num!(content.len());
+        let content_len = Expr::num(content.len());
         let mut guard = self.file.lock();
 
         guard
