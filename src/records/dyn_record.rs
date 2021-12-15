@@ -1,4 +1,4 @@
-use crate::records::Record;
+use crate::records::{Record, RecordDoc};
 use crate::symbols::{Expr, Function, LispResult, Symbol, SymbolTable};
 use crate::{record, unknown_method};
 use anyhow::anyhow;
@@ -12,11 +12,26 @@ use std::sync::Arc;
 #[derive(Default, Debug, Clone)]
 pub struct DynRecord {
     name: Symbol,
-    doc: Option<String>,
+    // FIXME: Why did this field exist and why didn't I get a warning for it until now
+    // doc: Option<String>,
     fields: DashMap<Symbol, Expr>,
     initialized: bool,
     fields_order: Vec<Symbol>,
     methods: Arc<DashMap<Symbol, Function>>,
+}
+
+impl RecordDoc for DynRecord {
+    fn name() -> &'static str {
+        "DynRecord"
+    }
+
+    fn type_doc() -> &'static str {
+        "Dyn"
+    }
+
+    fn method_doc() -> &'static [(&'static str, &'static str)] {
+        todo!()
+    }
 }
 
 impl Record for DynRecord {
@@ -100,17 +115,12 @@ impl DynRecord {
     pub fn defrecord(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         let name = exprs[0].get_symbol_string()?;
         let mut skip_to_fields = 1;
-        let doc = if let Some(s) = exprs.get(1) {
+        if let Some(s) = exprs.get(1) {
             if let Ok(s) = s.get_string() {
                 skip_to_fields += 1;
                 symbol_table.add_doc_item(name.to_string(), s.clone());
-                Some(s)
-            } else {
-                None
             }
-        } else {
-            None
-        };
+        }
         let fields_order = exprs
             .iter()
             .skip(skip_to_fields)
@@ -118,7 +128,6 @@ impl DynRecord {
             .try_collect()?;
         let rec = DynRecord {
             name,
-            doc,
             fields_order,
             initialized: false,
             ..Default::default()
@@ -150,7 +159,10 @@ impl DynRecord {
             method_symbol.into(),
             arg_list.len(),
             Arc::new(method_fn),
-            arg_list.into_iter().map(|e| e.get_symbol_string()).try_collect()?,
+            arg_list
+                .into_iter()
+                .map(|e| e.get_symbol_string())
+                .try_collect()?,
             true,
             HashMap::new(),
         )?;

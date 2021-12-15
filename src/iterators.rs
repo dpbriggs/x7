@@ -130,7 +130,7 @@ impl LazyIter for LazyFilter {
     }
 
     fn id(&self) -> u64 {
-        0
+        self.id
     }
 }
 
