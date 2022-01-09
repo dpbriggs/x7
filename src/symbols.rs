@@ -67,6 +67,8 @@ impl PartialEq for Expr {
             (Expr::Symbol(l), Expr::Symbol(r)) => l.eq(r),
             (Expr::String(l), Expr::String(r)) => l.eq(r),
             (Expr::List(l), Expr::List(r)) => l.eq(r),
+            (Expr::Tuple(l), Expr::List(r)) => l.eq(r),
+            (Expr::List(l), Expr::Tuple(r)) => l.eq(r),
             (Expr::Tuple(l), Expr::Tuple(r)) => l.eq(r),
             (Expr::Function(l), Expr::Function(r)) => l.eq(r),
             (Expr::Quote(l), Expr::Quote(r)) => l.eq(r),
