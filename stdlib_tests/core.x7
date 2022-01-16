@@ -44,8 +44,9 @@
 (defn test-stdlib-functions
   ()
   (do
-    ;; Primes
+    ;; Primes and related functions
     (assert-eq '(2 3 5 7) (primes 10))
+    (assert-eq '(1 2 4 5 10 20) (divisors 20))
     ;; Sets
     (assert-eq
       '("SetRecord.contains" "SetRecord.intersection" "SetRecord.len"

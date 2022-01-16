@@ -650,7 +650,7 @@ Transforms the given input into a quote. Usually you will want to use the '(1 2 
 *** =symbol=
 
 #+BEGIN_SRC elisp
-tbd
+Turn a string into a symbol
 #+END_SRC
 
 *** =str=
@@ -705,6 +705,14 @@ Example (in repl):
 (+ 1 2)
 >>> (eval '(+ 1 2))
 3
+#+END_SRC
+
+*** =parse=
+
+#+BEGIN_SRC elisp
+Parse an expression.
+Example (in repl):
+>>> (parse "(+ 1 2)")
 #+END_SRC
 
 *** =def=
@@ -802,6 +810,13 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 #+BEGIN_SRC elisp
 Prime numbers less than `n`.
+#+END_SRC
+
+*** =divisors=
+
+#+BEGIN_SRC elisp
+Divisors of `n`. Example:
+(divisors 20) ;; ^(1 2 4 5 10 20)
 #+END_SRC
 
 *** =sleep=
@@ -952,6 +967,23 @@ Example:
   (do
     (print "current state: " x)
     (+ x x)))
+
+#+END_SRC
+
+*** =partial=
+
+#+BEGIN_SRC elisp
+;; Construct a partial function.
+
+;; Example:
+(defn foobar (x y z) (+ x y z))
+
+(def part (partial foobar 1 2))
+(part 3) ;; 6
+
+((partial foobar 1) 0 -1) ;; 0
+
+(partial + 1) ;; Fn<Partial<Fn<+, 1, [ ]>; remaining=0>, 0, [ ]>
 
 #+END_SRC
 
@@ -1124,12 +1156,12 @@ Example:
 
 #+END_SRC
 
-*** =set=
+*** =set-dict=
 
 #+BEGIN_SRC elisp
 Set a key to a value in a dict. It'll return the new dict.
 Example:
-(set (dict 1 2) 3 4) ; {1: 2, 3: 4}
+(set-dict (dict 1 2) 3 4) ; {1: 2, 3: 4}
 (get (dict) 1 2) ; {1: 2}
 
 #+END_SRC
@@ -1314,6 +1346,39 @@ Open a file. Under construction.
 Compile a regex. Under construction.
 #+END_SRC
 
+*** =set=
+
+#+BEGIN_SRC elisp
+Basic Hash Set in x7.
+
+;; Contains. Test whether an element exists in a set. O(1) time.
+;; Example:
+(.contains (set '(0 1 2 3)) 2)  ;; true
+(.contains (set '(0 1 2 3)) 10) ;; false
+
+;; Union (creates new set with elements from each)
+;; Example:
+(.union (set '(1 2 3))
+        (set '(4 5 6))) ;; Set<{4, 5, 2, 6, 1, 3}>
+(.union (set (lazy (range 5))) (set (range 5 10)))
+;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
+
+;; Intersection. Obtain the intersection of two sets.
+;; Example:
+(.intersection (set (range 10)) (set (range 5 10)))
+;; Set<{5, 6, 9, 7, 8}>
+
+;; to_list. Convert the set into a list. Order is undefined.
+;; Example:
+(.to_list (set (range 5))) ;; (1 2 0 3 4)
+
+;; len. Get the number of elements in a set. Implements the "len" magic method.
+;; Example:
+(.len (set '(0 1 2 3)))  ;; 4
+(len (set '())) ;; 0
+
+#+END_SRC
+
 *** =defrecord=
 
 #+BEGIN_SRC elisp
@@ -1386,6 +1451,18 @@ Grab all documentation for a record's methods
 Return the time taken to evaluate an expression in milliseconds.
 #+END_SRC
 
+*** =catch-err=
+
+#+BEGIN_SRC elisp
+Catch an error. Returns nil if no error is caught.
+#+END_SRC
+
+*** =assert-eq=
+
+#+BEGIN_SRC elisp
+Assert if two items are equal.
+#+END_SRC
+
 *** =TestResult=
 
 #+BEGIN_SRC elisp
@@ -1441,12 +1518,6 @@ Example:
 
 #+BEGIN_SRC elisp
 Find the `num'th Fibonacci number.
-#+END_SRC
-
-*** =assert-eq=
-
-#+BEGIN_SRC elisp
-Test if two items are equal, and panic otherwise.
 #+END_SRC
 
 *** =docp=
@@ -1574,6 +1645,85 @@ Returns a list of lists of all captures in the input.
  (tuple "6" "8" "b" "bbbnvbbb")
  (tuple "6" "10" "z" "zhzzzzfzzzzzzzzzpzz")
  (tuple "9" "13" "s" "dmssskssqsssssf"))
+
+#+END_SRC
+
+*** =SetRecord=
+
+#+BEGIN_SRC elisp
+Basic Hash Set in x7.
+
+;; Contains. Test whether an element exists in a set. O(1) time.
+;; Example:
+(.contains (set '(0 1 2 3)) 2)  ;; true
+(.contains (set '(0 1 2 3)) 10) ;; false
+
+;; Union (creates new set with elements from each)
+;; Example:
+(.union (set '(1 2 3))
+        (set '(4 5 6))) ;; Set<{4, 5, 2, 6, 1, 3}>
+(.union (set (lazy (range 5))) (set (range 5 10)))
+;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
+
+;; Intersection. Obtain the intersection of two sets.
+;; Example:
+(.intersection (set (range 10)) (set (range 5 10)))
+;; Set<{5, 6, 9, 7, 8}>
+
+;; to_list. Convert the set into a list. Order is undefined.
+;; Example:
+(.to_list (set (range 5))) ;; (1 2 0 3 4)
+
+;; len. Get the number of elements in a set. Implements the "len" magic method.
+;; Example:
+(.len (set '(0 1 2 3)))  ;; 4
+(len (set '())) ;; 0
+
+#+END_SRC
+
+*** =SetRecord.contains=
+
+#+BEGIN_SRC elisp
+Test whether an element exists in a set. O(1) time.
+Example:
+(.contains (set '(0 1 2 3)) 2)  ;; true
+(.contains (set '(0 1 2 3)) 10) ;; false
+#+END_SRC
+
+*** =SetRecord.len=
+
+#+BEGIN_SRC elisp
+Get the number of elements in a set. Implements the "len" magic method.
+Example:
+(.len (set '(0 1 2 3)))  ;; 4
+(len (set '())) ;; 0
+#+END_SRC
+
+*** =SetRecord.union=
+
+#+BEGIN_SRC elisp
+Obtain the union of two sets.
+Example:
+(.union (set (lazy (range 5))) (set (range 5 10)))
+;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
+
+#+END_SRC
+
+*** =SetRecord.intersection=
+
+#+BEGIN_SRC elisp
+Obtain the intersection of two sets.
+Example:
+(.intersection (set (range 10)) (set (range 5 10)))
+;; Set<{5, 6, 9, 7, 8}>
+#+END_SRC
+
+*** =SetRecord.to_list=
+
+#+BEGIN_SRC elisp
+Convert the set into a list. Order is undefined.
+Example:
+(.to_list (set (range 5))) ;; (1 2 0 3 4)
 
 #+END_SRC
 

@@ -1214,7 +1214,7 @@ use std::time::Duration;
 use std::{sync::Arc, time::Instant};
 
 macro_rules! make_stdlib_fns {
-    ( $(($sym:literal, $minargs:expr, $func:expr, $eval_args:expr, $doc:literal)),* ) => {
+    ( $(($sym:literal, $minargs:expr, $func:expr, $eval_args:expr, $doc:expr)),* ) => {
         {
             let mut globals = Vec::new();
             let mut docs = Vec::new();
@@ -1538,7 +1538,8 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 ... and the interpreter will stop.
 "),
         ("primes", 1, primes, true, "Prime numbers less than `n`."),
-        ("divisors", 1, divisors, true, "Divisors of `n`."),
+        ("divisors", 1, divisors, true, "Divisors of `n`. Example:
+(divisors 20) ;; ^(1 2 4 5 10 20)"),
         ("sleep", 1, sleep, true, "Sleep for n seconds.
             Example: (sleep 10) ; sleep for 10 seconds."),
         ("type", 1, type_of, true, "Return the type of the argument as a string.
@@ -1815,7 +1816,7 @@ Example:
   (lazy (zip (range 10) (range 10)))) ;; (tuple 9 9)"),
         ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
         ("re::compile", 1, RegexRecord::compile_x7, true, "Compile a regex. Under construction."),
-        ("set", 1, SetRecord::from_x7, true, "TBD"),
+        ("set", 1, SetRecord::from_x7, true, SetRecord::type_doc()),
         ("defrecord", 1, DynRecord::defrecord, false, "Define a Record structure.
 
 Use defmethod to add methods a record.

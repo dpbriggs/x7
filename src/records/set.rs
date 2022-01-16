@@ -140,18 +140,32 @@ impl RecordDoc for SetRecord {
 
     fn type_doc() -> &'static str {
         "Basic Hash Set in x7.
-Example:
-(def s (set '(1 2 3)))
 
-;; Contains
-(.contains s 1) ;; true
-(.contains s 9) ;; false
+;; Contains. Test whether an element exists in a set. O(1) time.
+;; Example:
+(.contains (set '(0 1 2 3)) 2)  ;; true
+(.contains (set '(0 1 2 3)) 10) ;; false
 
 ;; Union (creates new set with elements from each)
+;; Example:
 (.union (set '(1 2 3))
         (set '(4 5 6))) ;; Set<{4, 5, 2, 6, 1, 3}>
+(.union (set (lazy (range 5))) (set (range 5 10)))
+;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
 
-;; And more sp
+;; Intersection. Obtain the intersection of two sets.
+;; Example:
+(.intersection (set (range 10)) (set (range 5 10)))
+;; Set<{5, 6, 9, 7, 8}>
+
+;; to_list. Convert the set into a list. Order is undefined.
+;; Example:
+(.to_list (set (range 5))) ;; (1 2 0 3 4)
+
+;; len. Get the number of elements in a set. Implements the \"len\" magic method.
+;; Example:
+(.len (set '(0 1 2 3)))  ;; 4
+(len (set '())) ;; 0
 "
     }
 
