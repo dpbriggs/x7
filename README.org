@@ -17,7 +17,7 @@ The goal is to have every function describe itself, so you can live in the repl.
 
 Use the =doc= function on a symbol to see it's documentation:
 
-#+begin_src elisp
+#+begin_example
 >>> (print (doc foreach))
 Eagerly apply the given function to a sequence or list.
 Example:
@@ -28,7 +28,7 @@ Example:
 (foreach
   (fn (x) (println x))
   (take 5 (map (fn (x) (* x x x x x x)) (range)))) ; prints 0, 1, 64, 729, 4096
-#+end_src
+#+end_example
 
 The general goal is to be as helpful as possible. So stacktraces include more
 information than you'd usually get, such as arguments.
@@ -167,6 +167,7 @@ Outputs:
 135301852344706746049
 218922995834555169026
 #+end_example
+
 ** More Features
 *** Dynamic Records and Syntactic Sugar
 
@@ -196,7 +197,7 @@ This lets us encapsulate data, and access it in a nice structured way.
   (def my-vector (Vec3 1 1 1))
 
   ;; Call the + method
-  (.+ my-vector my-vector) ;; Vec3
+  (.+ my-vector my-vector) ;; Record<Vec3, fields=[ x: 2 y: 2 z: 2 ]>
 #+end_src
 
 The process of adding this support added two
@@ -1337,13 +1338,35 @@ Example:
 *** =fs::open=
 
 #+BEGIN_SRC elisp
-Open a file. Under construction.
+Manipulate files in x7.
+Example:
+(def my-file (fs::open "my_file.txt"))
+
+;; Write to the file
+(.write my-file "Hello World")
+
+;; Read from the file
+(.read_to_string my-file)
+
 #+END_SRC
 
 *** =re::compile=
 
 #+BEGIN_SRC elisp
-Compile a regex. Under construction.
+Regular Expressions - regular search patterns.
+
+This is backed by the excellent regex crate: https://github.com/rust-lang/regex
+
+Example:
+
+;; Compile a regex
+(def a (re::compile "(abc)+"))
+
+;; Test if a string matches
+
+(.is_match a "abcabc") ;; true
+(.is_match a "ab") ;; false
+
 #+END_SRC
 
 *** =set=

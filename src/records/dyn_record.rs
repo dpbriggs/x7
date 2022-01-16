@@ -26,7 +26,22 @@ impl RecordDoc for DynRecord {
     }
 
     fn type_doc() -> &'static str {
-        "Dyn"
+        "Define a Record structure.
+
+Use defmethod to add methods a record.
+
+Example:
+;; Define a record
+(defrecord Vec3 \"Three Dimensional Vector\" x y z)
+
+;; Instantiate a Vec3
+(def v (Vec 1 2 3))
+
+;; Access attributes
+
+v.x    ;; 1
+(.y v) ;; 2
+"
     }
 
     fn method_doc() -> &'static [(&'static str, &'static str)] {

@@ -1814,25 +1814,10 @@ Example:
 (max-by
   (fn (x) (nth 0 x))
   (lazy (zip (range 10) (range 10)))) ;; (tuple 9 9)"),
-        ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
-        ("re::compile", 1, RegexRecord::compile_x7, true, "Compile a regex. Under construction."),
+        ("fs::open", 1, FileRecord::from_x7, true, FileRecord::type_doc()),
+        ("re::compile", 1, RegexRecord::compile_x7, true, RegexRecord::type_doc()),
         ("set", 1, SetRecord::from_x7, true, SetRecord::type_doc()),
-        ("defrecord", 1, DynRecord::defrecord, false, "Define a Record structure.
-
-Use defmethod to add methods a record.
-
-Example:
-;; Define a record
-(defrecord Vec3 \"Three Dimensional Vector\" x y z)
-
-;; Instantiate a Vec3
-(def v (Vec 1 2 3))
-
-;; Access attributes
-
-v.x    ;; 1
-(.y v) ;; 2
-"),
+        ("defrecord", 1, DynRecord::defrecord, false, DynRecord::type_doc()),
         ("defmethod", 1, DynRecord::defmethod_x7, false, "Add a method to a record. Cannot be called on instantiated records.
 
 NOTE: Methods get an implicit `self` reference.
