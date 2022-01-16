@@ -338,6 +338,31 @@ fn inline_transform(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResu
 //     f
 // }
 
+fn partial(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    if exprs.is_empty() {
+        bail!("Partial requires at least one argument!");
+    }
+    let f = exprs[0]
+        .get_function()
+        .with_context(|| "Note: Partial requires the first item to be a function")?
+        .clone();
+    let rest_args = exprs.skip(1);
+    let rest_args_len = rest_args.len();
+    let remaining = f.minimum_args.saturating_sub(rest_args_len);
+    let partial_fn_name = format!("Partial<{}; remaining={}>", f, remaining);
+    let new_f = move |args: Vector<Expr>, sym: &SymbolTable| {
+        let mut new_arg_list: Vector<Expr> = rest_args.iter().chain(args.iter()).cloned().collect();
+        if new_arg_list.len() >= f.minimum_args {
+            f.call_fn(new_arg_list, sym)
+        } else {
+            new_arg_list.push_front(Expr::function(f.clone()));
+            partial(new_arg_list, sym)
+        }
+    };
+    let ff = Function::new(partial_fn_name, remaining, Arc::new(new_f), true);
+    Ok(Expr::function(ff))
+}
+
 // TODO: Make this work.
 fn comp(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let compose = move |es, sym: &SymbolTable| {
@@ -466,7 +491,7 @@ fn map(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         let old = expr.clone();
         *expr = f.call_fn(Vector::unit(old), symbol_table)?;
     }
-    Ok(Expr::Tuple(l))
+    Ok(Expr::List(l))
 }
 
 // Like map, but doesn't produce a list.
@@ -1170,6 +1195,8 @@ macro_rules! document_records {
     };
 }
 
+/// Create a symbol table without the x7 defined stdlib and
+/// no user passed arguments. Useful for benchmarks.
 pub fn create_stdlib_symbol_table_no_cli() -> SymbolTable {
     let opt = Options {
         // We haven't solved the $X7_PATH issue - i.e. where does
@@ -1524,6 +1551,18 @@ Example:
   (do
     (print \"current state: \" x)
     (+ x x)))
+"),
+        ("partial", 1, partial, true, ";; Construct a partial function.
+
+;; Example:
+(defn foobar (x y z) (+ x y z))
+
+(def part (partial foobar 1 2))
+(part 3) ;; 6
+
+((partial foobar 1) 0 -1) ;; 0
+
+(partial + 1) ;; Fn<Partial<Fn<+, 1, [ ]>; remaining=0>, 0, [ ]>
 "),
         ("comp", 1, comp, true, "Compose given functions and return a new function. NOT IMPLEMENTED YET!"),
         ("reduce", 2, reduce, true, "Reduce (fold) a given sequence using the given function. Reduce is multi-arity, and will accept an `init` parameter.
