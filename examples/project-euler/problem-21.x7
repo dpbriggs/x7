@@ -48,7 +48,7 @@
 (def total-to-check 10000)
 
 (foreach
- (fn (num) (def amicable-pairs (set amicable-pairs num (proper-sum-of-divisors num))))
+ (fn (num) (def amicable-pairs (set-dict amicable-pairs num (proper-sum-of-divisors num))))
  (range 2 total-to-check))
 
 (defn get-amicable-numbers ()

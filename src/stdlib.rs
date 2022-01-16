@@ -265,6 +265,15 @@ fn eval(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exprs[0].eval(symbol_table)
 }
 
+fn parse(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let program = exprs[0].get_string()?;
+    let parse_res: Vector<Expr> = crate::parser::read(&program)
+        .into_iter()
+        .collect::<LispResult<_>>()?;
+    Ok(Expr::Tuple(parse_res))
+}
+
 fn apply(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     exprs[0].call_fn(exprs[1].get_list()?, symbol_table)
@@ -422,6 +431,9 @@ fn sleep(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 fn print(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in &exprs {
         print!("{}", expr);
+        if let Err(e) = std::io::stdout().flush() {
+            eprintln!("Failed to flush stdout! {}", e);
+        }
     }
     Ok(Expr::num(exprs.len()))
 }
@@ -1164,7 +1176,40 @@ fn max_by(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(curr_max)
 }
 
+fn catch_err(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let ret = match exprs[0].eval(symbol_table) {
+        Ok(_) => Expr::Nil,
+        Err(e) => Expr::String(format!("{}, with root cause:\n{}", e, e.root_cause())),
+    };
+    Ok(ret)
+}
+
+fn assert_eq(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2, 3);
+    let l = &exprs[0].eval(symbol_table)?;
+    let r = &exprs[1].eval(symbol_table)?;
+    let msg = match exprs.get(2) {
+        Some(e) => e.get_string()?,
+        None => String::new(),
+    };
+
+    if l != r {
+        Err(anyhow!(
+            "{}Left does not equal Right -- {} != {}\n\nHelp:\n\nLeft evaluated to: {}\nRight evaluated to: {}",
+            msg,
+            &exprs[0],
+            &exprs[1],
+            l,
+            r
+        ))
+    } else {
+        Ok(Expr::Nil)
+    }
+}
+
 use std::borrow::Cow;
+use std::io::Write;
 use std::time::Duration;
 use std::{sync::Arc, time::Instant};
 
@@ -1424,6 +1469,15 @@ Example (in repl):
 (+ 1 2)
 >>> (eval '(+ 1 2))
 3"
+        ),
+        (
+            "parse",
+            1,
+            parse,
+            true,
+            "Parse an expression.
+Example (in repl):
+>>> (parse \"(+ 1 2)\")"
         ),
         (
             "def",
@@ -1808,7 +1862,10 @@ Example:
 (call_method f \"write\" \"hello world\") ;; pass it an arg
 "),
         ("methods", 1, doc_methods, true, "Grab all documentation for a record's methods"),
-        ("time", 1, time, false, "Return the time taken to evaluate an expression in milliseconds.")
+        ("time", 1, time, false, "Return the time taken to evaluate an expression in milliseconds."),
+        ("catch-err", 1, catch_err, false, "Catch an error. Returns nil if no error is caught."),
+        ("assert-eq", 2, assert_eq, false, "Assert if two items are equal.")
+
     );
     if !opts.do_not_load_native_stdlib {
         if let Err(e) = load_x7_stdlib(opts, &syms) {

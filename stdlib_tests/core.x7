@@ -1,0 +1,74 @@
+(defn test-arith ()
+  (do
+   (assert-eq (+ 1 2) 3)
+   (assert-eq (+ 1) 1)
+   (assert-eq (- 1 2) -1)
+   (assert-eq (/ 1 2) 0.5)
+   (assert-eq (* 1 2 3) 6)
+    ))
+
+(defn test-equality ()
+  (do
+    (assert-eq 1 1)
+    (assert-eq 1.5 1.5)
+    (assert-eq (* 1.5 2) 3)
+    (assert-eq (* 2 1.5) 3)
+    (assert-eq (symbol "foo") (symbol "foo"))
+    (assert-eq "abc" "abc")
+    (assert-eq (list 1 2 3) (list 1 2 3))
+    (assert-eq ^(1 2 3) (list 1 2 3))
+    (assert-eq (list 1 2 3) ^(1 2 3))
+    (assert-eq ^(1 2 3) ^(1 2 3))
+    (assert-eq assert-eq assert-eq) ;; built-in
+    (assert-eq test-equality test-equality) ;; user-defined
+    (assert-eq '(1 2 3) '(1 2 3))
+    (assert-eq nil nil)
+    (assert-eq (dict 1 2 3 4) (dict 1 2 3 4)) ;; dicts are still a built-in
+    ;; TODO: Handle record equality
+    ;; (assert-eq (set '(1 2 (set 3))) (set '(1 2 (set 3))))
+   ))
+
+(defn test-type-coercion ()
+  (do
+    (assert-eq "int" (type 1))
+    (assert-eq "num" (type 1.5))
+    (assert-eq "int" (type (* 1.5 2)))
+    (assert-eq "num" (type (/ 1 3)))
+   ))
+
+(defn test-defn-docs
+    "hello world"
+    ()
+  (assert-eq "hello world" (doc test-defn-docs)))
+
+(defn test-stdlib-functions
+  ()
+  (do
+    ;; Primes
+    (assert-eq '(2 3 5 7) (primes 10))
+    ;; Sets
+    (assert-eq
+      '("SetRecord.contains" "SetRecord.intersection" "SetRecord.len"
+        "SetRecord.to_list" "SetRecord.union")
+     (sort (map head (methods (set '(1 2 3))))))))
+
+(defn run-test (test-fn)
+  (bind (test-res (catch-err (test-fn)))
+        (if (nil? test-res)
+            (do (print ".") true)
+            (do
+             (println "\n" test-res "\n")
+             false))))
+
+(defn run-tests (& tests)
+  (if (not (all ident (map run-test tests)))
+      (print "\nTest suite failed!\n")
+      (print "\nTest suite passed!\n")))
+
+(run-tests
+ test-arith
+ test-equality
+ test-type-coercion
+ test-defn-docs
+ test-stdlib-functions
+ )

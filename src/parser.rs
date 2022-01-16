@@ -112,9 +112,13 @@ fn parse_symbol(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
 }
 
 fn decode_control_character_str(input: &str) -> String {
+    // TODO: Remake this function. It's ugly and hard to follow.
     let mut output_str = String::new();
-    if input.is_empty() {
-        return output_str;
+    match input {
+        "\\n" => return "\n".to_string(),
+        "\\r" => return "\r".to_string(),
+        u if u.is_empty() => return output_str,
+        _ => (),
     }
     let mut skip_next_c = false;
     for (first_c, second_c) in input.chars().zip(input.chars().skip(1)) {
@@ -392,5 +396,12 @@ mod tests {
         assert!(next.is_some());
         assert_eq!(next.unwrap().unwrap(), num_f!(1.0));
         assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn can_parse_control_characters() {
+        assert_eq!("\n", decode_control_character_str("\\n"));
+        assert_eq!("\r", decode_control_character_str("\\r"));
+        assert_eq!("\n123", decode_control_character_str("\\n123"));
     }
 }

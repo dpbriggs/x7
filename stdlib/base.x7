@@ -67,11 +67,6 @@ Example:
           (tuple 0 1)
           (range num))))
 
-(defn assert-eq
-  "Test if two items are equal, and panic otherwise."
-  (l r msg)
-  (if (not= l r) (err msg) ()))
-
 (defn docp
   "Pretty print the doc string of a function
    Example: (docp docp) ;; Pretty print the doc string of a function..."
@@ -95,3 +90,6 @@ Example:
     (reduce
      (fn (acc x) (if (> acc x) acc x))
      ll))
+
+(defn nil? (x)
+  (= x nil))
