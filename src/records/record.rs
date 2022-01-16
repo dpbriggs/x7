@@ -50,6 +50,11 @@ pub trait Record: Sync + Send {
     /// Return the type name for nice help messages
     fn type_name(&self) -> String;
 
+    // This method is used for bad_types error handling
+    fn get_type_str(&self) -> String {
+        self.type_name()
+    }
+
     fn call_as_fn(&self, _args: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         bail!(ProgramError::NotAFunction(Expr::Record(Box::new(
             self.clone(),

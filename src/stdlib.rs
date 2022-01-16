@@ -5,7 +5,7 @@ use crate::iterators::{
 };
 use crate::modules::load_x7_stdlib;
 use crate::records::RecordDoc;
-use crate::records::{DynRecord, FileRecord, RegexRecord};
+use crate::records::{DynRecord, FileRecord, RegexRecord, SetRecord};
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use crate::{bad_types, iterators::LazyFilter};
 use crate::{cli::Options, iterators::IterType};
@@ -1096,9 +1096,9 @@ fn doc_methods(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Ex
     Ok(Expr::List(docs))
 }
 
-fn len(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn len(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    Ok(Expr::num(exprs[0].len()?))
+    Ok(Expr::num(exprs[0].len(symbol_table)?))
 }
 
 fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1628,9 +1628,9 @@ Example:
 Example:
 (remove (dict 1 2) 1) ; {}
 "),
-        ("set", 3, set_dict, true, "Set a key to a value in a dict. It'll return the new dict.
+        ("set-dict", 3, set_dict, true, "Set a key to a value in a dict. It'll return the new dict.
 Example:
-(set (dict 1 2) 3 4) ; {1: 2, 3: 4}
+(set-dict (dict 1 2) 3 4) ; {1: 2, 3: 4}
 (get (dict) 1 2) ; {1: 2}
 "),
         ("values", 1, values, true, "Get the values of a dict.
@@ -1688,10 +1688,15 @@ Example:
 (range 5 10); (5 6 7 8 9)
 "),
         // ("product", 2, product, true, "Cartesian product two lists"),
-        ("len", 1, len, true, "Get the number of items in a list or tuple.
+        ("len", 1, len, true, "Get the number of items in a collection.
 Example:
 (len '(0 0 0)) ; 3
 (len '()) ; 0
+
+Records that define a len method will have that method called:
+(defrecord Foo y)
+(defmethod Foo len () (len self.y))
+(len (Foo '(1 2 3))) ;; 3
 "),
         ("rev", 1, rev, true, "Reverse a list."),
         ("zip", 2, zip, true, "Zip two lists together into a list of tuples."),
@@ -1717,6 +1722,7 @@ Example:
   (lazy (zip (range 10) (range 10)))) ;; (tuple 9 9)"),
         ("fs::open", 1, FileRecord::from_x7, true, "Open a file. Under construction."),
         ("re::compile", 1, RegexRecord::compile_x7, true, "Compile a regex. Under construction."),
+        ("set", 1, SetRecord::from_x7, true, "TBD"),
         ("defrecord", 1, DynRecord::defrecord, false, "Define a Record structure.
 
 Use defmethod to add methods a record.
@@ -1772,5 +1778,6 @@ Example:
     }
     document_records!(syms, FileRecord);
     document_records!(syms, RegexRecord);
+    document_records!(syms, SetRecord);
     syms
 }

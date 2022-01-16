@@ -327,7 +327,7 @@ impl Expr {
         }
     }
 
-    pub(crate) fn len(&self) -> LispResult<usize> {
+    pub(crate) fn len(&self, symbol_table: &SymbolTable) -> LispResult<usize> {
         let len = match self {
             Expr::List(l) => l.len(),
             Expr::Tuple(l) => l.len(),
@@ -335,7 +335,10 @@ impl Expr {
             Expr::Dict(m) => m.len(),
             Expr::String(s) => s.len(),
             Expr::Symbol(s) => s.len(),
-            _ => return bad_types!("collection", self),
+            Expr::Record(r) => r
+                .call_method("len", Vector::new(), symbol_table)?
+                .get_usize()?,
+            _ => return bad_types!("collection (list, tuple, record, etc)", self),
         };
         Ok(len)
     }
@@ -413,10 +416,10 @@ impl Expr {
 
     #[inline]
     pub fn get_symbol_string(&self) -> LispResult<InternedString> {
-        if let Expr::Symbol(s) = self {
-            Ok(*s)
-        } else {
-            bad_types!("symbol", self)
+        match self {
+            Expr::Symbol(s) => Ok(*s),
+            Expr::Record(r) => Ok(InternedString::new(r.get_type_str())),
+            _ => bad_types!("symbol", self),
         }
     }
 }
@@ -539,11 +542,17 @@ impl Function {
         symbol_table: &SymbolTable,
     ) -> LispResult<Expr> {
         if self.minimum_args > args.len() {
+            let args_joined = args.iter().join(" ");
+            let args_pretty = if args_joined.is_empty() {
+                "<nothing>".to_string()
+            } else {
+                args_joined
+            };
             bail!(anyhow!(
                 "Too few args supplied for {}. Expected {}, was given {} of length {}",
                 &self,
                 self.minimum_args,
-                args.iter().join(" "),
+                args_pretty,
                 args.len()
             ));
         }
