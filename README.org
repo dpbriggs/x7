@@ -458,7 +458,7 @@ with the script below, which =org-mode= pastes into the list below:
   "Format doc strings into something org-mode will agree with."
   (x)
   (bind
-   (sym (nth 0 x) docu (nth 1 x))
+   ((sym docu) x)
    (do
        (println "*** =" sym "=")
        (println "")
@@ -507,7 +507,7 @@ Example: (* 1 2 3) ; 6
 
 #+BEGIN_SRC elisp
 Take the remainder of the first item against the second.
-            Example: (% 4 2) ; 0
+Example: (% 4 2) ; 0
 #+END_SRC
 
 *** =/=
@@ -539,28 +539,28 @@ Example: (= 1 1) ; true
 
 #+BEGIN_SRC elisp
 Test if the first item is strictly smaller than the rest.
-            Example: (< 0 1 2) ; true
+Example: (< 0 1 2) ; true
 #+END_SRC
 
 *** =<==
 
 #+BEGIN_SRC elisp
 Test if the first item is smaller or equal to the rest.
-            Example: (<= 0 0 0.05 1) ; true
+Example: (<= 0 0 0.05 1) ; true
 #+END_SRC
 
 *** =>=
 
 #+BEGIN_SRC elisp
 Test if the first item is strictly greater than the rest.
-            Example: (> 10 0 1 2 3 4) ; true
+Example: (> 10 0 1 2 3 4) ; true
 #+END_SRC
 
 *** =>==
 
 #+BEGIN_SRC elisp
 Test if the first item is greater than or equal to the rest.
-            Example: (>= 10 10 5) ; true
+Example: (>= 10 10 5) ; true
 #+END_SRC
 
 *** =inc=
@@ -824,28 +824,28 @@ Divisors of `n`. Example:
 
 #+BEGIN_SRC elisp
 Sleep for n seconds.
-            Example: (sleep 10) ; sleep for 10 seconds.
+Example: (sleep 10) ; sleep for 10 seconds.
 #+END_SRC
 
 *** =type=
 
 #+BEGIN_SRC elisp
 Return the type of the argument as a string.
-            Example: (type "hello") ; str
+Example: (type "hello") ; str
 #+END_SRC
 
 *** =doc=
 
 #+BEGIN_SRC elisp
 Return the documentation of a symbol as a string.
-            Example: (doc doc) ; Return the documentation of a symbol as a...
+Example: (doc doc) ; Return the documentation of a symbol as a...
 #+END_SRC
 
 *** =err=
 
 #+BEGIN_SRC elisp
 Return an error with a message string.
-            Example: (err "Something bad happened!") ; return an error
+Example: (err "Something bad happened!") ; return an error
 #+END_SRC
 
 *** =all-symbols=
@@ -1065,6 +1065,9 @@ Example:
           le    (filter (fn (x) (<= x pivot)) rest)
           ge    (filter (fn (x) (> x pivot)) rest))
          (+ (quicksort le) (list pivot) (quicksort ge)))))
+
+;; Bind also supports list patterns
+(bind ((x y) '(1 2)) (+ x y)) ;; 3
 
 #+END_SRC
 

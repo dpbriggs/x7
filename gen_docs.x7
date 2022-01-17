@@ -2,7 +2,7 @@
   "Format doc strings into something org-mode will agree with."
   (x)
   (bind
-   (sym (nth 0 x) docu (nth 1 x))
+   ((sym docu) x)
    (do
        (println "*** =" sym "=")
        (println "")

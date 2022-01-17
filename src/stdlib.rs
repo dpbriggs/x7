@@ -654,11 +654,23 @@ fn bind(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         anyhow!("Error: bind requires an even list of expressions, but was given a list of length {}. List given was: {}", list.len(), symbols)
     );
 
-    let mut iter = list.iter();
-    while let Some(l) = iter.next() {
-        let r = iter.next().unwrap();
-        sym_copy.add_local(l, &r.eval(&sym_copy)?)?;
+    // TODO: Use func_locals to avoid lock juggling overhead
+    for (bind_sym, value) in list.iter().tuples() {
+        let evaled_value = value.eval(&sym_copy)?;
+        // List pattern sugar
+        if let Ok(list) = bind_sym.get_list() {
+            let vals_iter = evaled_value
+                .get_list()?
+                .into_iter()
+                .chain(repeat(Expr::Nil));
+            for (sym, val) in list.iter().zip(vals_iter) {
+                sym_copy.add_local(sym, &val)?;
+            }
+        } else {
+            sym_copy.add_local(bind_sym, &evaled_value)?;
+        }
     }
+
     exprs[1].eval(&sym_copy)
 }
 
@@ -1210,6 +1222,7 @@ fn assert_eq(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr
 
 use std::borrow::Cow;
 use std::io::Write;
+use std::iter::repeat;
 use std::time::Duration;
 use std::{sync::Arc, time::Instant};
 
@@ -1252,7 +1265,6 @@ pub fn create_stdlib_symbol_table_no_cli() -> SymbolTable {
     create_stdlib_symbol_table(&opt)
 }
 
-#[allow(clippy::let_and_return)]
 pub fn create_stdlib_symbol_table(opts: &Options) -> SymbolTable {
     let syms = make_stdlib_fns!(
         // ARITHMETIC
@@ -1291,7 +1303,7 @@ Example: (* 1 2 3) ; 6
             rem_exprs,
             true,
             "Take the remainder of the first item against the second.
-            Example: (% 4 2) ; 0"
+Example: (% 4 2) ; 0"
         ),
         (
             "/",
@@ -1327,7 +1339,7 @@ Example: (= 1 1) ; true
             lt_exprs,
             true,
             "Test if the first item is strictly smaller than the rest.
-            Example: (< 0 1 2) ; true"
+Example: (< 0 1 2) ; true"
         ),
         (
             "<=",
@@ -1335,7 +1347,7 @@ Example: (= 1 1) ; true
             lte_exprs,
             true,
             "Test if the first item is smaller or equal to the rest.
-            Example: (<= 0 0 0.05 1) ; true"
+Example: (<= 0 0 0.05 1) ; true"
         ),
         (
             ">",
@@ -1343,7 +1355,7 @@ Example: (= 1 1) ; true
             gt_exprs,
             true,
             "Test if the first item is strictly greater than the rest.
-            Example: (> 10 0 1 2 3 4) ; true"
+Example: (> 10 0 1 2 3 4) ; true"
         ),
         (
             ">=",
@@ -1351,7 +1363,7 @@ Example: (= 1 1) ; true
             gte_exprs,
             true,
             "Test if the first item is greater than or equal to the rest.
-            Example: (>= 10 10 5) ; true"
+Example: (>= 10 10 5) ; true"
         ),
         ("inc", 1, inc_exprs, true, "Increment the given number.
 Example:
@@ -1541,13 +1553,13 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
         ("divisors", 1, divisors, true, "Divisors of `n`. Example:
 (divisors 20) ;; ^(1 2 4 5 10 20)"),
         ("sleep", 1, sleep, true, "Sleep for n seconds.
-            Example: (sleep 10) ; sleep for 10 seconds."),
+Example: (sleep 10) ; sleep for 10 seconds."),
         ("type", 1, type_of, true, "Return the type of the argument as a string.
-            Example: (type \"hello\") ; str"),
+Example: (type \"hello\") ; str"),
         ("doc", 1, doc, false, "Return the documentation of a symbol as a string.
-            Example: (doc doc) ; Return the documentation of a symbol as a..."),
+Example: (doc doc) ; Return the documentation of a symbol as a..."),
         ("err", 1, err, true, "Return an error with a message string.
-            Example: (err \"Something bad happened!\") ; return an error"),
+Example: (err \"Something bad happened!\") ; return an error"),
         ("all-symbols", 0, all_symbols, true, "Return all symbols defined in the interpreter."),
         ("include", 1, include, true, "Include a file into the interpreter."),
         // FUNC TOOLS
@@ -1670,6 +1682,9 @@ Example:
           le    (filter (fn (x) (<= x pivot)) rest)
           ge    (filter (fn (x) (> x pivot)) rest))
          (+ (quicksort le) (list pivot) (quicksort ge)))))
+
+;; Bind also supports list patterns
+(bind ((x y) '(1 2)) (+ x y)) ;; 3
 "),
         // Iterators
         ("take", 2, take, true, "Take the first `n` items from a list or sequence.
