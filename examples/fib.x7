@@ -4,7 +4,7 @@
 ;; Map (l, r) -> (r, l + r)
 
 (defn fib-step (x)
-  (tuple (nth 1 x) (+ (nth 0 x) (nth 1 x))))
+  (bind ((l r) x) ^(r (+ l r))))
 
 ;; Reduce (0 1) `num` times using fib-step to
 ;; generate the `num`'th fibonacci number

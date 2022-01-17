@@ -113,35 +113,35 @@ Certain constructs like =(range)= and =map= are backed by lazy iterators, making
 
 *** Fibonacci Numbers
 
-We can print the first hundred fibonacci numbers in 26 milliseconds:
+We can print the first hundred fibonacci numbers in 14 milliseconds:
 
 #+begin_src elisp
-  ;; fib.x7
-  ;; Run with: x7 fib.x7
+;; fib.x7
+;; Run with: x7 fib.x7
 
-  ;; Map (l, r) -> (r, l + r)
+;; Map (l, r) -> (r, l + r)
 
-  (defn fib-step (x)
-    (tuple (nth 1 x) (+ (nth 0 x) (nth 1 x))))
+(defn fib-step (x)
+  (bind ((l r) x) ^(r (+ l r))))
 
-  ;; Reduce (0 1) `num` times using fib-step to
-  ;; generate the `num`'th fibonacci number
+;; Reduce (0 1) `num` times using fib-step to
+;; generate the `num`'th fibonacci number
 
-  (defn fib (num)
-    (nth 0 (reduce
-           fib-step
-           (tuple 0 1)
-           (range num))))
+(defn fib (num)
+  (nth 0 (reduce
+          fib-step
+          (tuple 0 1)
+          (range num))))
 
-  ;; Print one hundred fibonacci numbers
-  ;;
-  ;; Note: (take 100 (map fib (range)))
-  ;; is an iterator which maps to Rust's iterators which
-  ;; makes them very fast. No weird intermediate allocations.
+;; Print one hundred fibonacci numbers
+;;
+;; Note: (take 100 (map fib (range)))
+;; is an iterator which maps to Rust's iterators which
+;; makes them very fast. No weird intermediate allocations.
 
-  (foreach
-   println
-   (take 100 (map fib (range))))
+(println (time (foreach
+                println
+                (take 100 (map fib (range))))))
 #+end_src
 
 Outputs:
