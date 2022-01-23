@@ -38,6 +38,9 @@ Example:
    true (+ (* (head l) (head r))
            (dot-product (tail l) (tail r)))))
 
+(defn inspect (x)
+  (do (println x) x))
+
 (defn quicksort
   "Sort a list using quicksort.
 Example:
