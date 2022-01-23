@@ -966,6 +966,14 @@ impl SymbolTable {
             .collect()
     }
 
+    /// Add a variable to a function's local scope.
+    ///
+    /// Unless you're `def`, you should be using this function.
+    pub(crate) fn add_func_local(&mut self, sym: Expr, value: Expr) -> LispResult<()> {
+        self.func_locals.insert(sym.get_symbol_string()?, value);
+        Ok(())
+    }
+
     pub(crate) fn with_locals(
         &self,
         symbols: &[InternedString],

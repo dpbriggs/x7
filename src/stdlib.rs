@@ -645,7 +645,7 @@ fn lazy(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn bind(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     let symbols = &exprs[0];
-    let sym_copy = symbol_table.clone();
+    let mut sym_copy = symbol_table.clone();
     let list = symbols.get_list()?;
     ensure!(
         list.len() % 2 == 0,
@@ -653,7 +653,7 @@ fn bind(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     );
 
     // TODO: Use func_locals to avoid lock juggling overhead
-    for (bind_sym, value) in list.iter().tuples() {
+    for (bind_sym, value) in list.into_iter().tuples() {
         let evaled_value = value.eval(&sym_copy)?;
         // List pattern sugar
         if let Ok(list) = bind_sym.get_list() {
@@ -661,11 +661,12 @@ fn bind(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
                 .get_list()?
                 .into_iter()
                 .chain(repeat(Expr::Nil));
-            for (sym, val) in list.iter().zip(vals_iter) {
-                sym_copy.add_local(sym, &val)?;
+            for (sym, val) in list.into_iter().zip(vals_iter) {
+                sym_copy.add_func_local(sym, val)?;
             }
         } else {
-            sym_copy.add_local(bind_sym, &evaled_value)?;
+            // TODO: Don't clone here
+            sym_copy.add_func_local(bind_sym, evaled_value)?;
         }
     }
 
