@@ -453,9 +453,7 @@ fn type_of(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
 
 fn cond(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     ensure!(exprs.len() % 2 == 0, ProgramError::CondBadConditionNotEven);
-    let mut iter = exprs.iter();
-    while let Some(pred) = iter.next() {
-        let body = iter.next().unwrap();
+    for (pred, body) in exprs.iter().tuples() {
         if pred.eval(symbol_table)?.is_bool_true()? {
             return body.eval(symbol_table);
         }
