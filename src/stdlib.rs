@@ -254,9 +254,9 @@ fn symbol(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> 
 fn string(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     if let Ok(s) = exprs[0].get_string() {
-        Ok(Expr::String(s))
+        Ok(Expr::string(s))
     } else {
-        Ok(Expr::String(format!("{}", &exprs[0])))
+        Ok(Expr::string(format!("{}", &exprs[0])))
     }
 }
 
@@ -306,13 +306,13 @@ fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     // TODO: Make records nice (merge Record and RecordDoc?)
     let sym = exprs[0].get_symbol_string()?;
     if let Some(doc) = symbol_table.get_doc_item(&sym.to_string()) {
-        return Ok(Expr::String(doc));
+        return Ok(Expr::string(doc));
     }
 
     let sym_eval = exprs[0].eval(symbol_table)?;
     if let Ok(f) = sym_eval.get_function() {
         if let Some(doc) = symbol_table.get_doc_item(&f.symbol.to_string()) {
-            return Ok(Expr::String(doc));
+            return Ok(Expr::string(doc));
         }
     }
 
@@ -320,7 +320,7 @@ fn doc(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     let doc = symbol_table
         .get_doc_item(&sym_eval.get_symbol_string()?.to_string())
         .unwrap_or_else(|| format!("No documentation for {}", sym));
-    Ok(Expr::String(doc))
+    Ok(Expr::string(doc))
 }
 
 fn inline_transform(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -446,7 +446,7 @@ fn println(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
 
 fn type_of(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    Ok(Expr::String(exprs[0].get_type_str().into()))
+    Ok(Expr::string(exprs[0].get_type_str().into()))
 }
 
 // FUNC
@@ -813,6 +813,12 @@ fn time(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::num(end))
 }
 
+fn interner_stats(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 0);
+    let stats = InternedString::stats();
+    Ok(Expr::string(stats))
+}
+
 // LISTS
 
 fn list(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -829,7 +835,7 @@ fn nth(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         Ok(string
             .chars()
             .nth(index)
-            .map(|c| Expr::String(c.into()))
+            .map(|c| Expr::string(c.into()))
             .unwrap_or(Expr::Nil))
     } else {
         let list = exprs[1].get_list()?;
@@ -864,7 +870,7 @@ fn chars(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         exprs[0]
             .get_string()?
             .chars()
-            .map(|c| Expr::String(c.into()))
+            .map(|c| Expr::string(c.into()))
             .collect(),
     ))
 }
@@ -876,7 +882,7 @@ fn split(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::Tuple(
         string
             .split(&split_by)
-            .map(|substr| Expr::String(substr.into()))
+            .map(|substr| Expr::string(substr.into()))
             .collect(),
     ))
 }
@@ -886,7 +892,7 @@ fn replace(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
     let from = exprs[0].get_string()?;
     let to = exprs[1].get_string()?;
     let string = exprs[2].get_string()?;
-    Ok(Expr::String(string.replace(&from, &to)))
+    Ok(Expr::string(string.replace(&from, &to)))
 }
 
 fn cons(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -911,7 +917,7 @@ fn head(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
             Some(c) => c.to_string(),
             None => "".to_string(),
         };
-        Ok(Expr::String(first_char))
+        Ok(Expr::string(first_char))
     }
 }
 
@@ -929,7 +935,7 @@ fn tail(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         Ok(Expr::Nil)
     } else {
         let rest = string.chars().skip(1).collect();
-        Ok(Expr::String(rest))
+        Ok(Expr::string(rest))
     }
 }
 
@@ -953,7 +959,7 @@ fn rev(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         return Ok(Expr::List(list.into_iter().rev().collect()));
     }
     if let Ok(s) = &exprs[0].get_string() {
-        return Ok(Expr::String(s.chars().rev().collect()));
+        return Ok(Expr::string(s.chars().rev().collect()));
     }
     bad_types!("string or list/quote/tuple", &exprs[0])
 }
@@ -1041,7 +1047,7 @@ fn slice(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let upper = exprs[1].get_usize()?;
     let mut list = {
         if let Ok(s) = exprs[2].get_string() {
-            return Ok(Expr::String(s[lower..upper].to_string()));
+            return Ok(Expr::string(s[lower..upper].to_string()));
         } else {
             exprs[2].get_list()?
         }
@@ -1139,7 +1145,7 @@ fn doc_methods(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Ex
     let docs = symbol_table
         .get_doc_methods(&sym)
         .into_iter()
-        .map(|(doc, method)| Expr::Tuple(vector![Expr::String(doc), Expr::String(method)]))
+        .map(|(doc, method)| Expr::Tuple(vector![Expr::string(doc), Expr::string(method)]))
         .collect();
     Ok(Expr::List(docs))
 }
@@ -1191,7 +1197,7 @@ fn catch_err(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr
     exact_len!(exprs, 1);
     let ret = match exprs[0].eval(symbol_table) {
         Ok(_) => Expr::Nil,
-        Err(e) => Expr::String(format!("{}, with root cause:\n{}", e, e.root_cause())),
+        Err(e) => Expr::string(format!("{}, with root cause:\n{}", e, e.root_cause())),
     };
     Ok(ret)
 }
@@ -1864,6 +1870,7 @@ Example:
         ("methods", 1, doc_methods, true, "Grab all documentation for a record's methods"),
         ("time", 1, time, false, "Return the time taken to evaluate an expression in milliseconds."),
         ("catch-err", 1, catch_err, false, "Catch an error. Returns nil if no error is caught."),
+        ("interner-stats", 0, interner_stats, true, "Internal string interner stats."),
         ("assert-eq", 2, assert_eq, false, "Assert if two items are equal.")
 
     );

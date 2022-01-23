@@ -48,7 +48,7 @@ pub enum Expr {
     List(Vector<Expr>),
     Function(Arc<Function>),
     Nil,
-    String(String),
+    String(Arc<String>),
     Quote(Vector<Expr>),
     Tuple(Vector<Expr>),
     Bool(bool),
@@ -234,6 +234,11 @@ impl Expr {
         number.to_expr()
     }
 
+    #[inline]
+    pub(crate) fn string(s: String) -> Self {
+        Expr::String(Arc::new(s))
+    }
+
     pub(crate) fn function(f: Function) -> Self {
         Expr::Function(Arc::new(f))
     }
@@ -298,7 +303,7 @@ impl Expr {
 
     pub fn get_string(&self) -> LispResult<String> {
         if let Expr::String(s) = self {
-            Ok(s.clone())
+            Ok(s.to_string())
         } else {
             bad_types!("string", self)
         }
@@ -652,9 +657,9 @@ impl std::ops::Add<&Expr> for Expr {
             },
             (Expr::Integer(l), Expr::Num(r)) => Ok(Expr::num(l.to_bigdecimal() + r)),
             (Expr::Num(l), Expr::Integer(r)) => Ok(Expr::num(l + r.to_bigdecimal())),
-            (Expr::String(l), Expr::String(r)) => Ok(Expr::String(l.to_string() + r)),
-            (Expr::Num(l), Expr::String(r)) => (Ok(Expr::String(format!("{}{}", l, r)))),
-            (Expr::String(l), Expr::Num(r)) => (Ok(Expr::String(format!("{}{}", l, r)))),
+            (Expr::String(l), Expr::String(r)) => Ok(Expr::string(l.to_string() + r)),
+            (Expr::Num(l), Expr::String(r)) => (Ok(Expr::string(format!("{}{}", l, r)))),
+            (Expr::String(l), Expr::Num(r)) => (Ok(Expr::string(format!("{}{}", l, r)))),
             (Expr::List(l), Expr::List(r)) => {
                 let mut res = l.clone();
                 res.append(r.clone());
@@ -708,7 +713,7 @@ impl std::ops::Mul<&Expr> for Expr {
             (Expr::Num(l), Expr::Integer(r)) => Ok(Expr::num(l * r.to_bigdecimal())),
             (Expr::String(l), Expr::Num(r)) => {
                 if *r >= BigDecimal::zero() {
-                    Ok(Expr::String(
+                    Ok(Expr::string(
                         l.to_string().repeat(Expr::num(r.clone()).get_usize()?),
                     ))
                 } else {

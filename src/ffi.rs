@@ -465,7 +465,7 @@ impl ForeignData for f64 {
 
 impl ForeignData for String {
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
-        Ok(Expr::String(self.clone()))
+        Ok(Expr::string(self.clone()))
     }
 
     fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {

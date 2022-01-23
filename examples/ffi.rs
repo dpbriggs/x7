@@ -36,7 +36,7 @@ impl ForeignData for MyData {
     fn to_x7(&self) -> Result<x7::symbols::Expr, Box<dyn std::error::Error + Send>> {
         let res = match self {
             MyData::Int(i) => Expr::Num((*i).into()),
-            MyData::String(s) => Expr::String(s.to_string()),
+            MyData::String(s) => Expr::string(s.to_string()),
         };
         Ok(res)
     }

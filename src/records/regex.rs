@@ -47,7 +47,7 @@ impl RegexRecord {
                     mtch.iter()
                         .skip(1)
                         .flatten()
-                        .map(|m| Expr::String(m.as_str().into()))
+                        .map(|m| Expr::string(m.as_str().into()))
                         .collect(),
                 )
             })

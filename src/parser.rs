@@ -149,7 +149,7 @@ fn parse_string(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
     let esc_or_empty = alt((esc, tag("")));
 
     map(delimited(tag("\""), esc_or_empty, tag("\"")), |s: &str| {
-        Expr::String(decode_control_character_str(s))
+        Expr::string(decode_control_character_str(s))
     })(i)
 }
 
@@ -315,27 +315,27 @@ mod tests {
     fn parse_str() {
         assert_eq!(
             parse_string(r#""1""#).unwrap(),
-            ("", Expr::String("1".into()))
+            ("", Expr::string("1".into()))
         );
 
         assert_eq!(
             parse_string(r#""""#).unwrap(),
-            ("", Expr::String("".into()))
+            ("", Expr::string("".into()))
         );
 
         assert_eq!(
             parse_string(r#""hello-world""#).unwrap(),
-            ("", Expr::String("hello-world".into()))
+            ("", Expr::string("hello-world".into()))
         );
 
         assert_eq!(
             parse_string(r#""hello world""#).unwrap(),
-            ("", Expr::String("hello world".into()))
+            ("", Expr::string("hello world".into()))
         );
 
         assert_eq!(
             parse_string(r#""hello? world""#).unwrap(),
-            ("", Expr::String("hello? world".into()))
+            ("", Expr::string("hello? world".into()))
         );
     }
 
@@ -344,28 +344,28 @@ mod tests {
         assert_eq!(parse_expr("1").unwrap(), ("", num_f!(1.0)));
         assert_eq!(
             parse_expr(r#""hello? world""#).unwrap(),
-            ("", Expr::String("hello? world".into()))
+            ("", Expr::string("hello? world".into()))
         );
         assert_eq!(
             parse_expr(r#""1""#).unwrap(),
-            ("", Expr::String("1".into()))
+            ("", Expr::string("1".into()))
         );
 
-        assert_eq!(parse_expr(r#""""#).unwrap(), ("", Expr::String("".into())));
+        assert_eq!(parse_expr(r#""""#).unwrap(), ("", Expr::string("".into())));
 
         assert_eq!(
             parse_expr(r#""hello-world""#).unwrap(),
-            ("", Expr::String("hello-world".into()))
+            ("", Expr::string("hello-world".into()))
         );
 
         assert_eq!(
             parse_expr(r#""hello world""#).unwrap(),
-            ("", Expr::String("hello world".into()))
+            ("", Expr::string("hello world".into()))
         );
 
         assert_eq!(
             parse_expr(r#""hello? world""#).unwrap(),
-            ("", Expr::String("hello? world".into()))
+            ("", Expr::string("hello? world".into()))
         );
 
         assert_eq!(parse_expr("; hello\n\n\n1").unwrap(), ("", num_f!(1.0)));

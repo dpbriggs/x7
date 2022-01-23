@@ -76,7 +76,7 @@ impl FileRecord {
 
     fn read_to_string(&self, args: Vector<Expr>) -> LispResult<Expr> {
         exact_len!(args, 0);
-        self.read_all().map(Expr::String)
+        self.read_all().map(Expr::string)
     }
 
     fn try_shrink(&self, file: &mut std::fs::File) -> LispResult<()> {
@@ -113,7 +113,7 @@ impl FileRecord {
         let contents = self.read_all()?;
         let split: im::Vector<Expr> = contents
             .split('\n')
-            .map(|s| Expr::String(s.into()))
+            .map(|s| Expr::string(s.into()))
             .collect();
         Ok(Expr::List(split))
     }

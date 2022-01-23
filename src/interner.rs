@@ -41,6 +41,10 @@ impl InternedString {
     pub(crate) fn extra_arg_symbol() -> Self {
         "&".into()
     }
+
+    pub(crate) fn stats() -> String {
+        INTERNER.read().stats()
+    }
 }
 
 impl PartialEq<str> for InternedString {
@@ -128,5 +132,9 @@ impl Interner {
 
     fn fetch(&self, i: InternedString) -> String {
         self.strings[i.0 as usize].clone()
+    }
+
+    pub(crate) fn stats(&self) -> String {
+        format!("Strings held: {}", self.strings.len())
     }
 }
