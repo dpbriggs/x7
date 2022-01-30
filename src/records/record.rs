@@ -76,6 +76,12 @@ pub trait Record: Sync + Send + downcast_rs::DowncastSync {
 
 downcast_rs::impl_downcast!(Record);
 
+impl fmt::Display for &dyn Record {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.display())
+    }
+}
+
 impl fmt::Display for RecordType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.display())

@@ -651,7 +651,7 @@ where
     }
 }
 
-impl<F, T: ForeignData, Out> IntoX7Function<(Variadic<T>, ((),)), Out> for F
+impl<F, T: ForeignData, Out> IntoX7Function<(Variadic<T>,), Out> for F
 where
     T: ForeignData,
     Out: ForeignData,
@@ -768,18 +768,5 @@ where
                 .map_err(|e| anyhow!("{:?}", e))
         };
         (5, Arc::new(f))
-    }
-}
-
-impl<F> IntoX7Function<(Variadic<Expr>,), Expr> for F
-where
-    F: Fn(Variadic<Expr>) -> LispResult<Expr> + Sync + Send + 'static,
-{
-    fn to_x7_fn(self) -> (usize, crate::symbols::X7FunctionPtr) {
-        let f = move |args: Vector<Expr>, _sym: &SymbolTable| {
-            let args = args.iter().cloned().collect();
-            (self)(Variadic(args))
-        };
-        (1, Arc::new(f))
     }
 }

@@ -22,7 +22,8 @@ macro_rules! bad_types {
         Err(anyhow!(crate::symbols::ProgramError::BadTypes)).with_context(|| $custom)
     };
 
-    ($expected:expr, $given:expr) => {
+    ($expected:expr, $given:expr) => {{
+        use anyhow::{anyhow, Context};
         Err(anyhow!(crate::symbols::ProgramError::BadTypes)).with_context(|| {
             format!(
                 "Error: Expected {}, but got type '{}': {:?}",
@@ -31,7 +32,7 @@ macro_rules! bad_types {
                 $given
             )
         })
-    };
+    }};
 }
 
 pub type Integer = i64;
@@ -235,7 +236,7 @@ impl Expr {
     }
 
     #[inline]
-    pub(crate) fn string(s: String) -> Self {
+    pub fn string(s: String) -> Self {
         Expr::String(Arc::new(s))
     }
 

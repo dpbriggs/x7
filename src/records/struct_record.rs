@@ -212,7 +212,7 @@ impl<T: Default + Sync + Send + 'static + PartialEq> StructRecord<T> {
                     let new_inner = (f)(&my_inner, &other_inner);
                     crate::record!(sr.clone_with_new_inner(new_inner))
                 }
-                None => Err(anyhow!("uh oh")), // TODO: Handle this
+                None => crate::bad_types!(sr as &dyn Record, other), // TODO: Handle this
             }
         };
         Arc::get_mut(&mut self.read_method_map)

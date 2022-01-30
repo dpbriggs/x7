@@ -45,7 +45,7 @@ impl ForeignData for MyData {
         let res = match expr {
             Expr::Num(n) => MyData::Int(n.to_u64()?),
             Expr::Integer(n) => MyData::Int(*n as u64),
-            Expr::String(s) => MyData::String(s.into()),
+            Expr::String(s) => MyData::String(s.to_string()),
             bad_type => {
                 return Err(Box::new(MyError(format!(
                     "Cannot convert {} to MyData!",
