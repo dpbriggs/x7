@@ -135,7 +135,7 @@ Example:
                 "Get the number of elements in a Set. Implements the \"len\" magic method.
 Example:
 (.len (Set 0 1 2 3))  ;; 4
-(len (Set))) ;; 0",
+(len (Set)) ;; 0",
             ),
             (
                 "union",

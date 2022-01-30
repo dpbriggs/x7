@@ -1353,58 +1353,6 @@ Example:
 
 #+END_SRC
 
-*** =re::compile=
-
-#+BEGIN_SRC elisp
-Regular Expressions - regular search patterns.
-
-This is backed by the excellent regex crate: https://github.com/rust-lang/regex
-
-Example:
-
-;; Compile a regex
-(def a (re::compile "(abc)+"))
-
-;; Test if a string matches
-
-(.is_match a "abcabc") ;; true
-(.is_match a "ab") ;; false
-
-#+END_SRC
-
-*** =set=
-
-#+BEGIN_SRC elisp
-Basic Hash Set in x7.
-
-;; Contains. Test whether an element exists in a set. O(1) time.
-;; Example:
-(.contains (set '(0 1 2 3)) 2)  ;; true
-(.contains (set '(0 1 2 3)) 10) ;; false
-
-;; Union (creates new set with elements from each)
-;; Example:
-(.union (set '(1 2 3))
-        (set '(4 5 6))) ;; Set<{4, 5, 2, 6, 1, 3}>
-(.union (set (lazy (range 5))) (set (range 5 10)))
-;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
-
-;; Intersection. Obtain the intersection of two sets.
-;; Example:
-(.intersection (set (range 10)) (set (range 5 10)))
-;; Set<{5, 6, 9, 7, 8}>
-
-;; to_list. Convert the set into a list. Order is undefined.
-;; Example:
-(.to_list (set (range 5))) ;; (1 2 0 3 4)
-
-;; len. Get the number of elements in a set. Implements the "len" magic method.
-;; Example:
-(.len (set '(0 1 2 3)))  ;; 4
-(len (set '())) ;; 0
-
-#+END_SRC
-
 *** =defrecord=
 
 #+BEGIN_SRC elisp
@@ -1465,6 +1413,25 @@ Example:
 
 #+END_SRC
 
+*** =re::compile=
+
+#+BEGIN_SRC elisp
+Regular Expressions - regular search patterns.
+
+This is backed by the excellent regex crate: https://github.com/rust-lang/regex
+
+Example:
+
+;; Compile a regex
+(def a (re::compile "(abc)+"))
+
+;; Test if a string matches
+
+(.is_match a "abcabc") ;; true
+(.is_match a "ab") ;; false
+
+#+END_SRC
+
 *** =methods=
 
 #+BEGIN_SRC elisp
@@ -1481,6 +1448,12 @@ Return the time taken to evaluate an expression in milliseconds.
 
 #+BEGIN_SRC elisp
 Catch an error. Returns nil if no error is caught.
+#+END_SRC
+
+*** =interner-stats=
+
+#+BEGIN_SRC elisp
+Internal string interner stats.
 #+END_SRC
 
 *** =assert-eq=
@@ -1557,6 +1530,85 @@ Pretty print the doc string of a function
 
 #+BEGIN_SRC elisp
 Maximum element in a list
+#+END_SRC
+
+*** =Set=
+
+#+BEGIN_SRC elisp
+Basic Hash Set in x7.
+
+;; Contains. Test whether an element exists in a Set. O(1) time.
+;; Example:
+(.contains (Set 0 1 2 3) 2)  ;; true
+(.contains (Set 0 1 2 3) 10) ;; false
+
+;; Union (creates new Set with elements from each)
+;; Example:
+(.union (Set 1 2 3)
+        (Set 4 5 6)) ;; Set<{4, 5, 2, 6, 1, 3}>
+(.union (apply Set (range 5)) (apply Set (range 5 10)))
+;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
+
+;; Intersection. Obtain the intersection of two Sets.
+;; Example:
+(.intersection (apply Set (range 10)) (apply Set (range 5 10)))
+;; Set<{5, 6, 9, 7, 8}>
+
+;; to_list. Convert the Set into a list. Order is undefined.
+;; Example:
+(.to_list (apply Set (range 5))) ;; (1 2 0 3 4)
+
+;; len. Get the number of elements in a Set. Implements the "len" magic method.
+;; Example:
+(.len (Set '(0 1 2 3)))  ;; 4
+(len (Set '())) ;; 0
+
+#+END_SRC
+
+*** =Set.contains=
+
+#+BEGIN_SRC elisp
+Test whether an element exists in a set. O(1) time.
+Example:
+(.contains (Set 0 1 2 3) 2)  ;; true
+(.contains (Set 0 1 2 3) 10) ;; false
+#+END_SRC
+
+*** =Set.len=
+
+#+BEGIN_SRC elisp
+Get the number of elements in a Set. Implements the "len" magic method.
+Example:
+(.len (Set 0 1 2 3))  ;; 4
+(len (Set)) ;; 0
+#+END_SRC
+
+*** =Set.union=
+
+#+BEGIN_SRC elisp
+Obtain the union of two Sets.
+Example:
+(.union (Set (range 5)) (Set (range 5 10)))
+;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
+
+#+END_SRC
+
+*** =Set.intersection=
+
+#+BEGIN_SRC elisp
+Obtain the intersection of two Sets.
+Example:
+(.intersection (apply Set (range 10)) (apply Set (range 5 10)))
+;; Set<{5, 6, 9, 7, 8}>
+#+END_SRC
+
+*** =Set.to_list=
+
+#+BEGIN_SRC elisp
+Convert the Set into a list. Order is undefined.
+Example:
+(.to_list (apply Set (range 5))) ;; (1 2 0 3 4)
+
 #+END_SRC
 
 *** =FileRecord=
@@ -1674,82 +1726,82 @@ Returns a list of lists of all captures in the input.
 
 #+END_SRC
 
-*** =SetRecord=
+*** =Set=
 
 #+BEGIN_SRC elisp
 Basic Hash Set in x7.
 
-;; Contains. Test whether an element exists in a set. O(1) time.
+;; Contains. Test whether an element exists in a Set. O(1) time.
 ;; Example:
-(.contains (set '(0 1 2 3)) 2)  ;; true
-(.contains (set '(0 1 2 3)) 10) ;; false
+(.contains (Set 0 1 2 3) 2)  ;; true
+(.contains (Set 0 1 2 3) 10) ;; false
 
-;; Union (creates new set with elements from each)
+;; Union (creates new Set with elements from each)
 ;; Example:
-(.union (set '(1 2 3))
-        (set '(4 5 6))) ;; Set<{4, 5, 2, 6, 1, 3}>
-(.union (set (lazy (range 5))) (set (range 5 10)))
+(.union (Set 1 2 3)
+        (Set 4 5 6)) ;; Set<{4, 5, 2, 6, 1, 3}>
+(.union (apply Set (range 5)) (apply Set (range 5 10)))
 ;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
 
-;; Intersection. Obtain the intersection of two sets.
+;; Intersection. Obtain the intersection of two Sets.
 ;; Example:
-(.intersection (set (range 10)) (set (range 5 10)))
+(.intersection (apply Set (range 10)) (apply Set (range 5 10)))
 ;; Set<{5, 6, 9, 7, 8}>
 
-;; to_list. Convert the set into a list. Order is undefined.
+;; to_list. Convert the Set into a list. Order is undefined.
 ;; Example:
-(.to_list (set (range 5))) ;; (1 2 0 3 4)
+(.to_list (apply Set (range 5))) ;; (1 2 0 3 4)
 
-;; len. Get the number of elements in a set. Implements the "len" magic method.
+;; len. Get the number of elements in a Set. Implements the "len" magic method.
 ;; Example:
-(.len (set '(0 1 2 3)))  ;; 4
-(len (set '())) ;; 0
+(.len (Set '(0 1 2 3)))  ;; 4
+(len (Set '())) ;; 0
 
 #+END_SRC
 
-*** =SetRecord.contains=
+*** =Set.contains=
 
 #+BEGIN_SRC elisp
 Test whether an element exists in a set. O(1) time.
 Example:
-(.contains (set '(0 1 2 3)) 2)  ;; true
-(.contains (set '(0 1 2 3)) 10) ;; false
+(.contains (Set 0 1 2 3) 2)  ;; true
+(.contains (Set 0 1 2 3) 10) ;; false
 #+END_SRC
 
-*** =SetRecord.len=
+*** =Set.len=
 
 #+BEGIN_SRC elisp
-Get the number of elements in a set. Implements the "len" magic method.
+Get the number of elements in a Set. Implements the "len" magic method.
 Example:
-(.len (set '(0 1 2 3)))  ;; 4
-(len (set '())) ;; 0
+(.len (Set 0 1 2 3))  ;; 4
+(len (Set)) ;; 0
 #+END_SRC
 
-*** =SetRecord.union=
+*** =Set.union=
 
 #+BEGIN_SRC elisp
-Obtain the union of two sets.
+Obtain the union of two Sets.
 Example:
-(.union (set (lazy (range 5))) (set (range 5 10)))
+(.union (Set (range 5)) (Set (range 5 10)))
 ;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
 
 #+END_SRC
 
-*** =SetRecord.intersection=
+*** =Set.intersection=
 
 #+BEGIN_SRC elisp
-Obtain the intersection of two sets.
+Obtain the intersection of two Sets.
 Example:
-(.intersection (set (range 10)) (set (range 5 10)))
+(.intersection (apply Set (range 10)) (apply Set (range 5 10)))
 ;; Set<{5, 6, 9, 7, 8}>
 #+END_SRC
 
-*** =SetRecord.to_list=
+*** =Set.to_list=
 
 #+BEGIN_SRC elisp
-Convert the set into a list. Order is undefined.
+Convert the Set into a list. Order is undefined.
 Example:
-(.to_list (set (range 5))) ;; (1 2 0 3 4)
+(.to_list (apply Set (range 5))) ;; (1 2 0 3 4)
 
 #+END_SRC
 
