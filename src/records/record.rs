@@ -1,5 +1,5 @@
-use crate::symbols::{Expr, LispResult, ProgramError, SymbolTable};
-use anyhow::bail;
+use crate::symbols::{Expr, LispResult, SymbolTable};
+use anyhow::{anyhow, bail};
 use core::hash::Hash;
 use core::hash::Hasher;
 use im::Vector;
@@ -25,7 +25,7 @@ pub(crate) trait RecordDoc {
 /// Records allow x7 to represent a variety of internally mutable types
 /// while not expanding the Expr enum too much. These types are responsible for
 /// implementing RecordDoc if they want to have documentation.
-pub trait Record: Sync + Send {
+pub trait Record: Sync + Send + downcast_rs::DowncastSync {
     /// Call a method on this record.
     /// (.method_name <rec> arg1 arg2 arg3)
     /// Becomes:
@@ -56,9 +56,10 @@ pub trait Record: Sync + Send {
     }
 
     fn call_as_fn(&self, _args: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-        bail!(ProgramError::NotAFunction(Expr::Record(Box::new(
-            self.clone(),
-        ))))
+        // bail!(ProgramError::NotAFunction(Expr::Record(Box::new(
+        //     self.clone(),
+        // ))))
+        bail!(anyhow!("{:?} is not a function", self.debug()))
     }
 
     fn defmethod(&self, _args: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -67,7 +68,13 @@ pub trait Record: Sync + Send {
             Record::type_name(self)
         )
     }
+
+    fn is_equal(&self, _other: &dyn Record) -> bool {
+        false
+    }
 }
+
+downcast_rs::impl_downcast!(Record);
 
 impl fmt::Display for RecordType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -81,59 +88,21 @@ impl fmt::Debug for RecordType {
     }
 }
 
-impl Record for RecordType {
-    fn call_method(
-        &self,
-        sym: &str,
-        args: Vector<Expr>,
-        symbol_table: &SymbolTable,
-    ) -> LispResult<Expr> {
-        self.deref().call_method(sym, args, symbol_table)
-    }
-
-    fn debug(&self) -> String {
-        self.deref().debug()
-    }
-
-    fn display(&self) -> String {
-        self.deref().display()
-    }
-
-    fn id(&self) -> u64 {
-        self.deref().id()
-    }
-    fn clone(&self) -> RecordType {
-        self.deref().clone()
-    }
-    fn methods(&self) -> Vec<String> {
-        self.deref().methods()
-    }
-    fn type_name(&self) -> String {
-        self.deref().type_name()
-    }
-    fn call_as_fn(&self, args: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
-        self.deref().call_as_fn(args, symbol_table)
-    }
-    fn defmethod(&self, args: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
-        self.deref().defmethod(args, symbol_table)
-    }
-}
-
 impl Hash for RecordType {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id().hash(state);
+        self.deref().id().hash(state);
     }
 }
 
 impl PartialEq for RecordType {
-    fn eq(&self, _other: &RecordType) -> bool {
-        false
+    fn eq(&self, other: &RecordType) -> bool {
+        self.is_equal(other.as_ref())
     }
 }
 
 impl Clone for RecordType {
     fn clone(&self) -> RecordType {
-        Record::clone(self)
+        Record::clone(self.as_ref())
     }
 }
 

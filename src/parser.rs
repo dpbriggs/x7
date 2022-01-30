@@ -45,7 +45,6 @@ fn method_call(method: String) -> Expr {
             Ok(rec) => rec,
             Err(e) => return Err(e),
         };
-        use crate::records::Record;
         rec.call_method(&method_clone, args.clone().slice(1..), sym)
     };
     let f = Function::new(
@@ -80,7 +79,6 @@ fn method_call_multiple(methods: Vec<String>) -> Expr {
                 Ok(rec) => rec,
                 Err(e) => return Err(e),
             };
-            use crate::records::Record;
             rec.call_method(&method_clone, args.slice(1..), sym)
         };
         let f = Function::new(

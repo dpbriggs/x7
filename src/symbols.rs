@@ -901,14 +901,6 @@ impl SymbolTable {
             .ok_or_else(|| anyhow!("Unknown Symbol {}", symbol.to_string()))
     }
 
-    pub(crate) fn get_record(&self, symbol: &'static str) -> LispResult<Expr> {
-        self.locals
-            .read()
-            .get(&symbol.into())
-            .cloned()
-            .ok_or_else(|| anyhow!("Internal record error: Unknown Symbol {}", symbol))
-    }
-
     pub(crate) fn symbol_exists(&self, sym: &InternedString) -> bool {
         self.lookup(sym).is_ok()
     }

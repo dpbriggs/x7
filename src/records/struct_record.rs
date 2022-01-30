@@ -11,8 +11,10 @@ use crate::symbols::{Expr, LispResult, SymbolTable};
 use crate::records::Record;
 use crate::unknown_method;
 
-type ReadFn<T> = Box<dyn Fn(&T, Vector<Expr>, &SymbolTable) -> LispResult<Expr> + Sync + Send>;
-type WriteFn<T> = Box<dyn Fn(&mut T, Vector<Expr>, &SymbolTable) -> LispResult<Expr> + Sync + Send>;
+type ReadFn<T> =
+    Box<dyn Fn(&StructRecord<T>, Vector<Expr>, &SymbolTable) -> LispResult<Expr> + Sync + Send>;
+type WriteFn<T> =
+    Box<dyn Fn(&StructRecord<T>, Vector<Expr>, &SymbolTable) -> LispResult<Expr> + Sync + Send>;
 type CloneFn<T> = Arc<dyn Fn(&T) -> T + Sync + Send>;
 type InitFn<T> = Arc<dyn Fn(Vector<Expr>) -> LispResult<T> + Sync + Send>;
 type DisplayFn<T> = Arc<dyn Fn(&T) -> String + Sync + Send>;
@@ -108,23 +110,14 @@ impl<T> Clone for StructRecord<T> {
 //     }
 // }
 
-impl<T: Default + Sync + Send + 'static> StructRecord<T> {
+impl<T: Default + PartialEq + Sync + Send + 'static> StructRecord<T> {
     pub(crate) fn build(self) -> Expr {
         Expr::Record(Box::new(self))
     }
 }
 
-pub(crate) fn init_new_record_from_symbol_table(
-    name: &'static str,
-    init_args: Vector<Expr>,
-    symbol_table: &SymbolTable,
-) -> LispResult<Expr> {
-    let rec_def = symbol_table.get_record(name)?.get_record()?;
-    rec_def.call_as_fn(init_args, symbol_table)
-}
-
 #[allow(unused)]
-impl<T: Default> StructRecord<T> {
+impl<T: Default + Sync + Send + 'static + PartialEq> StructRecord<T> {
     pub(crate) fn record_builder(name: &'static str) -> StructRecord<T> {
         StructRecord {
             inner: Arc::new(RwLock::new(T::default())),
@@ -144,9 +137,10 @@ impl<T: Default> StructRecord<T> {
         sym: &'static str,
         f: &'static (dyn Fn(&T) -> Out + Sync + Send),
     ) -> Self {
-        let ff = move |s: &T, args: Vector<Expr>, _sym: &SymbolTable| {
+        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 0);
-            (f)(s).to_x7().map_err(|e| anyhow!("{:?}", e))
+            let s = sr.inner.read();
+            (f)(&s).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Arc::get_mut(&mut self.read_method_map)
             .unwrap()
@@ -159,10 +153,11 @@ impl<T: Default> StructRecord<T> {
         sym: &'static str,
         f: &'static (dyn Fn(&T, A) -> Out + Sync + Send),
     ) -> Self {
-        let ff = move |s: &T, args: Vector<Expr>, _sym: &SymbolTable| {
+        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 1);
             let a = crate::convert_arg!(A, &args[0]);
-            (f)(s, a).to_x7().map_err(|e| anyhow!("{:?}", e))
+            let s = sr.inner.read();
+            (f)(&s, a).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Arc::get_mut(&mut self.read_method_map)
             .unwrap()
@@ -175,10 +170,11 @@ impl<T: Default> StructRecord<T> {
         sym: &'static str,
         f: &'static (dyn Fn(&T, A, &SymbolTable) -> Out + Sync + Send),
     ) -> Self {
-        let ff = move |s: &T, args: Vector<Expr>, sym: &SymbolTable| {
+        let ff = move |sr: &Self, args: Vector<Expr>, sym: &SymbolTable| {
             crate::exact_len!(args, 1);
             let a = crate::convert_arg!(A, &args[0]);
-            (f)(s, a, sym).to_x7().map_err(|e| anyhow!("{:?}", e))
+            let s = sr.inner.read();
+            (f)(&s, a, sym).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Arc::get_mut(&mut self.read_method_map)
             .unwrap()
@@ -186,15 +182,59 @@ impl<T: Default> StructRecord<T> {
         self
     }
 
+    fn clone_with_new_inner(&self, new_inner: T) -> Self {
+        StructRecord {
+            inner: Arc::new(RwLock::new(new_inner)),
+            name: self.name,
+            read_method_map: self.read_method_map.clone(),
+            write_method_map: self.write_method_map.clone(),
+            fields: self.fields.clone(),
+            clone_fn: self.clone_fn.clone(),
+            init_fn: self.init_fn.clone(),
+            display_fn: self.display_fn.clone(),
+            initialized: self.initialized,
+        }
+    }
+
+    pub(crate) fn add_method_one_self(
+        mut self,
+        sym: &'static str,
+        f: &'static (dyn Fn(&T, &T) -> T + Sync + Send),
+    ) -> Self {
+        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 1);
+            let other = args[0].get_record()?;
+            match other.downcast_ref::<Self>() {
+                Some(other_rec) => {
+                    // TODO: Deadlock if same?
+                    let my_inner = sr.inner.read();
+                    let other_inner = other_rec.inner.read();
+                    let new_inner = (f)(&my_inner, &other_inner);
+                    crate::record!(sr.clone_with_new_inner(new_inner))
+                }
+                None => Err(anyhow!("uh oh")), // TODO: Handle this
+            }
+        };
+        Arc::get_mut(&mut self.read_method_map)
+            .unwrap()
+            .insert(sym, Box::new(ff));
+        self
+    }
+
+    fn downcast_record(rec: &dyn Record) -> LispResult<&Self> {
+        rec.downcast_ref().ok_or_else(|| anyhow!("Expected ",))
+    }
+
     pub(crate) fn add_method_one_mut<A: ForeignData, Out: ForeignData>(
         mut self,
         sym: &'static str,
         f: &'static (dyn Fn(&mut T, A) -> Out + Sync + Send),
     ) -> Self {
-        let ff = move |s: &mut T, args: Vector<Expr>, _sym: &SymbolTable| {
+        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 1);
             let a = crate::convert_arg!(A, &args[0]);
-            (f)(s, a).to_x7().map_err(|e| anyhow!("{:?}", e))
+            let mut s = sr.inner.write();
+            (f)(&mut s, a).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Arc::get_mut(&mut self.write_method_map)
             .unwrap()
@@ -237,7 +277,7 @@ impl<T: Default> StructRecord<T> {
     }
 }
 
-impl<T: 'static + Send + Sync + Default> Record for StructRecord<T> {
+impl<T: 'static + Send + Sync + Default + PartialEq> Record for StructRecord<T> {
     fn call_method(
         &self,
         sym: &str,
@@ -246,12 +286,10 @@ impl<T: 'static + Send + Sync + Default> Record for StructRecord<T> {
     ) -> LispResult<Expr> {
         if self.initialized {
             if let Some(ff) = self.read_method_map.get(sym) {
-                let guard = self.inner.read();
-                return (ff)(&guard, args, symbol_table);
+                return (ff)(self, args, symbol_table);
             }
             if let Some(ff) = self.write_method_map.get(sym) {
-                let mut guard = self.inner.write();
-                return (ff)(&mut guard, args, symbol_table);
+                return (ff)(self, args, symbol_table);
             }
             unknown_method!(self, sym)
         } else {
@@ -324,6 +362,16 @@ impl<T: 'static + Send + Sync + Default> Record for StructRecord<T> {
                 ..Clone::clone(self)
             }),
         }
+    }
+
+    fn is_equal(&self, other: &dyn Record) -> bool {
+        match other.downcast_ref::<Self>() {
+            Some(sr_other) => *self.inner.read() == *sr_other.inner.read(),
+            None => false,
+        }
+        // let baz = other.downcast_ref::<Self>();
+        // dbg!(&baz.is_some());
+        // false
     }
 }
 

@@ -1131,7 +1131,6 @@ fn call_method(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Ex
     let rec = exprs[0].get_record()?;
     let method = &exprs[1].get_string()?;
     let args = exprs.clone().slice(2..);
-    use crate::records::Record;
     rec.call_method(method, args, symbol_table)
 }
 

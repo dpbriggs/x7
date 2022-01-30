@@ -20,6 +20,19 @@ pub struct DynRecord {
     methods: Arc<DashMap<Symbol, Function>>,
 }
 
+impl PartialEq for DynRecord {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.fields.iter().all(|kv| {
+                other
+                    .fields
+                    .get(kv.key())
+                    .map(|other_v| *other_v == *kv.value())
+                    .unwrap_or(false)
+            })
+    }
+}
+
 impl RecordDoc for DynRecord {
     fn name() -> &'static str {
         "DynRecord"
@@ -115,6 +128,13 @@ impl Record for DynRecord {
 
     fn defmethod(&self, args: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         self.add_method_x7(args, symbol_table)
+    }
+
+    fn is_equal(&self, other: &dyn Record) -> bool {
+        match other.downcast_ref::<Self>() {
+            Some(other_dyn) => self == other_dyn,
+            None => false,
+        }
     }
 }
 

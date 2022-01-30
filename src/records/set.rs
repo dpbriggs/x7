@@ -1,33 +1,14 @@
 use std::collections::HashSet;
 
-use anyhow::{anyhow, Context};
-
-use im::{vector, Vector};
+use im::Vector;
 use itertools::Itertools;
 
-use crate::{
-    bad_types,
-    records::struct_record::StructRecord,
-    symbols::{Expr, LispResult, SymbolTable},
-};
+use crate::{records::struct_record::StructRecord, symbols::Expr};
 
-use super::{struct_record::init_new_record_from_symbol_table, Record, RecordDoc, RecordType};
+use super::RecordDoc;
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq)]
 pub(crate) struct SetRecord(HashSet<Expr>);
-
-fn extract_hashset_from_record(
-    rec: RecordType,
-    symbol_table: &SymbolTable,
-) -> LispResult<HashSet<Expr>> {
-    if rec.type_name() != SetRecord::RECORD_NAME {
-        return bad_types!("set", rec);
-    }
-    let list = rec
-        .call_method("to_list", vector![], symbol_table)?
-        .get_list()?;
-    Ok(list.into_iter().collect())
-}
 
 impl SetRecord {
     pub(crate) const RECORD_NAME: &'static str = "Set";
@@ -52,22 +33,16 @@ impl SetRecord {
         self.0.iter().cloned().collect()
     }
 
-    fn union(&self, rec: RecordType, symbol_table: &SymbolTable) -> LispResult<Expr> {
-        let other_hashset = extract_hashset_from_record(rec, symbol_table)?;
-        let both: Vector<Expr> = self.0.union(&other_hashset).cloned().collect();
-        init_new_record_from_symbol_table(SetRecord::RECORD_NAME, both, symbol_table)
+    fn union(&self, other: &Self) -> Self {
+        SetRecord(self.0.union(&other.0).cloned().collect())
     }
 
-    fn intersection(&self, rec: RecordType, symbol_table: &SymbolTable) -> LispResult<Expr> {
-        let other_hashset = extract_hashset_from_record(rec, symbol_table)?;
-        let both: Vector<Expr> = self.0.intersection(&other_hashset).cloned().collect();
-        init_new_record_from_symbol_table(SetRecord::RECORD_NAME, both, symbol_table)
+    fn intersection(&self, other: &Self) -> Self {
+        SetRecord(self.0.intersection(&other.0).cloned().collect())
     }
 
-    fn difference(&self, rec: RecordType, symbol_table: &SymbolTable) -> LispResult<Expr> {
-        let other_hashset = extract_hashset_from_record(rec, symbol_table)?;
-        let both: Vector<Expr> = self.0.difference(&other_hashset).cloned().collect();
-        init_new_record_from_symbol_table(SetRecord::RECORD_NAME, both, symbol_table)
+    fn difference(&self, other: &Self) -> Self {
+        SetRecord(self.0.difference(&other.0).cloned().collect())
     }
 
     pub(crate) fn make() -> Expr {
@@ -76,9 +51,9 @@ impl SetRecord {
             .display_with(&SetRecord::display)
             .clone_with(&Clone::clone)
             .add_method_one("contains", &SetRecord::contains)
-            .add_method_one_sym("union", &SetRecord::union)
-            .add_method_one_sym("intersection", &SetRecord::intersection)
-            .add_method_one_sym("difference", &SetRecord::difference)
+            .add_method_one_self("union", &SetRecord::union)
+            .add_method_one_self("intersection", &SetRecord::intersection)
+            .add_method_one_self("difference", &SetRecord::difference)
             .add_method_zero("len", &SetRecord::len)
             .add_method_zero("to_list", &SetRecord::to_list)
             .build()
