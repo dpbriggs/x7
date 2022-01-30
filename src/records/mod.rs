@@ -1,8 +1,10 @@
-pub mod dyn_record;
-pub mod file;
-pub mod record;
-pub mod regex;
-pub mod set;
+mod dict;
+mod dyn_record;
+mod file;
+mod record;
+mod regex;
+mod set;
+mod struct_record;
 
 pub(crate) use self::dyn_record::DynRecord;
 pub(crate) use self::file::FileRecord;

@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::{error::Error, path::Path};
 
 use crate::interner::InternedString;
+use crate::records::RecordType;
 use crate::symbols::{Expr, Function, SymbolTable};
 use crate::{parser::read, symbols::LispResult};
 use anyhow::anyhow;
@@ -396,48 +397,57 @@ impl ExprHelper for bigdecimal::BigDecimal {
 // This is hubris, but let's do it so the README looks nice.
 
 impl ForeignData for u64 {
+    #[inline]
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
         Ok(Expr::Num((*self).into()))
     }
 
+    #[inline]
     fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
         expr.to_u64()
     }
 }
 
 impl ForeignData for u32 {
+    #[inline]
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
         Ok(Expr::Num((*self).into()))
     }
 
+    #[inline]
     fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
         expr.to_u64().map(|e| e as u32)
     }
 }
 
 impl ForeignData for i64 {
+    #[inline]
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
         Ok(Expr::Num((*self).into()))
     }
 
+    #[inline]
     fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
         expr.to_i64()
     }
 }
 
 impl ForeignData for usize {
+    #[inline]
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
         let n = num_traits::FromPrimitive::from_usize(*self)
             .ok_or_else(|| ErrorBridge::new(anyhow!("Could not convert {} to u64", self)))?;
         Ok(Expr::Num(n))
     }
 
+    #[inline]
     fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
         expr.to_usize()
     }
 }
 
 impl ForeignData for f32 {
+    #[inline]
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
         // use num_traits::FromPrimitive;
         let n = num_traits::FromPrimitive::from_f32(*self)
@@ -445,12 +455,14 @@ impl ForeignData for f32 {
         Ok(Expr::Num(n))
     }
 
+    #[inline]
     fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
         expr.to_f32()
     }
 }
 
 impl ForeignData for f64 {
+    #[inline]
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
         // use num_traits::FromPrimitive;
         let n = num_traits::FromPrimitive::from_f64(*self)
@@ -458,22 +470,92 @@ impl ForeignData for f64 {
         Ok(Expr::Num(n))
     }
 
+    #[inline]
     fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
         expr.to_f64()
     }
 }
 
+impl ForeignData for bool {
+    #[inline]
+    fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
+        Ok(Expr::Bool(*self))
+    }
+
+    #[inline]
+    fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
+        match expr {
+            Expr::Bool(b) => Ok(*b),
+            otherwise => Err(Box::new(ErrorBridge(anyhow!("{:?}", otherwise)))),
+        }
+    }
+}
+
 impl ForeignData for String {
+    #[inline]
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
         Ok(Expr::string(self.clone()))
     }
 
+    #[inline]
     fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
         Ok(format!("{}", expr))
     }
 }
 
+impl ForeignData for Expr {
+    #[inline]
+    fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
+        Ok(self.clone())
+    }
+
+    #[inline]
+    fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
+        Ok(expr.clone())
+    }
+}
+
+impl ForeignData for RecordType {
+    #[inline]
+    fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
+        Ok(Expr::Record(self.clone()))
+    }
+
+    #[inline]
+    fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
+        expr.get_record().map_err(ErrorBridge::new)
+    }
+}
+
+impl ForeignData for LispResult<Expr> {
+    #[inline]
+    fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
+        match self {
+            Ok(e) => Ok(e.clone()),
+            Err(ref e) => Err(ErrorBridge::new(anyhow!("{:?}", e))),
+        }
+    }
+
+    #[inline]
+    fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
+        Ok(Ok(expr.clone()))
+    }
+}
+
+impl ForeignData for Vector<Expr> {
+    #[inline]
+    fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
+        Ok(Expr::Tuple(self.clone()))
+    }
+
+    #[inline]
+    fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
+        expr.get_list().map_err(ErrorBridge::new)
+    }
+}
+
 impl<T: ForeignData> ForeignData for Vec<T> {
+    #[inline]
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
         Ok(Expr::Tuple(
             self.iter()
@@ -482,6 +564,7 @@ impl<T: ForeignData> ForeignData for Vec<T> {
         ))
     }
 
+    #[inline]
     fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
         let res = expr
             .get_list()
@@ -494,6 +577,7 @@ impl<T: ForeignData> ForeignData for Vec<T> {
 }
 
 impl<T: ForeignData> ForeignData for Result<T, Box<dyn Error + Send>> {
+    #[inline]
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
         match self {
             Ok(t) => t.to_x7(),
@@ -501,8 +585,27 @@ impl<T: ForeignData> ForeignData for Result<T, Box<dyn Error + Send>> {
         }
     }
 
+    #[inline]
     fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
         Ok(T::from_x7(expr))
+    }
+}
+
+impl<T: ForeignData> ForeignData for Option<T> {
+    #[inline]
+    fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
+        match self {
+            Some(item) => item.to_x7(),
+            None => Ok(Expr::Nil),
+        }
+    }
+
+    #[inline]
+    fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
+        match expr {
+            Expr::Nil => Ok(None),
+            otherwise => Ok(Some(T::from_x7(otherwise)?)),
+        }
     }
 }
 
@@ -521,6 +624,7 @@ pub trait IntoX7Function<Args, Out> {
     fn to_x7_fn(self) -> (usize, crate::symbols::X7FunctionPtr);
 }
 
+#[macro_export]
 macro_rules! convert_arg {
     ($t:ident, $e:expr) => {{
         match $t::from_x7($e) {
@@ -547,7 +651,7 @@ where
     }
 }
 
-impl<F, T: ForeignData, Out> IntoX7Function<(Variadic<T>,), Out> for F
+impl<F, T: ForeignData, Out> IntoX7Function<(Variadic<T>, ((),)), Out> for F
 where
     T: ForeignData,
     Out: ForeignData,

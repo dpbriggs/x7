@@ -1258,6 +1258,18 @@ macro_rules! document_records {
     };
 }
 
+macro_rules! register_record {
+    ($sym:expr, $rec:ident) => {{
+        $sym.add_local(&Expr::Symbol($rec::RECORD_NAME.into()), &$rec::make())
+            .unwrap();
+
+        $sym.add_doc_item($rec::name().into(), $rec::type_doc().into());
+        for (method, method_doc) in $rec::method_doc() {
+            $sym.add_doc_item(format!("{}.{}", $rec::name(), method), (*method_doc).into());
+        }
+    }};
+}
+
 /// Create a symbol table without the x7 defined stdlib and
 /// no user passed arguments. Useful for benchmarks.
 pub fn create_stdlib_symbol_table_no_cli() -> SymbolTable {
@@ -1835,8 +1847,6 @@ Example:
   (fn (x) (nth 0 x))
   (lazy (zip (range 10) (range 10)))) ;; (tuple 9 9)"),
         ("fs::open", 1, FileRecord::from_x7, true, FileRecord::type_doc()),
-        ("re::compile", 1, RegexRecord::compile_x7, true, RegexRecord::type_doc()),
-        ("set", 1, SetRecord::from_x7, true, SetRecord::type_doc()),
         ("defrecord", 1, DynRecord::defrecord, false, DynRecord::type_doc()),
         ("defmethod", 1, DynRecord::defmethod_x7, false, "Add a method to a record. Cannot be called on instantiated records.
 
@@ -1867,10 +1877,11 @@ Example:
 (call_method f \"read_to_string\") ;; no args required
 (call_method f \"write\" \"hello world\") ;; pass it an arg
 "),
-        ("methods", 1, doc_methods, true, "Grab all documentation for a record's methods"),
+        ("re::compile", 1, RegexRecord::compile_x7, true, RegexRecord::type_doc()),       ("methods", 1, doc_methods, true, "Grab all documentation for a record's methods"),
         ("time", 1, time, false, "Return the time taken to evaluate an expression in milliseconds."),
         ("catch-err", 1, catch_err, false, "Catch an error. Returns nil if no error is caught."),
         ("interner-stats", 0, interner_stats, true, "Internal string interner stats."),
+        // ("Foo", 0, crate::records::struct_record::get_foobar_record, true, "Foobar"),
         ("assert-eq", 2, assert_eq, false, "Assert if two items are equal.")
 
     );
@@ -1879,6 +1890,7 @@ Example:
             panic!("Failed to load stdlib: {:?}", e);
         }
     }
+    register_record!(syms, SetRecord);
     document_records!(syms, FileRecord);
     document_records!(syms, RegexRecord);
     document_records!(syms, SetRecord);

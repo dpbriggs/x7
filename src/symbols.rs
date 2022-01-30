@@ -19,11 +19,11 @@ use std::sync::Arc;
 #[macro_export]
 macro_rules! bad_types {
     ($custom:expr) => {
-        Err(anyhow!(ProgramError::BadTypes)).with_context(|| $custom)
+        Err(anyhow!(crate::symbols::ProgramError::BadTypes)).with_context(|| $custom)
     };
 
     ($expected:expr, $given:expr) => {
-        Err(anyhow!(ProgramError::BadTypes)).with_context(|| {
+        Err(anyhow!(crate::symbols::ProgramError::BadTypes)).with_context(|| {
             format!(
                 "Error: Expected {}, but got type '{}': {:?}",
                 $expected,
@@ -899,6 +899,14 @@ impl SymbolTable {
             .get(symbol)
             .cloned()
             .ok_or_else(|| anyhow!("Unknown Symbol {}", symbol.to_string()))
+    }
+
+    pub(crate) fn get_record(&self, symbol: &'static str) -> LispResult<Expr> {
+        self.locals
+            .read()
+            .get(&symbol.into())
+            .cloned()
+            .ok_or_else(|| anyhow!("Internal record error: Unknown Symbol {}", symbol))
     }
 
     pub(crate) fn symbol_exists(&self, sym: &InternedString) -> bool {

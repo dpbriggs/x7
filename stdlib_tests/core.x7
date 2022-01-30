@@ -49,9 +49,8 @@
     (assert-eq '(1 2 4 5 10 20) (divisors 20))
     ;; Sets
     (assert-eq
-      '("SetRecord.contains" "SetRecord.intersection" "SetRecord.len"
-        "SetRecord.to_list" "SetRecord.union")
-     (sort (map head (methods (set '(1 2 3))))))))
+      '("Set.contains" "Set.intersection" "Set.len" "Set.to_list" "Set.union")
+     (sort (map head (methods (Set 1 2 3)))))))
 
 (defn bind-not-polluting-local-scope
   ()
