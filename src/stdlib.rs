@@ -4,7 +4,7 @@ use crate::iterators::{
     CartesianProduct, LazyList, LazyMap, NaturalNumbers, Skip, Take, TakeWhile,
 };
 use crate::modules::load_x7_stdlib;
-use crate::records::RecordDoc;
+use crate::records::{DictMutRecord, DictRecord, RecordDoc};
 use crate::records::{DynRecord, FileRecord, RegexRecord, SetRecord};
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use crate::{bad_types, iterators::LazyFilter};
@@ -1890,6 +1890,8 @@ Example:
         }
     }
     register_record!(syms, SetRecord);
+    register_record!(syms, DictRecord);
+    register_record!(syms, DictMutRecord);
     document_records!(syms, FileRecord);
     document_records!(syms, RegexRecord);
     document_records!(syms, SetRecord);

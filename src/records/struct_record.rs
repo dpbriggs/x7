@@ -196,6 +196,25 @@ impl<T: Default + Sync + Send + 'static + PartialEq> StructRecord<T> {
         }
     }
 
+    // TODO: Rename all of this
+    pub(crate) fn add_method_one_returning_self<A: ForeignData>(
+        mut self,
+        sym: &'static str,
+        f: &'static (dyn Fn(&T, A) -> LispResult<T> + Sync + Send),
+    ) -> Self {
+        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 1);
+            let a = crate::convert_arg!(A, &args[0]);
+            let my_inner = sr.inner.read();
+            let new_inner = (f)(&my_inner, a)?;
+            crate::record!(sr.clone_with_new_inner(new_inner))
+        };
+        Arc::get_mut(&mut self.read_method_map)
+            .unwrap()
+            .insert(sym, Box::new(ff));
+        self
+    }
+
     pub(crate) fn add_method_one_self(
         mut self,
         sym: &'static str,
@@ -221,6 +240,32 @@ impl<T: Default + Sync + Send + 'static + PartialEq> StructRecord<T> {
         self
     }
 
+    pub(crate) fn add_method_one_self_mut<Out: ForeignData>(
+        mut self,
+        sym: &'static str,
+        f: &'static (dyn Fn(&mut T, &T) -> Out + Sync + Send),
+    ) -> Self {
+        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 1);
+            let other = args[0].get_record()?;
+            match other.downcast_ref::<Self>() {
+                Some(other_rec) => {
+                    // TODO: Deadlock if same?
+                    let mut my_inner = sr.inner.write();
+                    let other_inner = other_rec.inner.read();
+                    (f)(&mut my_inner, &other_inner)
+                        .to_x7()
+                        .map_err(|e| anyhow!("{:?}", e))
+                }
+                None => crate::bad_types!(sr as &dyn Record, other), // TODO: Handle this
+            }
+        };
+        Arc::get_mut(&mut self.read_method_map)
+            .unwrap()
+            .insert(sym, Box::new(ff));
+        self
+    }
+
     fn downcast_record(rec: &dyn Record) -> LispResult<&Self> {
         rec.downcast_ref().ok_or_else(|| anyhow!("Expected ",))
     }
@@ -235,6 +280,29 @@ impl<T: Default + Sync + Send + 'static + PartialEq> StructRecord<T> {
             let a = crate::convert_arg!(A, &args[0]);
             let mut s = sr.inner.write();
             (f)(&mut s, a).to_x7().map_err(|e| anyhow!("{:?}", e))
+        };
+        Arc::get_mut(&mut self.write_method_map)
+            .unwrap()
+            .insert(sym, Box::new(ff));
+        self
+    }
+
+    pub(crate) fn add_method_two_mut<A, B, Out>(
+        mut self,
+        sym: &'static str,
+        f: &'static (dyn Fn(&mut T, A, B) -> Out + Sync + Send),
+    ) -> Self
+    where
+        A: ForeignData,
+        B: ForeignData,
+        Out: ForeignData,
+    {
+        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 2);
+            let a = crate::convert_arg!(A, &args[0]);
+            let b = crate::convert_arg!(B, &args[1]);
+            let mut s = sr.inner.write();
+            (f)(&mut s, a, b).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Arc::get_mut(&mut self.write_method_map)
             .unwrap()
@@ -369,9 +437,6 @@ impl<T: 'static + Send + Sync + Default + PartialEq> Record for StructRecord<T> 
             Some(sr_other) => *self.inner.read() == *sr_other.inner.read(),
             None => false,
         }
-        // let baz = other.downcast_ref::<Self>();
-        // dbg!(&baz.is_some());
-        // false
     }
 }
 

@@ -47,6 +47,7 @@
     ;; Primes and related functions
     (assert-eq '(2 3 5 7) (primes 10))
     (assert-eq '(1 2 4 5 10 20) (divisors 20))
+    (assert-eq "hellohello" (* "hello" 2))
     ;; Sets
     (assert-eq
       '("Set.contains" "Set.intersection" "Set.len" "Set.to_list" "Set.union")

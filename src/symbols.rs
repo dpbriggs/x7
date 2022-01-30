@@ -661,6 +661,8 @@ impl std::ops::Add<&Expr> for Expr {
             (Expr::String(l), Expr::String(r)) => Ok(Expr::string(l.to_string() + r)),
             (Expr::Num(l), Expr::String(r)) => (Ok(Expr::string(format!("{}{}", l, r)))),
             (Expr::String(l), Expr::Num(r)) => (Ok(Expr::string(format!("{}{}", l, r)))),
+            (Expr::String(l), Expr::Integer(r)) => (Ok(Expr::string(format!("{}{}", l, r)))),
+            (Expr::Integer(l), Expr::String(r)) => (Ok(Expr::string(format!("{}{}", l, r)))),
             (Expr::List(l), Expr::List(r)) => {
                 let mut res = l.clone();
                 res.append(r.clone());
@@ -712,6 +714,17 @@ impl std::ops::Mul<&Expr> for Expr {
             },
             (Expr::Integer(l), Expr::Num(r)) => Ok(Expr::num(l.to_bigdecimal() * r)),
             (Expr::Num(l), Expr::Integer(r)) => Ok(Expr::num(l * r.to_bigdecimal())),
+            (Expr::String(l), Expr::Integer(r)) => {
+                if *r < 0 {
+                    bad_types!(format!(
+                        "Repeating a string negative times doesn't make sense: {} * {}",
+                        &self, other
+                    ))
+                } else {
+                    Ok(Expr::string(l.to_string().repeat(*r as usize)))
+                }
+            }
+
             (Expr::String(l), Expr::Num(r)) => {
                 if *r >= BigDecimal::zero() {
                     Ok(Expr::string(

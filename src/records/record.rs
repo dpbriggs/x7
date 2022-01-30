@@ -1,5 +1,5 @@
 use crate::symbols::{Expr, LispResult, SymbolTable};
-use anyhow::{anyhow, bail};
+use anyhow::bail;
 use core::hash::Hash;
 use core::hash::Hasher;
 use im::Vector;
@@ -56,10 +56,7 @@ pub trait Record: Sync + Send + downcast_rs::DowncastSync {
     }
 
     fn call_as_fn(&self, _args: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-        // bail!(ProgramError::NotAFunction(Expr::Record(Box::new(
-        //     self.clone(),
-        // ))))
-        bail!(anyhow!("{:?} is not a function", self.debug()))
+        bail!("{:?} is not a function", self.debug())
     }
 
     fn defmethod(&self, _args: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
