@@ -332,14 +332,6 @@ impl Expr {
             .unwrap_or(false)
     }
 
-    pub(crate) fn is_bool_true(&self) -> LispResult<bool> {
-        if let Expr::Bool(b) = self {
-            Ok(*b)
-        } else {
-            bad_types!("bool", self)
-        }
-    }
-
     pub(crate) fn len(&self, symbol_table: &SymbolTable) -> LispResult<usize> {
         let len = match self {
             Expr::List(l) => l.len(),
@@ -379,15 +371,6 @@ impl Expr {
             Ok(l.clone())
         } else {
             bad_types!("iterator", self)
-        }
-    }
-
-    #[inline]
-    pub(crate) fn get_bool(&self) -> LispResult<bool> {
-        if let Expr::Bool(b) = self {
-            Ok(*b)
-        } else {
-            bad_types!("bool", self)
         }
     }
 
@@ -433,6 +416,14 @@ impl Expr {
             Expr::Symbol(s) => Ok(*s),
             Expr::Record(r) => Ok(InternedString::new(r.get_type_str())),
             _ => bad_types!("symbol", self),
+        }
+    }
+
+    pub(crate) fn is_truthy(&self, symbol_table: &SymbolTable) -> LispResult<bool> {
+        if let Expr::Bool(b) = self {
+            Ok(*b)
+        } else {
+            self.len(symbol_table).map(|len| len > 0)
         }
     }
 }

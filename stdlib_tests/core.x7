@@ -57,6 +57,18 @@
   ()
   (assert-eq '(1 2 3) (quicksort '(3 2 1))))
 
+(defn values-are-truthy
+  ()
+  (do
+    (assert-eq true (bool "abc"))
+    (assert-eq true (bool '(1 2 3)))
+    (assert-eq true (bool ^(1)))
+    (assert-eq true (bool (list 3)))
+    (assert-eq true (bool (Set 3 4)))
+    (assert-eq false (bool (Set)))
+    (assert-eq false (bool ()))
+   ))
+
 (defn run-test (test-fn)
   (bind (test-res (catch-err (test-fn)))
         (if (nil? test-res)
@@ -77,4 +89,5 @@
   test-defn-docs
   test-stdlib-functions
   bind-not-polluting-local-scope
+  values-are-truthy
   )

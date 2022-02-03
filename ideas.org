@@ -1,0 +1,32 @@
+* Ideas
+
+** TODO Add channels and a =go= function
+
+** DONE Add truthiness to the language
+CLOSED: [2022-02-03 Thu 12:30]
+
+** TODO Finish up StructRecord conversion; deprecate stdlib =dict=
+
+** TODO Fix a stack overflow in this function:
+
+#+begin_src x7
+ (defn factorial (& coll)
+  (cond
+    coll (* (head coll) (factorial (tail coll)))
+    true 1))
+#+end_src
+
+#+begin_example
+➜  x7 git:(truthy-values) ✗ cargo run -- -e foo.x7
+    Finished dev [unoptimized + debuginfo] target(s) in 0.03s
+     Running `target/debug/x7 -e foo.x7`
+>>> (factorial 1 2 3)
+
+thread 'main' has overflowed its stack
+fatal runtime error: stack overflow
+[1]    7980 abort (core dumped)  cargo run -- -e foo.x7
+#+end_example
+
+** TODO Add tail call optimization
+
+** TODO Add git hook which runs the stdlib test suite

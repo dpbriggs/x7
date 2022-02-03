@@ -1,0 +1,7 @@
+(defn mult (coll)
+  (cond
+    coll (* (head coll) (mult (tail coll)))
+    true 1))
+
+
+(print (mult '(1 2 3 4 5)))

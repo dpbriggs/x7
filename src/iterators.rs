@@ -108,7 +108,7 @@ impl LazyIter for LazyFilter {
                     let pred_res = self
                         .f
                         .call_fn(Vector::unit(item.clone()), symbol_table)
-                        .and_then(|fn_res| fn_res.get_bool());
+                        .and_then(|fn_res| fn_res.is_truthy(symbol_table));
                     // Result<bool, Err>
                     match pred_res {
                         Ok(false) => continue,
@@ -377,7 +377,7 @@ impl LazyIter for TakeWhile {
         let fn_res = option_try!(self
             .pred
             .call_fn(im::Vector::unit(res.clone()), symbol_table));
-        let should_stop = !option_try!(fn_res.get_bool());
+        let should_stop = !option_try!(fn_res.is_truthy(symbol_table));
         if should_stop {
             self.done.store(true, Ordering::SeqCst);
             None

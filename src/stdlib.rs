@@ -74,29 +74,29 @@ fn rem_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Exp
     exprs[0].clone() % &exprs[1]
 }
 
-fn or(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn or(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in exprs {
-        if expr.get_bool()? {
+        if expr.is_truthy(symbol_table)? {
             return Ok(Expr::Bool(true));
         }
     }
     Ok(Expr::Bool(false))
 }
 
-fn and(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn and(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     for expr in exprs {
-        if !expr.get_bool()? {
+        if !expr.is_truthy(symbol_table)? {
             return Ok(Expr::Bool(false));
         }
     }
     Ok(Expr::Bool(true))
 }
 
-fn xor(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn xor(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     if !exprs.is_empty() {
-        let mut res = exprs[0].get_bool()?;
+        let mut res = exprs[0].is_truthy(symbol_table)?;
         for b in exprs.iter().skip(1) {
-            res ^= b.get_bool()?;
+            res ^= b.is_truthy(symbol_table)?;
         }
         Ok(Expr::Bool(res))
     } else {
@@ -104,9 +104,9 @@ fn xor(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     }
 }
 
-fn not(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+fn not(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
-    Ok(Expr::Bool(!exprs[0].get_bool()?))
+    Ok(Expr::Bool(!exprs[0].is_truthy(symbol_table)?))
 }
 
 fn eq_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -258,6 +258,11 @@ fn string(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> 
     } else {
         Ok(Expr::string(format!("{}", &exprs[0])))
     }
+}
+
+fn bool(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    exprs[0].is_truthy(symbol_table).map(Expr::Bool)
 }
 
 fn eval(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -454,7 +459,7 @@ fn type_of(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
 fn cond(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     ensure!(exprs.len() % 2 == 0, ProgramError::CondBadConditionNotEven);
     for (pred, body) in exprs.iter().tuples() {
-        if pred.eval(symbol_table)?.is_bool_true()? {
+        if pred.eval(symbol_table)?.is_truthy(symbol_table)? {
             return body.eval(symbol_table);
         }
     }
@@ -483,7 +488,7 @@ fn expr_match(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Exp
 
 fn if_gate(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 3);
-    if exprs[0].eval(symbol_table)?.get_bool()? {
+    if exprs[0].eval(symbol_table)?.is_truthy(symbol_table)? {
         exprs[1].eval(symbol_table)
     } else {
         exprs[2].eval(symbol_table)
@@ -537,7 +542,7 @@ fn filter(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     let mut res = Vector::new();
     for expr in l {
         if f.call_fn(Vector::unit(expr.clone()), symbol_table)?
-            .get_bool()?
+            .is_truthy(symbol_table)?
         {
             res.push_back(expr);
         }
@@ -600,7 +605,7 @@ fn any(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     for b in body.iter().cloned() {
         if pred
             .call_fn(im::Vector::unit(b), symbol_table)?
-            .get_bool()?
+            .is_truthy(symbol_table)?
         {
             return Ok(Expr::Bool(true));
         }
@@ -615,7 +620,7 @@ fn all(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     for b in body.iter().cloned() {
         if !pred
             .call_fn(im::Vector::unit(b), symbol_table)?
-            .get_bool()?
+            .is_truthy(symbol_table)?
         {
             return Ok(Expr::Bool(false));
         }
@@ -1013,7 +1018,7 @@ fn take_while(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Exp
         for value in list.into_iter() {
             if !pred
                 .call_fn(Vector::unit(value.clone()), symbol_table)?
-                .get_bool()?
+                .is_truthy(symbol_table)?
             {
                 return Ok(Expr::List(new_list));
             }
@@ -1033,7 +1038,7 @@ fn find(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
         let item = item?;
         if pred
             .call_fn(Vector::unit(item.clone()), symbol_table)?
-            .get_bool()?
+            .is_truthy(symbol_table)?
         {
             return Ok(item);
         }
@@ -1443,6 +1448,13 @@ Example:
             string,
             true,
             "Make a string"
+        ),
+        (
+            "bool",
+            1,
+            bool,
+            true,
+            "Coerce a value to bool. In general if a collection is non-empty, it is true. The len method is called on Records"
         ),
         (
             "print",
