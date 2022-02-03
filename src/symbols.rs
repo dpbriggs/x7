@@ -262,6 +262,13 @@ impl Expr {
         }
     }
 
+    pub(crate) fn get_nil(&self) -> LispResult<()> {
+        match self {
+            Expr::Nil => Ok(()),
+            _ => bad_types!("nil", self),
+        }
+    }
+
     pub(crate) fn get_num(&self) -> LispResult<Num> {
         match self {
             Expr::Num(n) => Ok(n.clone()),

@@ -50,12 +50,12 @@ impl SetRecord {
             .init_fn(&|e: Vec<Expr>| Ok(SetRecord(e.into_iter().collect())))
             .display_with(&SetRecord::display)
             .clone_with(&Clone::clone)
-            .add_method_one("contains", &SetRecord::contains)
-            .add_method_one_self("union", &SetRecord::union)
-            .add_method_one_self("intersection", &SetRecord::intersection)
-            .add_method_one_self("difference", &SetRecord::difference)
-            .add_method_zero("len", &SetRecord::len)
-            .add_method_zero("to_list", &SetRecord::to_list)
+            .add_method("contains", SetRecord::contains)
+            .add_method("union", SetRecord::union)
+            .add_method("intersection", SetRecord::intersection)
+            .add_method("difference", SetRecord::difference)
+            .add_method("len", SetRecord::len)
+            .add_method("to_list", SetRecord::to_list)
             .build()
     }
 }

@@ -476,6 +476,16 @@ impl ForeignData for f64 {
     }
 }
 
+impl ForeignData for () {
+    fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
+        Ok(Expr::Nil)
+    }
+
+    fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
+        expr.get_nil().map_err(ErrorBridge::new)
+    }
+}
+
 impl ForeignData for bool {
     #[inline]
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {

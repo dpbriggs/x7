@@ -3,6 +3,7 @@ use im::Vector;
 use itertools::Itertools;
 use parking_lot::RwLock;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::ffi::ForeignData;
@@ -116,7 +117,22 @@ impl<T: Default + PartialEq + Sync + Send + 'static> StructRecord<T> {
     }
 }
 
-#[allow(unused)]
+impl<T: Default + PartialEq + Sync + Send + 'static> StructRecord<T> {
+    fn clone_with_new_inner(&self, new_inner: T) -> Self {
+        StructRecord {
+            inner: Arc::new(RwLock::new(new_inner)),
+            name: self.name,
+            read_method_map: self.read_method_map.clone(),
+            write_method_map: self.write_method_map.clone(),
+            fields: self.fields.clone(),
+            clone_fn: self.clone_fn.clone(),
+            init_fn: self.init_fn.clone(),
+            display_fn: self.display_fn.clone(),
+            initialized: self.initialized,
+        }
+    }
+}
+
 impl<T: Default + Sync + Send + 'static + PartialEq> StructRecord<T> {
     pub(crate) fn record_builder(name: &'static str) -> StructRecord<T> {
         StructRecord {
@@ -132,192 +148,36 @@ impl<T: Default + Sync + Send + 'static + PartialEq> StructRecord<T> {
         }
     }
 
-    pub(crate) fn add_method_zero<Out: ForeignData>(
+    pub(crate) fn add_method<Args, Out, F: IntoReadFn<Args, T, Out>>(
         mut self,
         sym: &'static str,
-        f: &'static (dyn Fn(&T) -> Out + Sync + Send),
+        f: F,
     ) -> Self {
-        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
-            crate::exact_len!(args, 0);
-            let s = sr.inner.read();
-            (f)(&s).to_x7().map_err(|e| anyhow!("{:?}", e))
-        };
         Arc::get_mut(&mut self.read_method_map)
             .unwrap()
-            .insert(sym, Box::new(ff));
+            .insert(sym, f.into_read_fn());
         self
     }
 
-    pub(crate) fn add_method_one<A: ForeignData, Out: ForeignData>(
+    pub(crate) fn add_method_mut<Args, Out, F: IntoWriteFn<Args, T, Out>>(
         mut self,
         sym: &'static str,
-        f: &'static (dyn Fn(&T, A) -> Out + Sync + Send),
+        f: F,
     ) -> Self {
-        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
-            crate::exact_len!(args, 1);
-            let a = crate::convert_arg!(A, &args[0]);
-            let s = sr.inner.read();
-            (f)(&s, a).to_x7().map_err(|e| anyhow!("{:?}", e))
-        };
-        Arc::get_mut(&mut self.read_method_map)
-            .unwrap()
-            .insert(sym, Box::new(ff));
-        self
-    }
-
-    pub(crate) fn add_method_one_sym<A: ForeignData, Out: ForeignData>(
-        mut self,
-        sym: &'static str,
-        f: &'static (dyn Fn(&T, A, &SymbolTable) -> Out + Sync + Send),
-    ) -> Self {
-        let ff = move |sr: &Self, args: Vector<Expr>, sym: &SymbolTable| {
-            crate::exact_len!(args, 1);
-            let a = crate::convert_arg!(A, &args[0]);
-            let s = sr.inner.read();
-            (f)(&s, a, sym).to_x7().map_err(|e| anyhow!("{:?}", e))
-        };
-        Arc::get_mut(&mut self.read_method_map)
-            .unwrap()
-            .insert(sym, Box::new(ff));
-        self
-    }
-
-    fn clone_with_new_inner(&self, new_inner: T) -> Self {
-        StructRecord {
-            inner: Arc::new(RwLock::new(new_inner)),
-            name: self.name,
-            read_method_map: self.read_method_map.clone(),
-            write_method_map: self.write_method_map.clone(),
-            fields: self.fields.clone(),
-            clone_fn: self.clone_fn.clone(),
-            init_fn: self.init_fn.clone(),
-            display_fn: self.display_fn.clone(),
-            initialized: self.initialized,
-        }
-    }
-
-    // TODO: Rename all of this
-    pub(crate) fn add_method_one_returning_self<A: ForeignData>(
-        mut self,
-        sym: &'static str,
-        f: &'static (dyn Fn(&T, A) -> LispResult<T> + Sync + Send),
-    ) -> Self {
-        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
-            crate::exact_len!(args, 1);
-            let a = crate::convert_arg!(A, &args[0]);
-            let my_inner = sr.inner.read();
-            let new_inner = (f)(&my_inner, a)?;
-            crate::record!(sr.clone_with_new_inner(new_inner))
-        };
-        Arc::get_mut(&mut self.read_method_map)
-            .unwrap()
-            .insert(sym, Box::new(ff));
-        self
-    }
-
-    pub(crate) fn add_method_one_self(
-        mut self,
-        sym: &'static str,
-        f: &'static (dyn Fn(&T, &T) -> T + Sync + Send),
-    ) -> Self {
-        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
-            crate::exact_len!(args, 1);
-            let other = args[0].get_record()?;
-            match other.downcast_ref::<Self>() {
-                Some(other_rec) => {
-                    // TODO: Deadlock if same?
-                    let my_inner = sr.inner.read();
-                    let other_inner = other_rec.inner.read();
-                    let new_inner = (f)(&my_inner, &other_inner);
-                    crate::record!(sr.clone_with_new_inner(new_inner))
-                }
-                None => crate::bad_types!(sr as &dyn Record, other), // TODO: Handle this
-            }
-        };
-        Arc::get_mut(&mut self.read_method_map)
-            .unwrap()
-            .insert(sym, Box::new(ff));
-        self
-    }
-
-    pub(crate) fn add_method_one_self_mut<Out: ForeignData>(
-        mut self,
-        sym: &'static str,
-        f: &'static (dyn Fn(&mut T, &T) -> Out + Sync + Send),
-    ) -> Self {
-        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
-            crate::exact_len!(args, 1);
-            let other = args[0].get_record()?;
-            match other.downcast_ref::<Self>() {
-                Some(other_rec) => {
-                    // TODO: Deadlock if same?
-                    let mut my_inner = sr.inner.write();
-                    let other_inner = other_rec.inner.read();
-                    (f)(&mut my_inner, &other_inner)
-                        .to_x7()
-                        .map_err(|e| anyhow!("{:?}", e))
-                }
-                None => crate::bad_types!(sr as &dyn Record, other), // TODO: Handle this
-            }
-        };
-        Arc::get_mut(&mut self.read_method_map)
-            .unwrap()
-            .insert(sym, Box::new(ff));
-        self
-    }
-
-    fn downcast_record(rec: &dyn Record) -> LispResult<&Self> {
-        rec.downcast_ref().ok_or_else(|| anyhow!("Expected ",))
-    }
-
-    pub(crate) fn add_method_one_mut<A: ForeignData, Out: ForeignData>(
-        mut self,
-        sym: &'static str,
-        f: &'static (dyn Fn(&mut T, A) -> Out + Sync + Send),
-    ) -> Self {
-        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
-            crate::exact_len!(args, 1);
-            let a = crate::convert_arg!(A, &args[0]);
-            let mut s = sr.inner.write();
-            (f)(&mut s, a).to_x7().map_err(|e| anyhow!("{:?}", e))
-        };
         Arc::get_mut(&mut self.write_method_map)
             .unwrap()
-            .insert(sym, Box::new(ff));
+            .insert(sym, f.into_write_fn());
         self
     }
 
-    pub(crate) fn add_method_two_mut<A, B, Out>(
-        mut self,
-        sym: &'static str,
-        f: &'static (dyn Fn(&mut T, A, B) -> Out + Sync + Send),
-    ) -> Self
-    where
-        A: ForeignData,
-        B: ForeignData,
-        Out: ForeignData,
-    {
-        let ff = move |sr: &Self, args: Vector<Expr>, _sym: &SymbolTable| {
-            crate::exact_len!(args, 2);
-            let a = crate::convert_arg!(A, &args[0]);
-            let b = crate::convert_arg!(B, &args[1]);
-            let mut s = sr.inner.write();
-            (f)(&mut s, a, b).to_x7().map_err(|e| anyhow!("{:?}", e))
-        };
-        Arc::get_mut(&mut self.write_method_map)
-            .unwrap()
-            .insert(sym, Box::new(ff));
-        self
-    }
-
-    pub(crate) fn add_field<Out: ForeignData>(
-        mut self,
-        sym: &'static str,
-        f: &'static (dyn Fn(&T) -> Out + Sync + Send),
-    ) -> Self {
-        Arc::get_mut(&mut self.fields).unwrap().push(sym);
-        self.add_method_zero(sym, f)
-    }
+    // pub(crate) fn add_field<Out: ForeignData>(
+    //     mut self,
+    //     sym: &'static str,
+    //     f: &'static (dyn Fn(&T) -> Out + Sync + Send),
+    // ) -> Self {
+    //     Arc::get_mut(&mut self.fields).unwrap().push(sym);
+    //     self.add_method_zero(sym, f)
+    // }
 
     pub(crate) fn clone_with(mut self, f: &'static (dyn Fn(&T) -> T + Sync + Send)) -> Self {
         self.clone_fn = Some(Arc::new(f));
@@ -440,72 +300,331 @@ impl<T: 'static + Send + Sync + Default + PartialEq> Record for StructRecord<T> 
     }
 }
 
-// #[derive(Default, Clone)]
-// pub(crate) struct Foo {
-//     a: u32,
-//     b: u32,
-// }
+// Massive set of trait impls
+// TODO: Use a macro for this
 
-// impl RecordDoc for Foo {
-//     fn name() -> &'static str {
-//         "Foo"
-//     }
+pub(crate) trait IntoReadFn<Args, T, Out> {
+    fn into_read_fn(self) -> ReadFn<T>;
+}
 
-//     fn type_doc() -> &'static str {
-//         "Some real foobar shit"
-//     }
+pub(crate) trait IntoWriteFn<Args, T, Out> {
+    fn into_write_fn(self) -> WriteFn<T>;
+}
 
-//     fn method_doc() -> &'static [(&'static str, &'static str)] {
-//         &[("baz", "do baz")]
-//     }
-// }
+// Struct to prevent trait impl issues for Self: ForeignData
+pub(crate) struct InnerBlocker<T>(PhantomData<T>);
 
-// impl Foo {
-//     fn baz(&self) -> u32 {
-//         self.a + self.b
-//     }
+// IntoReadFn: Zero args
 
-//     fn set_a(&mut self, new_a: u32) -> u32 {
-//         self.a = new_a;
-//         self.a
-//     }
-// }
+impl<F, T, Out> IntoReadFn<(), T, Out> for F
+where
+    F: Fn(&T) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+{
+    fn into_read_fn(self) -> ReadFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 0);
+            let s = sr.inner.read();
+            (self)(&s).to_x7().map_err(|e| anyhow!("{:?}", e))
+        };
+        Box::new(ff)
+    }
+}
 
-// pub(crate) fn get_foobar() -> Expr {
-//     StructRecord::record_builder("Foo")
-//         .add_method_zero("baz", &Foo::baz)
-//         .add_method_one_mut("set_a", &Foo::set_a)
-//         // .clone_with(&Clone::clone)
-//         .add_field("a", &|s: &Foo| s.a)
-//         .init_fn(&|fields: Vec<u32>| {
-//             if fields.len() < 2 {
-//                 Err("uh oh stinky".into())
-//             } else {
-//                 let a = fields[0];
-//                 let b = fields[1];
-//                 Ok(Foo { a, b })
-//             }
-//         })
-//         .add_field("b", &|s: &Foo| s.b)
-//         .build()
-//     // Expr::Record(Box::new(u))
-// }
+impl<F, T> IntoReadFn<(), T, InnerBlocker<T>> for F
+where
+    F: Fn(&T) -> T + Sync + Send + 'static,
+    T: Default + PartialEq + Sync + Send + 'static,
+{
+    fn into_read_fn(self) -> ReadFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 0);
+            let my_inner = sr.inner.read();
+            let new_inner = (self)(&my_inner);
+            crate::record!(sr.clone_with_new_inner(new_inner))
+        };
+        Box::new(ff)
+    }
+}
 
-// pub(crate) fn get_foobar_record(_args: Vector<Expr>, _sym: &SymbolTable) -> LispResult<Expr> {
-//     let u = StructRecord::record_builder("Foo")
-//         .add_method_zero("baz", &Foo::baz)
-//         .add_method_one_mut("set_a", &Foo::set_a)
-//         // .clone_with(&Clone::clone)
-//         .add_field("a", &|s: &Foo| s.a)
-//         .init_fn(&|fields: Vec<u32>| {
-//             if fields.len() <= 2 {
-//                 Err("uh oh stinky".into())
-//             } else {
-//                 let a = fields[0];
-//                 let b = fields[1];
-//                 Ok(Foo { a, b })
-//             }
-//         })
-//         .add_field("b", &|s: &Foo| s.b);
-//     crate::record!(u)
-// }
+// IntoReadFn: One arg
+
+impl<F, T, A, Out> IntoReadFn<(A,), T, Out> for F
+where
+    F: Fn(&T, A) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+    A: ForeignData,
+{
+    fn into_read_fn(self) -> ReadFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 1);
+            let a = crate::convert_arg!(A, &args[0]);
+            let s = sr.inner.read();
+            (self)(&s, a).to_x7().map_err(|e| anyhow!("{:?}", e))
+        };
+        Box::new(ff)
+    }
+}
+
+impl<F, T, A> IntoReadFn<(A,), T, InnerBlocker<LispResult<Self>>> for F
+where
+    F: Fn(&T, A) -> LispResult<T> + Sync + Send + 'static,
+    A: ForeignData,
+    T: Default + PartialEq + Sync + Send + 'static,
+{
+    fn into_read_fn(self) -> ReadFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 1);
+            let a = crate::convert_arg!(A, &args[0]);
+            let s = sr.inner.read();
+            let new_inner = (self)(&s, a)?;
+            crate::record!(sr.clone_with_new_inner(new_inner))
+        };
+        Box::new(ff)
+    }
+}
+
+// IntoReadFn: Two args
+
+impl<F, T, A, Out> IntoReadFn<(A,), T, InnerBlocker<(T, (Out,))>> for F
+where
+    F: Fn(&T, &T) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+    A: ForeignData,
+    T: Default + PartialEq + Sync + Send + 'static,
+{
+    fn into_read_fn(self) -> ReadFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 1);
+            let other = args[0].get_record()?;
+            match other.downcast_ref::<StructRecord<T>>() {
+                Some(other_rec) => {
+                    // TODO: Deadlock if same?
+                    let my_inner = sr.inner.read();
+                    let other_inner = other_rec.inner.read();
+                    (self)(&my_inner, &other_inner)
+                        .to_x7()
+                        .map_err(|e| anyhow!("{:?}", e))
+                }
+                None => crate::bad_types!(sr as &dyn Record, other), // TODO: Handle this
+            }
+        };
+        Box::new(ff)
+    }
+}
+
+impl<F, T> IntoReadFn<(T,), T, InnerBlocker<(T, T)>> for F
+where
+    F: Fn(&T, &T) -> T + Sync + Send + 'static,
+    T: Default + PartialEq + Sync + Send + 'static,
+{
+    fn into_read_fn(self) -> ReadFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 1);
+            let other = args[0].get_record()?;
+            match other.downcast_ref::<StructRecord<T>>() {
+                Some(other_rec) => {
+                    // TODO: Deadlock if same?
+                    let my_inner = sr.inner.read();
+                    let other_inner = other_rec.inner.read();
+                    let new_inner = (self)(&my_inner, &other_inner);
+                    crate::record!(sr.clone_with_new_inner(new_inner))
+                }
+                None => crate::bad_types!(sr as &dyn Record, other), // TODO: Handle this
+            }
+        };
+        Box::new(ff)
+    }
+}
+
+// IntoReadFn: Three Args
+
+impl<F, T, A, B, Out> IntoReadFn<(A, B), T, Out> for F
+where
+    F: Fn(&T, A, B) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+    A: ForeignData,
+    B: ForeignData,
+{
+    fn into_read_fn(self) -> ReadFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 2);
+            let a = crate::convert_arg!(A, &args[0]);
+            let b = crate::convert_arg!(B, &args[1]);
+            let s = sr.inner.read();
+            (self)(&s, a, b).to_x7().map_err(|e| anyhow!("{:?}", e))
+        };
+        Box::new(ff)
+    }
+}
+
+impl<F, T, A, B, C, Out> IntoReadFn<(A, B, C), T, Out> for F
+where
+    F: Fn(&T, A, B, C) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+    A: ForeignData,
+    B: ForeignData,
+    C: ForeignData,
+{
+    fn into_read_fn(self) -> ReadFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 3);
+            let a = crate::convert_arg!(A, &args[0]);
+            let b = crate::convert_arg!(B, &args[1]);
+            let c = crate::convert_arg!(C, &args[2]);
+            let s = sr.inner.read();
+            (self)(&s, a, b, c).to_x7().map_err(|e| anyhow!("{:?}", e))
+        };
+        Box::new(ff)
+    }
+}
+
+// IntoWriteFn
+
+// IntoWriteFn: Zero args
+
+impl<F, T, Out> IntoWriteFn<(), T, Out> for F
+where
+    F: Fn(&mut T) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+{
+    fn into_write_fn(self) -> WriteFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 0);
+            let mut s = sr.inner.write();
+            (self)(&mut s).to_x7().map_err(|e| anyhow!("{:?}", e))
+        };
+        Box::new(ff)
+    }
+}
+
+impl<F, T> IntoWriteFn<(), T, InnerBlocker<T>> for F
+where
+    F: Fn(&mut T) -> T + Sync + Send + 'static,
+    T: Default + PartialEq + Sync + Send + 'static,
+{
+    fn into_write_fn(self) -> WriteFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 0);
+            let mut my_inner = sr.inner.write();
+            let new_inner = (self)(&mut my_inner);
+            crate::record!(sr.clone_with_new_inner(new_inner))
+        };
+        Box::new(ff)
+    }
+}
+
+// IntoWriteFn: One arg
+
+impl<F, T, A, Out> IntoWriteFn<(A,), T, Out> for F
+where
+    F: Fn(&mut T, A) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+    A: ForeignData,
+{
+    fn into_write_fn(self) -> WriteFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 1);
+            let a = crate::convert_arg!(A, &args[0]);
+            let mut s = sr.inner.write();
+            (self)(&mut s, a).to_x7().map_err(|e| anyhow!("{:?}", e))
+        };
+        Box::new(ff)
+    }
+}
+
+// IntoWriteFn: Two args
+
+impl<F, T, Out> IntoWriteFn<((), ((),)), T, InnerBlocker<((), (Out,))>> for F
+where
+    F: Fn(&mut T, &T) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+    T: Default + PartialEq + Sync + Send + 'static,
+{
+    fn into_write_fn(self) -> WriteFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 1);
+            let other = args[0].get_record()?;
+            match other.downcast_ref::<StructRecord<T>>() {
+                Some(other_rec) => {
+                    // TODO: Deadlock if same?
+                    let mut my_inner = sr.inner.write();
+                    let other_inner = other_rec.inner.read();
+                    (self)(&mut my_inner, &other_inner)
+                        .to_x7()
+                        .map_err(|e| anyhow!("{:?}", e))
+                }
+                None => crate::bad_types!(sr as &dyn Record, other), // TODO: Handle this
+            }
+        };
+        Box::new(ff)
+    }
+}
+
+impl<F, T> IntoWriteFn<(T,), T, InnerBlocker<(T, T)>> for F
+where
+    F: Fn(&mut T, &T) -> T + Sync + Send + 'static,
+    T: Default + PartialEq + Sync + Send + 'static,
+{
+    fn into_write_fn(self) -> WriteFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 1);
+            let other = args[0].get_record()?;
+            match other.downcast_ref::<StructRecord<T>>() {
+                Some(other_rec) => {
+                    // TODO: Deadlock if same?
+                    let mut my_inner = sr.inner.write();
+                    let other_inner = other_rec.inner.read();
+                    let new_inner = (self)(&mut my_inner, &other_inner);
+                    crate::record!(sr.clone_with_new_inner(new_inner))
+                }
+                None => crate::bad_types!(sr as &dyn Record, other), // TODO: Handle this
+            }
+        };
+        Box::new(ff)
+    }
+}
+
+// IntoWriteFn: Three Args
+
+impl<F, T, A, B, Out> IntoWriteFn<(A, B), T, Out> for F
+where
+    F: Fn(&mut T, A, B) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+    A: ForeignData,
+    B: ForeignData,
+{
+    fn into_write_fn(self) -> WriteFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 2);
+            let a = crate::convert_arg!(A, &args[0]);
+            let b = crate::convert_arg!(B, &args[1]);
+            let mut s = sr.inner.write();
+            (self)(&mut s, a, b).to_x7().map_err(|e| anyhow!("{:?}", e))
+        };
+        Box::new(ff)
+    }
+}
+
+impl<F, T, A, B, C, Out> IntoWriteFn<(A, B, C), T, Out> for F
+where
+    F: Fn(&mut T, A, B, C) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+    A: ForeignData,
+    B: ForeignData,
+    C: ForeignData,
+{
+    fn into_write_fn(self) -> WriteFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
+            crate::exact_len!(args, 3);
+            let a = crate::convert_arg!(A, &args[0]);
+            let b = crate::convert_arg!(B, &args[1]);
+            let c = crate::convert_arg!(C, &args[2]);
+            let mut s = sr.inner.write();
+            (self)(&mut s, a, b, c)
+                .to_x7()
+                .map_err(|e| anyhow!("{:?}", e))
+        };
+        Box::new(ff)
+    }
+}
