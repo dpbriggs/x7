@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail};
 use im::Vector;
 use itertools::Itertools;
-use parking_lot::RwLock;
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -21,7 +21,7 @@ type InitFn<T> = Arc<dyn Fn(Vector<Expr>) -> LispResult<T> + Sync + Send>;
 type DisplayFn<T> = Arc<dyn Fn(&T) -> String + Sync + Send>;
 
 pub(crate) struct StructRecord<T> {
-    inner: Arc<RwLock<T>>,
+    inner: Arc<Mutex<T>>,
     name: &'static str,
     read_method_map: Arc<HashMap<&'static str, ReadFn<T>>>,
     write_method_map: Arc<HashMap<&'static str, WriteFn<T>>>,
@@ -30,16 +30,17 @@ pub(crate) struct StructRecord<T> {
     init_fn: Option<InitFn<T>>,
     display_fn: Option<DisplayFn<T>>,
     initialized: bool,
+    id: u64,
 }
 
 impl<T> Clone for StructRecord<T> {
     fn clone(&self) -> Self {
-        let inner = match self.clone_fn {
+        let (inner, id) = match self.clone_fn {
             Some(ref ff) => {
-                let guard = self.inner.read();
-                Arc::new(RwLock::new((ff)(&guard)))
+                let guard = self.inner.lock();
+                (Arc::new(Mutex::new((ff)(&guard))), rand::random())
             }
-            None => Arc::clone(&self.inner),
+            None => (Arc::clone(&self.inner), self.id),
         };
         Self {
             inner,
@@ -51,76 +52,21 @@ impl<T> Clone for StructRecord<T> {
             init_fn: self.init_fn.clone(),
             display_fn: self.display_fn.clone(),
             initialized: self.initialized,
+            id,
         }
     }
 }
 
-// trait AsStructRecord {
-//     fn call_method(&self, )
-// }
-
-// type BizarreF<T> = Fn(T) -> (Fn(T, &[dyn ForeignData], &SymbolTable) -> );
-
-// trait IntoX7RecordMethod<'me, Args, Out> {
-//     fn to_x7_read_fn(
-//         self,
-//     ) -> (
-//         usize,
-//         Arc<dyn Fn(&'me Self, Vector<Expr>, &'me SymbolTable) -> LispResult<Expr>>,
-//     );
-// }
-
-// impl<'me, F, Out> IntoX7RecordMethod<'me, ((),), Out> for F
-// where
-//     F: Fn(&Self) -> Out + 'static,
-//     Out: ForeignData,
-// {
-//     fn to_x7_read_fn(
-//         self,
-//     ) -> (
-//         usize,
-//         Arc<dyn Fn(&'me Self, Vector<Expr>, &'me SymbolTable) -> LispResult<Expr>>,
-//     ) {
-//         let ff = move |s, _args, _sym| (self)(s).to_x7().map_err(|e| anyhow!("{:?}", e));
-//         (0, Arc::new(ff))
-//     }
-// }
-
-// impl<F, Out> IntoX7RecordMethod<((),), Out> for F
-// where
-//     F: Fn(&Self) -> Out,
-//     Out: ForeignData,
-// {
-//     fn to_x7_fn(self) -> (usize, X7FunctionPtr) {
-//         |s: &Self| {
-
-//         }
-//         todo!()
-//     }
-// }
-
-// impl<T> Clone for StructRecord<T> {
-//     fn clone(&self) -> Self {
-//         Self {
-//             inner: Arc::clone(&self.inner),
-//             name: self.name,
-//             read_method_map: self.read_method_map.clone(),
-//             write_method_map: self.write_method_map.clone(),
-//             ..Default::default()
-//         }
-//     }
-// }
-
-impl<T: Default + PartialEq + Sync + Send + 'static> StructRecord<T> {
+impl<T: PartialEq + 'static + Sync + Send> StructRecord<T> {
     pub(crate) fn build(self) -> Expr {
         Expr::Record(Box::new(self))
     }
 }
 
-impl<T: Default + PartialEq + Sync + Send + 'static> StructRecord<T> {
+impl<T: PartialEq + 'static> StructRecord<T> {
     fn clone_with_new_inner(&self, new_inner: T) -> Self {
         StructRecord {
-            inner: Arc::new(RwLock::new(new_inner)),
+            inner: Arc::new(Mutex::new(new_inner)),
             name: self.name,
             read_method_map: self.read_method_map.clone(),
             write_method_map: self.write_method_map.clone(),
@@ -129,14 +75,32 @@ impl<T: Default + PartialEq + Sync + Send + 'static> StructRecord<T> {
             init_fn: self.init_fn.clone(),
             display_fn: self.display_fn.clone(),
             initialized: self.initialized,
+            id: rand::random(),
         }
     }
 }
 
-impl<T: Default + Sync + Send + 'static + PartialEq> StructRecord<T> {
+impl<T: 'static + PartialEq> StructRecord<T> {
+    pub(crate) fn record_builder_with(name: &'static str, inner: T) -> Self {
+        StructRecord {
+            inner: Arc::new(Mutex::new(inner)),
+            name,
+            read_method_map: Default::default(),
+            write_method_map: Default::default(),
+            fields: Arc::new(Vec::new()),
+            clone_fn: None,
+            init_fn: None,
+            display_fn: None,
+            initialized: true,
+            id: rand::random(),
+        }
+    }
+}
+
+impl<T: Default + 'static + PartialEq> StructRecord<T> {
     pub(crate) fn record_builder(name: &'static str) -> StructRecord<T> {
         StructRecord {
-            inner: Arc::new(RwLock::new(T::default())),
+            inner: Arc::new(Mutex::new(T::default())),
             name,
             read_method_map: Default::default(),
             write_method_map: Default::default(),
@@ -145,9 +109,12 @@ impl<T: Default + Sync + Send + 'static + PartialEq> StructRecord<T> {
             init_fn: None,
             display_fn: None,
             initialized: false,
+            id: rand::random(),
         }
     }
+}
 
+impl<T> StructRecord<T> {
     pub(crate) fn add_method<Args, Out, F: IntoReadFn<Args, T, Out>>(
         mut self,
         sym: &'static str,
@@ -164,7 +131,7 @@ impl<T: Default + Sync + Send + 'static + PartialEq> StructRecord<T> {
         sym: &'static str,
         f: F,
     ) -> Self {
-        Arc::get_mut(&mut self.write_method_map)
+        Arc::get_mut(&mut self.read_method_map)
             .unwrap()
             .insert(sym, f.into_write_fn());
         self
@@ -205,28 +172,34 @@ impl<T: Default + Sync + Send + 'static + PartialEq> StructRecord<T> {
     }
 }
 
-impl<T: 'static + Send + Sync + Default + PartialEq> Record for StructRecord<T> {
+impl<T: 'static + PartialEq + Sync + Send> Record for StructRecord<T> {
     fn call_method(
         &self,
         sym: &str,
         args: Vector<Expr>,
         symbol_table: &SymbolTable,
     ) -> LispResult<Expr> {
-        if self.initialized {
-            if let Some(ff) = self.read_method_map.get(sym) {
-                return (ff)(self, args, symbol_table);
-            }
-            if let Some(ff) = self.write_method_map.get(sym) {
-                return (ff)(self, args, symbol_table);
-            }
-            unknown_method!(self, sym)
-        } else {
+        if !self.initialized {
             bail!(
                 "Method {} called on uninitialized record {} with args [ {} ]",
                 sym,
                 self.display(),
                 args.iter().join(" ")
             )
+        }
+
+        match sym {
+            "ref_count" => Ok(Expr::num(Arc::strong_count(&self.inner))),
+            "id" => Ok(Expr::num(self.id)),
+            sym => {
+                if let Some(ff) = self.read_method_map.get(sym) {
+                    return (ff)(self, args, symbol_table);
+                }
+                if let Some(ff) = self.read_method_map.get(sym) {
+                    return (ff)(self, args, symbol_table);
+                }
+                unknown_method!(self, sym)
+            }
         }
     }
 
@@ -238,7 +211,7 @@ impl<T: 'static + Send + Sync + Default + PartialEq> Record for StructRecord<T> 
         if self.initialized {
             match self.display_fn {
                 Some(ref ff) => {
-                    let guard = self.inner.read();
+                    let guard = self.inner.lock();
                     (ff)(&guard)
                 }
                 None => format!(
@@ -259,7 +232,7 @@ impl<T: 'static + Send + Sync + Default + PartialEq> Record for StructRecord<T> 
     fn methods(&self) -> Vec<String> {
         self.read_method_map
             .keys()
-            .chain(self.write_method_map.keys())
+            .chain(self.read_method_map.keys())
             .map(|s| s.to_string())
             .collect()
     }
@@ -269,7 +242,7 @@ impl<T: 'static + Send + Sync + Default + PartialEq> Record for StructRecord<T> 
     }
 
     fn id(&self) -> u64 {
-        0
+        self.id
     }
 
     fn get_type_str(&self) -> String {
@@ -281,20 +254,21 @@ impl<T: 'static + Send + Sync + Default + PartialEq> Record for StructRecord<T> 
             Some(ref ff) => {
                 let new_inner = (ff)(args).map_err(|e| anyhow!("{:?}", e))?;
                 let mut new_me = Clone::clone(self);
-                new_me.inner = Arc::new(RwLock::new(new_inner));
+                new_me.inner = Arc::new(Mutex::new(new_inner));
                 new_me.initialized = true;
                 crate::record!(new_me)
             }
-            None => crate::record!(StructRecord {
-                initialized: true,
-                ..Clone::clone(self)
-            }),
+            None => {
+                let mut new_me = Clone::clone(self);
+                new_me.initialized = true;
+                crate::record!(new_me)
+            }
         }
     }
 
     fn is_equal(&self, other: &dyn Record) -> bool {
         match other.downcast_ref::<Self>() {
-            Some(sr_other) => *self.inner.read() == *sr_other.inner.read(),
+            Some(sr_other) => *self.inner.lock() == *sr_other.inner.lock(),
             None => false,
         }
     }
@@ -324,7 +298,7 @@ where
     fn into_read_fn(self) -> ReadFn<T> {
         let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 0);
-            let s = sr.inner.read();
+            let s = sr.inner.lock();
             (self)(&s).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Box::new(ff)
@@ -339,7 +313,7 @@ where
     fn into_read_fn(self) -> ReadFn<T> {
         let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 0);
-            let my_inner = sr.inner.read();
+            let my_inner = sr.inner.lock();
             let new_inner = (self)(&my_inner);
             crate::record!(sr.clone_with_new_inner(new_inner))
         };
@@ -359,7 +333,7 @@ where
         let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 1);
             let a = crate::convert_arg!(A, &args[0]);
-            let s = sr.inner.read();
+            let s = sr.inner.lock();
             (self)(&s, a).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Box::new(ff)
@@ -376,7 +350,7 @@ where
         let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 1);
             let a = crate::convert_arg!(A, &args[0]);
-            let s = sr.inner.read();
+            let s = sr.inner.lock();
             let new_inner = (self)(&s, a)?;
             crate::record!(sr.clone_with_new_inner(new_inner))
         };
@@ -400,8 +374,8 @@ where
             match other.downcast_ref::<StructRecord<T>>() {
                 Some(other_rec) => {
                     // TODO: Deadlock if same?
-                    let my_inner = sr.inner.read();
-                    let other_inner = other_rec.inner.read();
+                    let my_inner = sr.inner.lock();
+                    let other_inner = other_rec.inner.lock();
                     (self)(&my_inner, &other_inner)
                         .to_x7()
                         .map_err(|e| anyhow!("{:?}", e))
@@ -425,8 +399,8 @@ where
             match other.downcast_ref::<StructRecord<T>>() {
                 Some(other_rec) => {
                     // TODO: Deadlock if same?
-                    let my_inner = sr.inner.read();
-                    let other_inner = other_rec.inner.read();
+                    let my_inner = sr.inner.lock();
+                    let other_inner = other_rec.inner.lock();
                     let new_inner = (self)(&my_inner, &other_inner);
                     crate::record!(sr.clone_with_new_inner(new_inner))
                 }
@@ -451,7 +425,7 @@ where
             crate::exact_len!(args, 2);
             let a = crate::convert_arg!(A, &args[0]);
             let b = crate::convert_arg!(B, &args[1]);
-            let s = sr.inner.read();
+            let s = sr.inner.lock();
             (self)(&s, a, b).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Box::new(ff)
@@ -472,7 +446,7 @@ where
             let a = crate::convert_arg!(A, &args[0]);
             let b = crate::convert_arg!(B, &args[1]);
             let c = crate::convert_arg!(C, &args[2]);
-            let s = sr.inner.read();
+            let s = sr.inner.lock();
             (self)(&s, a, b, c).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Box::new(ff)
@@ -491,7 +465,7 @@ where
     fn into_write_fn(self) -> WriteFn<T> {
         let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 0);
-            let mut s = sr.inner.write();
+            let mut s = sr.inner.lock();
             (self)(&mut s).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Box::new(ff)
@@ -506,7 +480,7 @@ where
     fn into_write_fn(self) -> WriteFn<T> {
         let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 0);
-            let mut my_inner = sr.inner.write();
+            let mut my_inner = sr.inner.lock();
             let new_inner = (self)(&mut my_inner);
             crate::record!(sr.clone_with_new_inner(new_inner))
         };
@@ -526,7 +500,7 @@ where
         let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, _sym: &SymbolTable| {
             crate::exact_len!(args, 1);
             let a = crate::convert_arg!(A, &args[0]);
-            let mut s = sr.inner.write();
+            let mut s = sr.inner.lock();
             (self)(&mut s, a).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Box::new(ff)
@@ -548,8 +522,8 @@ where
             match other.downcast_ref::<StructRecord<T>>() {
                 Some(other_rec) => {
                     // TODO: Deadlock if same?
-                    let mut my_inner = sr.inner.write();
-                    let other_inner = other_rec.inner.read();
+                    let mut my_inner = sr.inner.lock();
+                    let other_inner = other_rec.inner.lock();
                     (self)(&mut my_inner, &other_inner)
                         .to_x7()
                         .map_err(|e| anyhow!("{:?}", e))
@@ -573,8 +547,8 @@ where
             match other.downcast_ref::<StructRecord<T>>() {
                 Some(other_rec) => {
                     // TODO: Deadlock if same?
-                    let mut my_inner = sr.inner.write();
-                    let other_inner = other_rec.inner.read();
+                    let mut my_inner = sr.inner.lock();
+                    let other_inner = other_rec.inner.lock();
                     let new_inner = (self)(&mut my_inner, &other_inner);
                     crate::record!(sr.clone_with_new_inner(new_inner))
                 }
@@ -599,7 +573,7 @@ where
             crate::exact_len!(args, 2);
             let a = crate::convert_arg!(A, &args[0]);
             let b = crate::convert_arg!(B, &args[1]);
-            let mut s = sr.inner.write();
+            let mut s = sr.inner.lock();
             (self)(&mut s, a, b).to_x7().map_err(|e| anyhow!("{:?}", e))
         };
         Box::new(ff)
@@ -620,7 +594,7 @@ where
             let a = crate::convert_arg!(A, &args[0]);
             let b = crate::convert_arg!(B, &args[1]);
             let c = crate::convert_arg!(C, &args[2]);
-            let mut s = sr.inner.write();
+            let mut s = sr.inner.lock();
             (self)(&mut s, a, b, c)
                 .to_x7()
                 .map_err(|e| anyhow!("{:?}", e))

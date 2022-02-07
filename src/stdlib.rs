@@ -5,7 +5,7 @@ use crate::iterators::{
 };
 use crate::modules::load_x7_stdlib;
 use crate::records::{DictMutRecord, DictRecord, RecordDoc};
-use crate::records::{DynRecord, FileRecord, RegexRecord, SetRecord};
+use crate::records::{DynRecord, FileRecord, ReadChan, RegexRecord, SetRecord, WriteChan};
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use crate::{bad_types, iterators::LazyFilter};
 use crate::{cli::Options, iterators::IterType};
@@ -755,7 +755,7 @@ fn anon_fn_sugar(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult
         body.eval(&new_sym)
     });
     let f = Function::new("AnonFn".into(), 0, f, true);
-    Ok(Expr::Function(Arc::new(f)))
+    Ok(Expr::Function(f))
 }
 
 // Dict
@@ -932,7 +932,7 @@ fn tail(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
         if list.is_empty() {
             return Ok(Expr::Nil);
         } else {
-            return Ok(Expr::List(list.slice(1..)));
+            return Ok(Expr::Tuple(list.slice(1..)));
         }
     }
     let string = exprs[0].get_string()?;
@@ -966,7 +966,7 @@ fn rev(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     if let Ok(s) = &exprs[0].get_string() {
         return Ok(Expr::string(s.chars().rev().collect()));
     }
-    bad_types!("string or list/quote/tuple", &exprs[0])
+    bad_types!("string or list/quote/tuple", exprs[0])
 }
 
 fn range(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1072,6 +1072,21 @@ fn doall(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     use crate::iterators::LazyIter;
     exprs[0].get_iterator()?.eval(symbol_table)
+}
+
+fn go(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let ff = exprs[0].get_function()?.clone();
+    let sym_clone = symbol_table.clone();
+    let join_handle = std::thread::spawn(move || ff.call_fn(vector![], &sym_clone));
+    symbol_table.add_join_handle(join_handle);
+    Ok(Expr::Nil)
+}
+
+fn chan(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 0);
+    let (write, read) = crate::records::make_chan();
+    Ok(Expr::Tuple(vector![write, read]))
 }
 
 fn shuffle(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1262,15 +1277,26 @@ macro_rules! document_records {
     };
 }
 
+macro_rules! document_record {
+    ($sym:expr, $rec:ident) => {
+        $sym.add_doc_item($rec::name().into(), $rec::type_doc().into());
+        for (method, method_doc) in $rec::method_doc() {
+            $sym.add_doc_item(format!("{}.{}", $rec::name(), method), (*method_doc).into());
+        }
+    };
+}
+
 macro_rules! register_record {
     ($sym:expr, $rec:ident) => {{
         $sym.add_local(&Expr::Symbol($rec::RECORD_NAME.into()), &$rec::make())
             .unwrap();
 
-        $sym.add_doc_item($rec::name().into(), $rec::type_doc().into());
-        for (method, method_doc) in $rec::method_doc() {
-            $sym.add_doc_item(format!("{}.{}", $rec::name(), method), (*method_doc).into());
-        }
+        document_record!($sym, $rec);
+
+        // $sym.add_doc_item($rec::name().into(), $rec::type_doc().into());
+        // for (method, method_doc) in $rec::method_doc() {
+        //     $sym.add_doc_item(format!("{}.{}", $rec::name(), method), (*method_doc).into());
+        // }
     }};
 }
 
@@ -1561,6 +1587,25 @@ Example:
 >>> (shuffle (range 10))
 (6 3 2 9 4 0 1 8 5 7)
 "),
+        ("go", 1, go, true, "Run a function in a new thread. Example:
+(go (fn ()
+        (do
+         (sleep 2)
+         (println \"from another thread!\"))))
+
+;; After two seconds, something is printed "),
+        ("chan", 0, chan, true, "Make a channel. Returns a tuple of (writer, reader). Example:
+(bind
+ ((w r) (chan))
+ (do
+   (go (fn () (print-recv r)))
+   (.send w \"in bind context 1\")
+   (sleep 1)
+   (.send w \"in bind context 2\")
+   (.close w)
+  ))
+
+;; Two things are printed."),
         ("random_bool", 0, random_bool, true, "Randomly return true or false."),
         ("random_int", 2, random_int, true, "Randomly return an integer between lower and upper.
 
@@ -1904,8 +1949,13 @@ Example:
     register_record!(syms, SetRecord);
     register_record!(syms, DictRecord);
     register_record!(syms, DictMutRecord);
-    document_records!(syms, FileRecord);
-    document_records!(syms, RegexRecord);
-    document_records!(syms, SetRecord);
+    document_records!(
+        syms,
+        FileRecord,
+        RegexRecord,
+        SetRecord,
+        WriteChan,
+        ReadChan
+    );
     syms
 }

@@ -1,0 +1,49 @@
+(go (fn ()
+        (do
+         (sleep 2)
+         (println "from another thread 👉😳👈"))))
+
+(defn print-recv (reader)
+  (do
+   (println (.recv reader))
+   (println (.recv reader))
+   (println (.recv reader))
+   (println (.recv reader))
+   ))
+
+(def chans (chan))
+;; You can view ref_counts and id
+;; (println "Writer ref count: " (.ref_count (head chans)))
+;; (println "Writer id: " (.id (head chans)))
+(def writer (head chans))
+(def reader (head (tail chans)))
+
+;; (println "Writer id: " (.id writer))
+;; (println "Writer ref count: " (.ref_count writer))
+;; (println "Reader ref count: " (.ref_count reader))
+
+(go (fn () (print-recv reader)))
+
+(sleep 1)
+(.send writer "Hello 1")
+(sleep 1)
+(.send writer "Hello 2")
+(sleep 1)
+(.send writer "Hello 3")
+
+(println writer)
+(println "writer is closed?: " (.is_closed writer))
+(println (.close writer) " hello")
+(println "writer is closed?: " (.is_closed writer))
+(println "reader is closed?: " (.is_closed reader))
+
+
+(bind
+ ((w r) (chan))
+ (do
+   (go (fn () (print-recv r)))
+   (.send w "in bind context 1")
+   (sleep 1)
+   (.send w "in bind context 2")
+   (.close w)
+  ))

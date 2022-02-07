@@ -3,5 +3,10 @@
     coll (* (head coll) (mult (tail coll)))
     true 1))
 
+(defn mult-other (first & rest)
+  (cond
+    rest (apply mult-other (cons (* first (head rest)) (tail rest)))
+    true first))
 
-(print (mult '(1 2 3 4 5)))
+(println (mult '(1 2 3 4 5)))
+(println (mult-other 1 2 3 4 5))

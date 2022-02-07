@@ -660,6 +660,12 @@ Turn a string into a symbol
 Make a string
 #+END_SRC
 
+*** =bool=
+
+#+BEGIN_SRC elisp
+Coerce a value to bool. In general if a collection is non-empty, it is true. The len method is called on Records
+#+END_SRC
+
 *** =print=
 
 #+BEGIN_SRC elisp
@@ -774,6 +780,35 @@ Example:
 >>> (shuffle (range 10))
 (6 3 2 9 4 0 1 8 5 7)
 
+#+END_SRC
+
+*** =go=
+
+#+BEGIN_SRC elisp
+Run a function in a new thread. Example:
+(go (fn ()
+        (do
+         (sleep 2)
+         (println "from another thread!"))))
+
+;; After two seconds, something is printed
+#+END_SRC
+
+*** =chan=
+
+#+BEGIN_SRC elisp
+Make a channel. Returns a tuple of (writer, reader). Example:
+(bind
+ ((w r) (chan))
+ (do
+   (go (fn () (print-recv r)))
+   (.send w "in bind context 1")
+   (sleep 1)
+   (.send w "in bind context 2")
+   (.close w)
+  ))
+
+;; Two things are printed.
 #+END_SRC
 
 *** =random_bool=
@@ -1611,6 +1646,27 @@ Example:
 
 #+END_SRC
 
+*** =Dict=
+
+#+BEGIN_SRC elisp
+Immutable dictionary.
+Example:
+(dict "a" 1 "b" 2) ;
+
+#+END_SRC
+
+*** =DictMut=
+
+#+BEGIN_SRC elisp
+Mutable dictionary type
+#+END_SRC
+
+*** =DictMut.Docs=
+
+#+BEGIN_SRC elisp
+TBD
+#+END_SRC
+
 *** =FileRecord=
 
 #+BEGIN_SRC elisp
@@ -1803,6 +1859,68 @@ Convert the Set into a list. Order is undefined.
 Example:
 (.to_list (apply Set (range 5))) ;; (1 2 0 3 4)
 
+#+END_SRC
+
+*** =WriteChan=
+
+#+BEGIN_SRC elisp
+Write side of a channel
+#+END_SRC
+
+*** =WriteChan.send=
+
+#+BEGIN_SRC elisp
+Sent some item into a channel.
+;; `w` is some writer
+(.send w "Some item 1")
+
+#+END_SRC
+
+*** =WriteChan.close=
+
+#+BEGIN_SRC elisp
+Close the writer. This will stop any readers on the channel.
+#+END_SRC
+
+*** =WriteChan.is_closed=
+
+#+BEGIN_SRC elisp
+Returns true if the channel is closed.
+#+END_SRC
+
+*** =ReadChan=
+
+#+BEGIN_SRC elisp
+Read side of a channel
+#+END_SRC
+
+*** =ReadChan.recv=
+
+#+BEGIN_SRC elisp
+Read some item from a channel. This will block until an item is received or the sender is closed. Example:
+
+;; `w` is some writer
+(bind
+ ((writer reader) (chan))
+ (do
+   (go (fn () (do (println (.recv r))))) ;; recv items
+   (.send writer "item 1")
+   (sleep 1)
+   (.send writer "item 2")
+   (.close writer) ;; "item 1" and "item 2" are printed
+  ))
+#+END_SRC
+
+*** =ReadChan.close=
+
+#+BEGIN_SRC elisp
+Close the reader. This will fail if the reader has been closed.
+#+END_SRC
+
+*** =ReadChan.is_closed=
+
+#+BEGIN_SRC elisp
+Returns true if the channel is closed.
 #+END_SRC
 
 *** =pretty-print=

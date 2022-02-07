@@ -1,3 +1,4 @@
+mod chan;
 mod dict;
 mod dyn_record;
 mod file;
@@ -6,6 +7,7 @@ mod regex;
 mod set;
 mod struct_record;
 
+pub(crate) use self::chan::{make_chan, ReadChan, WriteChan};
 pub(crate) use self::dict::{DictMutRecord, DictRecord};
 pub(crate) use self::dyn_record::DynRecord;
 pub(crate) use self::file::FileRecord;

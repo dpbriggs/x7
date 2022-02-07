@@ -5,6 +5,8 @@
 ** DONE Add truthiness to the language
 CLOSED: [2022-02-03 Thu 12:30]
 
+** TODO Allow truthiness override for Records
+
 ** TODO Finish up StructRecord conversion; deprecate stdlib =dict=
 
 ** TODO Fix a stack overflow in this function:
@@ -30,3 +32,15 @@ fatal runtime error: stack overflow
 ** TODO Add tail call optimization
 
 ** TODO Add git hook which runs the stdlib test suite
+
+** TODO Use a generic pattern struct for all binding contexts
+
+Something like =Pattern= so it works with def, functions, etc:
+
+#+begin_example
+(def (a b) '(1 2))
+#+end_example
+
+** TODO Fix resource leak around everything
+
+See the =coroutines= example.

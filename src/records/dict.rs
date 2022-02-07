@@ -149,6 +149,6 @@ impl RecordDoc for DictMutRecord {
     }
 
     fn method_doc() -> &'static [(&'static str, &'static str)] {
-        &[]
+        &[("Docs", "TBD")]
     }
 }

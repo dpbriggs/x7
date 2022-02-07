@@ -15,6 +15,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
+use std::thread::JoinHandle;
 
 #[macro_export]
 macro_rules! bad_types {
@@ -47,7 +48,7 @@ pub enum Expr {
     Integer(Integer),
     Symbol(Symbol),
     List(Vector<Expr>),
-    Function(Arc<Function>),
+    Function(Function),
     Nil,
     String(Arc<String>),
     Quote(Vector<Expr>),
@@ -241,7 +242,7 @@ impl Expr {
     }
 
     pub(crate) fn function(f: Function) -> Self {
-        Expr::Function(Arc::new(f))
+        Expr::Function(f)
     }
 
     pub(crate) fn get_type_str(&self) -> &'static str {
@@ -872,6 +873,7 @@ impl Doc {
 pub struct SymbolTable {
     globals: Arc<RwLock<HashMap<InternedString, Expr>>>,
     locals: Arc<RwLock<HashMap<InternedString, Expr>>>,
+    fn_join_handles: Arc<RwLock<Vec<JoinHandle<LispResult<Expr>>>>>,
     docs: Arc<Mutex<Doc>>,
     // TODO: Should functions be magic like this?
     // Future Dave: magic means we special case adding
@@ -892,10 +894,23 @@ impl SymbolTable {
                     .map(|(s, e)| (InternedString::new(s), e))
                     .collect(),
             )),
+            fn_join_handles: Default::default(),
             locals: Default::default(),
             docs: Arc::new(Mutex::new(Doc::with_globals(doc_order))),
             func_locals: Default::default(),
         }
+    }
+
+    pub(crate) fn add_join_handle(&self, j: JoinHandle<LispResult<Expr>>) {
+        self.fn_join_handles.write().push(j);
+    }
+
+    pub fn wait_on_threads(&mut self) {
+        self.fn_join_handles.write().drain(..).for_each(|j| {
+            if let Err(e) = j.join() {
+                eprintln!("Failed to join: {:?}", e);
+            }
+        })
     }
 
     pub(crate) fn lookup(&self, symbol: &InternedString) -> LispResult<Expr> {
@@ -922,15 +937,18 @@ impl SymbolTable {
     }
 
     pub(crate) fn with_closure(&self, other: &HashMap<InternedString, Expr>) -> SymbolTable {
-        SymbolTable {
-            func_locals: self
-                .func_locals
-                .iter()
-                .chain(other)
-                .map(|(k, v)| (*k, v.clone()))
-                .collect(),
-            ..self.clone()
-        }
+        let mut new = self.clone();
+        new.func_locals = self
+            .func_locals
+            .iter()
+            .chain(other)
+            .map(|(k, v)| (*k, v.clone()))
+            .collect();
+        new
+        // SymbolTable {
+        //     func_locals: ,
+        //     ..self.clone()
+        // }
     }
 
     pub(crate) fn add_local_item(&self, symbol: InternedString, value: Expr) -> Self {

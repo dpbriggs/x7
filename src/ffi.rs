@@ -91,6 +91,12 @@ impl Default for X7Interpreter {
     }
 }
 
+impl Drop for X7Interpreter {
+    fn drop(&mut self) {
+        self.symbol_table.wait_on_threads();
+    }
+}
+
 impl X7Interpreter {
     /// Make a new interpreter instance.
     pub fn new() -> Self {
