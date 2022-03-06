@@ -1,0 +1,17 @@
+;; TODO: Add loop, recur, break?
+
+(defn ask-user (answer guess)
+  (cond
+    (= answer guess) (do (println "You win! It was indeed " answer) true)
+    (< answer guess) (do (println "Lower") false)
+    (> answer guess) (do (println "Higher") false)))
+
+(defn guessing-game ()
+  (bind
+   (answer (random_int 1 100))
+   (foreach ident (take-while #(not (ask-user answer (int (input "Guess a number: "))))
+                              (range)
+                              ))))
+
+(println "Guess the number between 1 and 100")
+(guessing-game)
