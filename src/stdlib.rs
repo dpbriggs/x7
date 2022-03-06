@@ -449,9 +449,46 @@ fn println(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
     Ok(Expr::Nil)
 }
 
+fn input(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let mut buf = String::new();
+    print(exprs, _symbol_table)?;
+    std::io::stdin()
+        .read_line(&mut buf)
+        .map_err(|e| anyhow!("{}", e))?;
+    Ok(Expr::string(buf.trim().to_string()))
+}
+
 fn type_of(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     Ok(Expr::string(exprs[0].get_type_str().into()))
+}
+
+fn do_loop(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1, 2);
+    // TODO: Handle args / add recur
+    let _args = exprs[0].get_list()?;
+    let body = &exprs[1];
+    let break_flag = Arc::new(AtomicBool::new(false));
+    let break_flag_clone = break_flag.clone();
+    let break_fn_f = move |ex: Vector<Expr>, _sym: &SymbolTable| {
+        exact_len!(ex, 0);
+        break_flag_clone.store(true, std::sync::atomic::Ordering::SeqCst);
+        Ok(Expr::Nil)
+    };
+    let break_fn = Function::new("break".into(), 0, Arc::new(break_fn_f), false);
+    let mut new_sym = symbol_table.clone();
+    new_sym.add_func_local_str("break", Expr::function(break_fn));
+    loop {
+        if break_flag.load(std::sync::atomic::Ordering::SeqCst) {
+            break;
+        }
+        body.eval(&new_sym)?;
+    }
+    // (loop () (println "Hello World"))
+    // (loop (a b c) (expression))
+    // (break)
+    // (recur 1 2 3)
+    Ok(Expr::Nil)
 }
 
 // FUNC
@@ -1247,6 +1284,7 @@ fn assert_eq(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr
 use std::borrow::Cow;
 use std::io::Write;
 use std::iter::repeat;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 use std::{sync::Arc, time::Instant};
 
@@ -1292,11 +1330,6 @@ macro_rules! register_record {
             .unwrap();
 
         document_record!($sym, $rec);
-
-        // $sym.add_doc_item($rec::name().into(), $rec::type_doc().into());
-        // for (method, method_doc) in $rec::method_doc() {
-        //     $sym.add_doc_item(format!("{}.{}", $rec::name(), method), (*method_doc).into());
-        // }
     }};
 }
 
@@ -1350,7 +1383,7 @@ Example: (* 1 2 3) ; 6
             rem_exprs,
             true,
             "Take the remainder of the first item against the second.
-Example: (% 4 2) ; 0"
+    Example: (% 4 2) ; 0"
         ),
         (
             "/",
@@ -1386,7 +1419,7 @@ Example: (= 1 1) ; true
             lt_exprs,
             true,
             "Test if the first item is strictly smaller than the rest.
-Example: (< 0 1 2) ; true"
+    Example: (< 0 1 2) ; true"
         ),
         (
             "<=",
@@ -1394,7 +1427,7 @@ Example: (< 0 1 2) ; true"
             lte_exprs,
             true,
             "Test if the first item is smaller or equal to the rest.
-Example: (<= 0 0 0.05 1) ; true"
+    Example: (<= 0 0 0.05 1) ; true"
         ),
         (
             ">",
@@ -1402,7 +1435,7 @@ Example: (<= 0 0 0.05 1) ; true"
             gt_exprs,
             true,
             "Test if the first item is strictly greater than the rest.
-Example: (> 10 0 1 2 3 4) ; true"
+    Example: (> 10 0 1 2 3 4) ; true"
         ),
         (
             ">=",
@@ -1410,7 +1443,7 @@ Example: (> 10 0 1 2 3 4) ; true"
             gte_exprs,
             true,
             "Test if the first item is greater than or equal to the rest.
-Example: (>= 10 10 5) ; true"
+    Example: (>= 10 10 5) ; true"
         ),
         ("inc", 1, inc_exprs, true, "Increment the given number.
 Example:
@@ -1497,6 +1530,13 @@ Example:
             "Print the given argument WITH a newline."
         ),
         (
+            "input",
+            1,
+            input,
+            true,
+            "Get user input from stdin"
+        ),
+        (
             "split",
             2,
             split,
@@ -1565,6 +1605,7 @@ Example:
   (= input 10) (print \"input is 10\")
   true         (print \"hit base case, input is: \" input))
 "),
+        ("loop", 2, do_loop, false, "Not done yet. Loop in a weird way. Repeatedly runs the body until (break) is called."),
         ("match", 3, expr_match, false, "Branching control flow construct. Given an item and an even list of [value then], if `item` == `value`, return `then`.
 Example:
 (def input 10)
@@ -1624,15 +1665,15 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 "),
         ("primes", 1, primes, true, "Prime numbers less than `n`."),
         ("divisors", 1, divisors, true, "Divisors of `n`. Example:
-(divisors 20) ;; ^(1 2 4 5 10 20)"),
+    (divisors 20) ;; ^(1 2 4 5 10 20)"),
         ("sleep", 1, sleep, true, "Sleep for n seconds.
-Example: (sleep 10) ; sleep for 10 seconds."),
+    Example: (sleep 10) ; sleep for 10 seconds."),
         ("type", 1, type_of, true, "Return the type of the argument as a string.
-Example: (type \"hello\") ; str"),
+    Example: (type \"hello\") ; str"),
         ("doc", 1, doc, false, "Return the documentation of a symbol as a string.
-Example: (doc doc) ; Return the documentation of a symbol as a..."),
+    Example: (doc doc) ; Return the documentation of a symbol as a..."),
         ("err", 1, err, true, "Return an error with a message string.
-Example: (err \"Something bad happened!\") ; return an error"),
+    Example: (err \"Something bad happened!\") ; return an error"),
         ("all-symbols", 0, all_symbols, true, "Return all symbols defined in the interpreter."),
         ("include", 1, include, true, "Include a file into the interpreter."),
         // FUNC TOOLS
@@ -1949,13 +1990,8 @@ Example:
     register_record!(syms, SetRecord);
     register_record!(syms, DictRecord);
     register_record!(syms, DictMutRecord);
-    document_records!(
-        syms,
-        FileRecord,
-        RegexRecord,
-        SetRecord,
-        WriteChan,
-        ReadChan
-    );
+    register_record!(syms, FileRecord);
+    register_record!(syms, RegexRecord);
+    document_records!(syms, SetRecord, WriteChan, ReadChan);
     syms
 }

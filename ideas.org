@@ -1,6 +1,7 @@
 * Ideas
 
-** TODO Add channels and a =go= function
+** DONE Add channels and a =go= function
+CLOSED: [2022-02-08 Tue 11:19]
 
 ** DONE Add truthiness to the language
 CLOSED: [2022-02-03 Thu 12:30]
@@ -44,3 +45,9 @@ Something like =Pattern= so it works with def, functions, etc:
 ** TODO Fix resource leak around everything
 
 See the =coroutines= example.
+
+** TODO Remove default bound in StructRecord
+
+** TODO Add a byte code compiler and interpreter
+
+** TODO Completely rewrite the parser

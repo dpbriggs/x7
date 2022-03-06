@@ -29,5 +29,5 @@
 (println "Problem 1 - Number of valid passwords: "
          (len (filter ident (map problem1-is-valid? lines))))
 
-(println "Problem 2 - Number of valid passwords: "
-         (len (filter ident (map problem2-is-valid? lines))))
+;; (println "Problem 2 - Number of valid passwords: "
+;;          (len (filter ident (map problem2-is-valid? lines))))

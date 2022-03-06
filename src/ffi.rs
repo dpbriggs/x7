@@ -543,6 +543,21 @@ impl ForeignData for RecordType {
     }
 }
 
+impl ForeignData for LispResult<usize> {
+    #[inline]
+    fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {
+        match self {
+            Ok(e) => Ok(Expr::num(*e)),
+            Err(ref e) => Err(ErrorBridge::new(anyhow!("{:?}", e))),
+        }
+    }
+
+    #[inline]
+    fn from_x7(expr: &Expr) -> Result<Self, Box<dyn Error + Send>> {
+        Ok(expr.get_usize())
+    }
+}
+
 impl ForeignData for LispResult<Expr> {
     #[inline]
     fn to_x7(&self) -> Result<Expr, Box<dyn Error + Send>> {

@@ -1,16 +1,33 @@
 use std::hash::Hash;
 
-use crate::records::{Record, RecordDoc};
+use crate::exact_len;
+use crate::records::RecordDoc;
 use crate::symbols::{Expr, LispResult, SymbolTable};
-use crate::{exact_len, record, try_call_method, unknown_method};
 use anyhow::anyhow;
 use im::Vector;
 use regex::Regex;
+
+use super::struct_record::StructRecord;
 
 #[derive(Debug, Clone)]
 pub(crate) struct RegexRecord {
     re: Regex,
     regex_string: String,
+}
+
+impl Default for RegexRecord {
+    fn default() -> Self {
+        Self {
+            re: Regex::new(".*").unwrap(),
+            regex_string: ".*".into(),
+        }
+    }
+}
+
+impl PartialEq for RegexRecord {
+    fn eq(&self, other: &Self) -> bool {
+        self.regex_string == other.regex_string
+    }
 }
 
 impl Hash for RegexRecord {
@@ -20,25 +37,25 @@ impl Hash for RegexRecord {
 }
 
 impl RegexRecord {
-    pub(crate) fn compile_x7(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-        exact_len!(exprs, 1);
-        let re_s = exprs[0].get_string()?;
-        let re = RegexRecord {
-            re: Regex::new(&re_s).map_err(|e| anyhow!("Failed to compile the regex: {}", e))?,
-            regex_string: re_s,
-        };
-        record!(re)
+    pub(crate) const RECORD_NAME: &'static str = "RegexRecord";
+
+    pub(crate) fn compile_x7(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+        symbol_table
+            .lookup(&Self::RECORD_NAME.into())?
+            .call_fn(exprs, symbol_table)
     }
 
-    fn is_match(&self, args: Vector<Expr>) -> LispResult<Expr> {
-        exact_len!(args, 1);
-        let s = args[0].get_string()?;
-        Ok(Expr::Bool(self.re.is_match(&s)))
+    fn is_match(&self, s: String) -> bool {
+        self.re.is_match(&s)
     }
 
-    fn captures(&self, args: Vector<Expr>) -> LispResult<Expr> {
-        exact_len!(args, 1);
-        let s = args[0].get_string()?;
+    fn captures(&self, s: String) -> LispResult<Expr> {
+        dbg!(&s);
+        dbg!(&self.re);
+        self.re.captures_iter(&s).for_each(|cap| {
+            dbg!(&cap);
+        });
+        dbg!(self.re.captures(&s));
         let captures = self
             .re
             .captures_iter(&s)
@@ -52,43 +69,62 @@ impl RegexRecord {
                 )
             })
             .collect();
+        dbg!(&captures);
         Ok(Expr::List(captures))
     }
-}
 
-impl Record for RegexRecord {
-    fn call_method(
-        &self,
-        sym: &str,
-        args: Vector<Expr>,
-        _symbol_table: &SymbolTable,
-    ) -> LispResult<Expr> {
-        try_call_method!(self, sym, args, is_match, captures)
-    }
-
-    fn display(&self) -> String {
-        self.debug()
-    }
-
-    fn debug(&self) -> String {
-        format!("Regex<{}>", self.re)
-    }
-
-    fn clone(&self) -> super::RecordType {
-        Box::new(Clone::clone(self))
-    }
-
-    fn methods(&self) -> Vec<String> {
-        RegexRecord::method_doc()
-            .iter()
-            .map(|(l, _)| l.to_string())
-            .collect()
-    }
-
-    fn type_name(&self) -> String {
-        "Regex".into()
+    pub(crate) fn make() -> Expr {
+        StructRecord::record_builder(RegexRecord::RECORD_NAME)
+            .init_fn(&|v: Vec<Expr>| {
+                exact_len!(v, 1);
+                let re_s = v[0].get_string()?;
+                Ok(RegexRecord {
+                    re: Regex::new(&re_s)
+                        .map_err(|e| anyhow!("Failed to compile the regex: {}", e))?,
+                    regex_string: re_s,
+                })
+            })
+            .clone_with(&Clone::clone)
+            .display_with(&|regex: &RegexRecord| format!("Regex<{}>", regex.regex_string))
+            .add_method("is_match", RegexRecord::is_match)
+            .add_method("captures", RegexRecord::captures)
+            .build()
     }
 }
+
+// impl Record for RegexRecord {
+//     fn call_method(
+//         &self,
+//         sym: &str,
+//         args: Vector<Expr>,
+//         _symbol_table: &SymbolTable,
+//     ) -> LispResult<Expr> {
+//         try_call_method!(self, sym, args, is_match, captures)
+//     }
+
+//     fn display(&self) -> String {
+//         self.debug()
+//     }
+
+//     fn debug(&self) -> String {
+//         format!("Regex<{}>", self.re)
+//     }
+
+//     fn clone(&self) -> super::RecordType {
+//         Box::new(Clone::clone(self))
+//     }
+
+//     fn methods(&self) -> Vec<String> {
+//         RegexRecord::method_doc()
+//             .iter()
+//             .map(|(l, _)| l.to_string())
+//             .collect()
+//     }
+
+//     fn type_name(&self) -> String {
+//         "Regex".into()
+//     }
+// }
 
 impl RecordDoc for RegexRecord {
     fn name() -> &'static str {

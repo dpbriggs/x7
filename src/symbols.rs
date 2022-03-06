@@ -1009,6 +1009,10 @@ impl SymbolTable {
         Ok(())
     }
 
+    pub(crate) fn add_func_local_str(&mut self, sym: &'static str, value: Expr) {
+        self.func_locals.insert(sym.into(), value);
+    }
+
     pub(crate) fn with_locals(
         &self,
         symbols: &[InternedString],
