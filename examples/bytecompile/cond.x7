@@ -1,0 +1,5 @@
+(def a 7)
+(println (cond
+           (= 10 5)  3
+           (= 7 a)   "hello"
+           (= 10 11) 10))

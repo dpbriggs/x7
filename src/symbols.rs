@@ -49,6 +49,7 @@ pub enum Expr {
     Symbol(Symbol),
     List(Vector<Expr>),
     Function(Function),
+    ByteCompiledFunction(ByteCompiledFunction),
     Nil,
     String(Arc<String>),
     Quote(Vector<Expr>),
@@ -101,6 +102,7 @@ impl fmt::Debug for Expr {
             Expr::Integer(n) => write!(f, "{}", n),
             Expr::Symbol(s) => write!(f, "{}", s),
             Expr::Function(ff) => write!(f, "{}", ff),
+            Expr::ByteCompiledFunction(ff) => write!(f, "{}", ff),
             Expr::LazyIter(i) => write!(f, "{}", i),
             Expr::Quote(l) => write!(f, "'({})", debug_join(l)),
             Expr::Bool(b) => write!(f, "{}", b),
@@ -253,6 +255,7 @@ impl Expr {
             Expr::Integer(_) => "int",
             Expr::Bool(_) => "bool",
             Expr::Function(_) => "func",
+            Expr::ByteCompiledFunction(_) => "func",
             Expr::Symbol(_) => "symbol",
             Expr::List(_) => "list",
             Expr::Nil => "nil",
@@ -426,6 +429,47 @@ impl Expr {
         } else {
             self.len(symbol_table).map(|len| len > 0)
         }
+    }
+}
+
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub struct ByteCompiledFunction {
+    pub symbol: Symbol,
+    pub minimum_args: usize,
+    named_args: Box<[Symbol]>,
+    pub loc: usize,
+    // TODO: Handle closures
+}
+
+impl ByteCompiledFunction {
+    #[must_use]
+    pub fn new(symbol: Symbol, minimum_args: usize, named_args: Box<[Symbol]>, loc: usize) -> Self {
+        Self {
+            symbol,
+            minimum_args,
+            named_args,
+            loc,
+        }
+    }
+}
+
+impl std::fmt::Debug for ByteCompiledFunction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Fn<{}, min_args={}, loc={}, [ ",
+            self.symbol, self.minimum_args, self.loc
+        )?;
+        for arg in self.named_args.iter() {
+            write!(f, "{} ", arg)?;
+        }
+        write!(f, "], byte_compiled>")
+    }
+}
+
+impl fmt::Display for ByteCompiledFunction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
@@ -1006,6 +1050,11 @@ impl SymbolTable {
     /// Unless you're `def`, you should be using this function.
     pub(crate) fn add_func_local(&mut self, sym: Expr, value: Expr) -> LispResult<()> {
         self.func_locals.insert(sym.get_symbol_string()?, value);
+        Ok(())
+    }
+
+    pub(crate) fn add_func_local_sym(&mut self, sym: Symbol, value: Expr) -> LispResult<()> {
+        self.func_locals.insert(sym, value);
         Ok(())
     }
 

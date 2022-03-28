@@ -1,0 +1,15 @@
+(defn factorial (x)
+  (cond
+    (= 1 x) 1
+    true    (* x (factorial (dec x)))))
+
+(println (factorial 100000))
+
+;; (defn fib (n)
+;;   (cond
+;;     (= 0 n) 0
+;;     (= 1 n) 1
+;;     true    (+ (fib (- n 1) (fib (- n 2))))))
+
+;; Doesn't work :^(... yet
+;; (println (fib 5))

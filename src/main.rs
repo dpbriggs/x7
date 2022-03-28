@@ -3,7 +3,7 @@
 use crate::cli::report_error;
 use structopt::StructOpt;
 
-use x7::{cli, formatter, modules, stdlib};
+use x7::{cli, formatter, modules, stdlib, vm::ByteCodeVM};
 
 fn main() -> Result<(), i32> {
     let opt = cli::Options::from_args();
@@ -15,6 +15,14 @@ fn main() -> Result<(), i32> {
         cli::read_cli(&sym_table);
     } else {
         for f in opt.files {
+            if opt.byte_compile {
+                let contents = std::fs::read_to_string(&f).expect("Failed to read file");
+                if let Err(e) = ByteCodeVM::new(sym_table, opt.debugger).run(&contents) {
+                    report_error(&e);
+                    return Err(1);
+                }
+                return Ok(());
+            }
             if let Err(e) = modules::run_file(&f, &sym_table) {
                 report_error(&e);
                 return Err(1);

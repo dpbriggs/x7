@@ -1,0 +1,5 @@
+(defn foobar (x y)
+  (+ x y))
+
+(println (foobar 10 20))
+(println foobar)

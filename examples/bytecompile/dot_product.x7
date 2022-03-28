@@ -1,0 +1,19 @@
+(defn empty?
+  "Test if a collection is empty."
+  (x)
+  (= 0 (len x)))
+
+;; (println (or (empty? (tuple 1 )) (empty? (tuple  ))))
+
+(defn dot-product
+  "Dot product two vectors.
+Example:
+(dot-product '(1 2 3) '(4 5 6)) ; 32
+"
+  (l r)
+  (cond
+    (or (empty? l) (empty? r)) 0
+    true (+ (* (head l) (head r))
+            (dot-product (tail l) (tail r)))))
+
+(println (dot-product (tuple 1 2 3) (tuple 1 2 3)))

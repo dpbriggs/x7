@@ -1,0 +1,10 @@
+;; (defn easy-add (x y)
+;;   (+ x y))
+
+;; (println (easy-add 1 2))
+
+;; (println ((fn (x y) (+ x y)) 1 2))
+
+(defn foobar (x) (inc x))
+
+(println (map foobar ^(1 2 3)))
