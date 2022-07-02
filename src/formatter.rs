@@ -4,7 +4,7 @@ use std::io::{Read, Result as IOResult, Write};
 
 const INDENT_SIZE: usize = 4;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 enum Token<'input> {
     LeftBrace,
     RightBrace,

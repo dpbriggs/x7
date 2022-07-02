@@ -22,11 +22,12 @@ use itertools::Itertools;
 macro_rules! exact_len {
     ($args:expr, $len:literal) => {
         use anyhow::ensure;
-        use crate::symbols::ProgramError;
+        use $crate::symbols::ProgramError;
         ensure!($args.len() == $len, ProgramError::WrongNumberOfArgs($len))
     };
     ($args:expr, $($len:literal),*) => {
         {
+            use std::fmt::Write as _;
             let mut is_ok_len = false;
             $(
                 is_ok_len = is_ok_len || $args.len() == $len;
@@ -34,7 +35,7 @@ macro_rules! exact_len {
                 if !is_ok_len {
                     let mut expected_args = String::new();
                     $(
-                        expected_args.push_str(&format!("{} ", $len));
+                        write!(expected_args, "{}", $len).unwrap();
                     )*
                     bail!(anyhow!(format!("Wrong number of args! Expected {}, but received {}", expected_args, $args.len())));
                 }

@@ -27,6 +27,12 @@ pub struct ByteCodeCompiler {
     label_count: usize,
 }
 
+impl Default for ByteCodeCompiler {
+    fn default() -> Self {
+        ByteCodeCompiler::new()
+    }
+}
+
 impl ByteCodeCompiler {
     pub fn new() -> Self {
         ByteCodeCompiler {
@@ -258,7 +264,7 @@ impl ByteCodeCompiler {
         }
         Ok(output)
     }
-
+    #[allow(clippy::type_complexity)]
     pub fn compile(
         &mut self,
         input: &str,

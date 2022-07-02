@@ -20,12 +20,12 @@ use std::thread::JoinHandle;
 #[macro_export]
 macro_rules! bad_types {
     ($custom:expr) => {
-        Err(anyhow!(crate::symbols::ProgramError::BadTypes)).with_context(|| $custom)
+        Err(anyhow!($crate::symbols::ProgramError::BadTypes)).with_context(|| $custom)
     };
 
     ($expected:expr, $given:expr) => {{
         use anyhow::{anyhow, Context};
-        Err(anyhow!(crate::symbols::ProgramError::BadTypes)).with_context(|| {
+        Err(anyhow!($crate::symbols::ProgramError::BadTypes)).with_context(|| {
             format!(
                 "Error: Expected {}, but got type '{}': {:?}",
                 $expected,
@@ -644,7 +644,7 @@ impl Function {
 
 impl std::error::Error for ProgramError {}
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) enum ProgramError {
     BadTypes, // context
     // InvalidCharacterInSymbol,

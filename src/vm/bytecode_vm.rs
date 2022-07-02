@@ -119,7 +119,7 @@ impl ByteCodeVM {
     }
 
     fn remove_function_scope(&mut self) -> LispResult<()> {
-        if let None = self.function_scopes.pop() {
+        if self.function_scopes.pop().is_none() {
             Err(anyhow!("No function scope to pop! {}", self.instp))
         } else {
             Ok(())
@@ -174,8 +174,8 @@ impl ByteCodeVM {
                 self.push(res);
                 Ok(ControlFlow::Incr)
             }
-            Expr::ByteCompiledFunction(f) => self.call_byte_compiled_fn(&f),
-            otherwise => return bad_types!("func", otherwise),
+            Expr::ByteCompiledFunction(f) => self.call_byte_compiled_fn(f),
+            otherwise => bad_types!("func", otherwise),
         }
     }
 

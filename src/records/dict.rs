@@ -7,7 +7,7 @@ use crate::symbols::{Expr, LispResult, SymbolTable};
 
 use super::{struct_record::StructRecord, RecordDoc};
 
-#[derive(Default, Clone, Debug, PartialEq)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub(crate) struct DictRecord(HashMap<Expr, Expr>);
 
 impl DictRecord {

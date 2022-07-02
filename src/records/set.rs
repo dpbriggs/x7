@@ -7,7 +7,7 @@ use crate::{records::struct_record::StructRecord, symbols::Expr};
 
 use super::RecordDoc;
 
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Clone, PartialEq, Eq)]
 pub(crate) struct SetRecord(HashSet<Expr>);
 
 impl SetRecord {
