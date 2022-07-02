@@ -2,7 +2,7 @@ use std::io::stdin;
 
 use crate::{
     bad_types,
-    symbols::{Expr, LispResult, Symbol, SymbolTable},
+    symbols::{ByteCompiledFunction, Expr, LispResult, Symbol, SymbolTable},
 };
 use anyhow::anyhow;
 use im::Vector;
@@ -20,9 +20,15 @@ pub enum Instruction {
     ExitScope,
     LocalScopeBind(Symbol),
     CallFn(usize),
+    Cons,
+    Head,
+    Tail,
+    BreakPoint,
+    Add(usize),
     Ret,
     Pop,
     Halt,
+    Map,
 }
 
 pub struct ByteCodeVM {
@@ -77,7 +83,7 @@ impl ByteCodeVM {
         );
     }
 
-    pub fn run(&mut self, input: &str) -> LispResult<()> {
+    pub fn run(&mut self, input: &str) -> LispResult<Expr> {
         let (program, named_funcs) = self.compiler.compile(input)?;
         self.program = program;
         for (func, doc) in named_funcs.into_iter() {
@@ -140,6 +146,12 @@ impl ByteCodeVM {
             match input.as_str().trim_end() {
                 "n" => return,
                 "pp" => self.pretty_print_program(),
+                "ps" => {
+                    println!("{:?}", &self.stack);
+                }
+                "pl" => {
+                    println!("{:?}", self.symbol_table().get_func_locals());
+                }
                 _ if input.starts_with("p ") => println!(
                     "{:?}",
                     self.symbol_table()
@@ -150,7 +162,36 @@ impl ByteCodeVM {
         }
     }
 
-    fn execute(&mut self) -> LispResult<()> {
+    fn call_fn(&mut self, function: &Expr, num_args: Option<usize>) -> LispResult<ControlFlow> {
+        match function {
+            Expr::Function(f) => {
+                // We're a built-in, so handle that
+                let mut args = Vector::new();
+                for _ in 0..num_args.unwrap() {
+                    args.push_back(self.pop()?);
+                }
+                let res = f.call_fn(args, self.symbol_table())?;
+                self.push(res);
+                Ok(ControlFlow::Incr)
+            }
+            Expr::ByteCompiledFunction(f) => self.call_byte_compiled_fn(&f),
+            otherwise => return bad_types!("func", otherwise),
+        }
+    }
+
+    fn call_byte_compiled_fn(&mut self, f: &ByteCompiledFunction) -> LispResult<ControlFlow> {
+        if self.stack.len() < f.minimum_args {
+            return Err(anyhow!(
+                "Expected {} args but could only supply {}",
+                f.minimum_args,
+                self.stack.len()
+            ));
+        }
+        self.record_instp();
+        Ok(ControlFlow::Jump(f.loc))
+    }
+
+    fn execute(&mut self) -> LispResult<Expr> {
         while self.instp < self.program.len() {
             if self.debug_mode {
                 self.get_user_input();
@@ -189,33 +230,38 @@ impl ByteCodeVM {
                     self.restore_instp()?;
                     ControlFlow::Incr
                 }
+                Instruction::BreakPoint => {
+                    self.debug_mode = true;
+                    ControlFlow::Incr
+                }
+                Instruction::Head => {
+                    let mut collection = self.pop()?.get_list()?;
+                    self.push(collection.pop_front().unwrap_or(Expr::Nil));
+                    ControlFlow::Incr
+                }
+                Instruction::Tail => {
+                    let collection = self.pop()?.get_list()?;
+                    self.push(Expr::Tuple(collection.skip(1)));
+                    ControlFlow::Incr
+                }
+                Instruction::Cons => {
+                    let item = self.pop()?;
+                    let collection = self.pop()?.push_front(item)?;
+                    self.push(collection);
+                    ControlFlow::Incr
+                }
+                Instruction::Add(num_to_add) => {
+                    let mut base = Expr::num(0);
+                    for _ in 0..num_to_add {
+                        base = (base + &self.pop()?)?;
+                    }
+                    self.push(base);
+                    ControlFlow::Incr
+                }
                 Instruction::CallFn(num_args) => {
                     let function = self.pop()?;
                     // TODO: Handle records
-                    match function {
-                        Expr::Function(f) => {
-                            // We're a built-in, so handle that
-                            let mut args = Vector::new();
-                            for _ in 0..num_args {
-                                args.push_back(self.pop()?);
-                            }
-                            let res = f.call_fn(args, self.symbol_table())?;
-                            self.push(res);
-                            ControlFlow::Incr
-                        }
-                        Expr::ByteCompiledFunction(f) => {
-                            if self.stack.len() < f.minimum_args {
-                                return Err(anyhow!(
-                                    "Expected {} args but could only supply {}",
-                                    f.minimum_args,
-                                    self.stack.len()
-                                ));
-                            }
-                            self.record_instp();
-                            ControlFlow::Jump(f.loc)
-                        }
-                        otherwise => return bad_types!("func", otherwise),
-                    }
+                    self.call_fn(&function, Some(num_args))?
                 }
                 Instruction::Fail(reason) => {
                     return Err(anyhow!("{}", reason));
@@ -229,6 +275,18 @@ impl ByteCodeVM {
                     self.symbol_table().add_symbol(sym, value);
                     ControlFlow::Incr
                 }
+                Instruction::Map => {
+                    let f = self.pop()?;
+                    // TODO: Handle lazy iters
+                    let coll = self.pop()?.get_list()?;
+                    let mut output_coll = Vector::new();
+                    for item in coll.into_iter() {
+                        self.push(item);
+                        self.call_fn(&f, None)?;
+                        output_coll.push_back(self.pop()?);
+                    }
+                    ControlFlow::Incr
+                }
                 Instruction::Halt => break,
             };
             // dbg!(&self.stack);
@@ -237,7 +295,7 @@ impl ByteCodeVM {
                 ControlFlow::Jump(loc) => self.instp = loc,
             }
         }
-        Ok(())
+        self.pop()
     }
 }
 // (+ 1 2)

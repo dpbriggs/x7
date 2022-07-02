@@ -1,0 +1,4 @@
+(def counter 0)
+
+(loop ()
+      ())

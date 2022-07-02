@@ -16,4 +16,4 @@ Example:
     true (+ (* (head l) (head r))
             (dot-product (tail l) (tail r)))))
 
-(println (dot-product (tuple 1 2 3) (tuple 1 2 3)))
+(println (dot-product (range 1 10000) (range 1 10000)))

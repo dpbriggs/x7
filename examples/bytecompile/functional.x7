@@ -1,0 +1,10 @@
+(defn my-map (f coll)
+  (cond
+    (= 0 (len coll)) (tuple)
+    true             (cons (f (head coll)) (my-map f (tail coll)))))
+
+(defn my-fn (x)
+  (+ x 10))
+
+(println (my-map my-fn (range 100)))
+(println (apply + (range 10)))

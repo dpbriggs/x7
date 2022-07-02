@@ -998,7 +998,7 @@ fn rev(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     // TODO: Any number of args.
     exact_len!(exprs, 1);
     if let Ok(list) = exprs[0].get_list() {
-        return Ok(Expr::List(list.into_iter().rev().collect()));
+        return Ok(Expr::Tuple(list.into_iter().rev().collect()));
     }
     if let Ok(s) = &exprs[0].get_string() {
         return Ok(Expr::string(s.chars().rev().collect()));

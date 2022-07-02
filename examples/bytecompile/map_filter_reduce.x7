@@ -1,0 +1,35 @@
+(defn inc (x) (+ x 2))
+
+;; (defn map (f coll)
+  ;; (cond
+;;     (= 0 (len coll)) (tuple)
+;;     true             (cons (f (head coll)) (map f (tail coll)))))
+
+;; (defn filter (f coll)
+;;   (cond
+;;     (= 0 (len coll)) (tuple)
+;;     (f (head coll))  (cons (head coll) (filter f (tail coll)))
+;;     true             (filter f (tail coll))))
+
+(println (map inc (range 10)))
+;; ;; (println (apply + (range 10)))
+;; ;; (println (filter (fn (x) (= 0 (% x 2))) (range 2000)))
+
+;; (defn is-div (x by)
+;;   (= 0 (% x by)))
+
+;; (println (apply + (filter
+;;                    (fn (x) (or (is-div x 3) (is-div x 5)))
+;;                    (range 1000))))
+;; (breakpoint)
+;; (defn quicksort
+;;   (l)
+;;   (+
+;;    (filter (fn (x) (<= x (head l))) (tail l))
+;;    (tuple (head l))
+;;    (filter (fn (x) (> x (head l))) (tail l))))
+
+;; (def l (rev (range 20)))
+
+;; (println (filter (fn (x) (> x (head l))) l))
+;; (println (quicksort (rev (range 3))))

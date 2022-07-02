@@ -12,7 +12,7 @@ fn main() -> Result<(), i32> {
         return formatter::format(&opt);
     }
     if opt.files.is_empty() {
-        cli::read_cli(&sym_table);
+        cli::read_cli(&sym_table, opt.byte_compile);
     } else {
         for f in opt.files {
             if opt.byte_compile {
@@ -29,7 +29,7 @@ fn main() -> Result<(), i32> {
             }
         }
         if opt.load_file {
-            cli::read_cli(&sym_table);
+            cli::read_cli(&sym_table, opt.byte_compile);
         }
     }
     sym_table.wait_on_threads();

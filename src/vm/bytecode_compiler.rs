@@ -105,6 +105,44 @@ impl ByteCodeCompiler {
                 let ff = self.compile_function(None, args[0].clone(), args[1].clone())?;
                 self.push_instruction(Instruction::Push(Expr::ByteCompiledFunction(ff)));
             }
+            Some("head") => {
+                exact_len!(args, 1);
+                self.compile_expr(args[0].clone())?;
+                self.push_instruction(Instruction::Head);
+            }
+            Some("tail") => {
+                exact_len!(args, 1);
+                for arg in args.iter().rev() {
+                    self.compile_expr(arg.clone())?;
+                }
+                self.push_instruction(Instruction::Tail);
+            }
+            Some("cons") => {
+                exact_len!(args, 2);
+                for arg in args.iter().rev() {
+                    self.compile_expr(arg.clone())?;
+                }
+                self.push_instruction(Instruction::Cons);
+            }
+            Some("+") => {
+                for arg in args.iter().rev() {
+                    self.compile_expr(arg.clone())?;
+                }
+                self.push_instruction(Instruction::Add(args.len()));
+            }
+            Some("breakpoint") => {
+                exact_len!(args, 0);
+                self.push_instruction(Instruction::BreakPoint);
+                self.push_nil();
+            }
+            Some("map") => {
+                // (map fn coll)
+                dbg!(&args);
+                exact_len!(args, 2);
+                self.compile_expr(args[1].clone())?;
+                self.compile_expr(args[0].clone())?;
+                self.push_instruction(Instruction::Map);
+            }
             _ => {
                 for arg in args.iter().rev() {
                     self.compile_expr(arg.clone())?;
@@ -177,6 +215,7 @@ impl ByteCodeCompiler {
         if let Expr::List(l) = e {
             if l.is_empty() {
                 self.push_instruction(Instruction::Push(Expr::List(vector![])));
+                return Ok(());
             }
             let head = &l[0];
             match head {
@@ -229,7 +268,7 @@ impl ByteCodeCompiler {
     )> {
         for expr in read(input) {
             self.compile_expr(expr?)?;
-            self.push_instruction(Instruction::Pop);
+            // self.push_instruction(Instruction::Pop);
         }
         let instructions = self.link()?;
         Ok((instructions, self.named_functions.clone()))

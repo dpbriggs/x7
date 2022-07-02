@@ -1,6 +1,7 @@
 // use crate::repl::read;
 use crate::parser::read;
 use crate::symbols::{Expr, SymbolTable};
+use crate::vm::ByteCodeVM;
 use rustyline::completion::{Completer, Pair};
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use rustyline::hint::Hinter;
@@ -181,7 +182,7 @@ impl Hinter for Completions {
     }
 }
 
-pub fn read_cli(sym_table: &SymbolTable) {
+pub fn read_cli(sym_table: &SymbolTable, byte_compile: bool) {
     let conf = Config::builder()
         .edit_mode(EditMode::Emacs)
         .auto_add_history(true)
@@ -208,6 +209,13 @@ pub fn read_cli(sym_table: &SymbolTable) {
         match readline {
             Ok(line) => {
                 if line.is_empty() {
+                    continue;
+                }
+                if byte_compile {
+                    match ByteCodeVM::new(sym_table.clone(), false).run(&line) {
+                        Ok(res) => println!("{:?}", res),
+                        Err(e) => report_error(&e),
+                    }
                     continue;
                 }
                 for expr in read(line.as_str()) {

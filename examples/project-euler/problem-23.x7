@@ -1,0 +1,67 @@
+(include "examples/project-euler/utils.x7")
+
+;; (def primes-list (primes max-num))
+
+;; Copied from Problem 21
+
+;; Sadly these functions are way too slow for this problem.
+;; Added a `divisors` builtin
+
+;; (defn prime-divisors-of (num)
+;;   (reduce (fn (acc x) (if (= 0 (% num x)) (cons x acc) acc))
+;;           (tuple)
+;;           (take-while (fn (x) (< x num)) primes-list)))
+
+;; (defn count-times-divides (n divisor)
+;;   (cond
+;;     (= 0 (% n divisor)) (+ 1 (count-times-divides (/ n divisor) divisor))
+;;     true 0))
+
+;; (defn prime-powers-of (num)
+;;   (bind
+;;    (num-primes-list (prime-divisors-of num)
+;;     number-is-prime? (empty? num-primes-list))
+;;    (if number-is-prime?
+;;        (tuple (tuple num) (tuple 1))
+;;        (tuple num-primes-list (map (fn (prime) (count-times-divides num prime)) num-primes-list))
+;;        )))
+
+;; (defn calculate-divisor (primes prime-powers)
+;;   (apply * (map (fn (tup) (pow (nth 0 tup) (nth 1 tup))) (zip primes prime-powers))))
+
+;; (defn generate-divisors (num)
+;;   (bind
+;;    (primes-and-powers (prime-powers-of num)
+;;     primes            (nth 0 primes-and-powers)
+;;     powers            (nth 1 primes-and-powers))
+;;    (map (fn (tup) (calculate-divisor primes tup))
+;;         (apply product (map (fn (x) (range (inc x))) powers)))))
+
+(defn generate-divisors (num)
+  (filter #(= 0 (% num $1)) (range 1 (inc num))))
+
+(defn is-abundant
+  (num divisors)
+  (< (* 2 num) (apply + divisors)))
+
+(defn generate-abundant-nums (until)
+  (filter #(is-abundant $1 (divisors $1)) (range 1 (inc until))))
+
+(def max-num 28123)
+
+(def abundant-nums (generate-abundant-nums max-num))
+
+(def abundant-nums-cache (dict))
+
+(foreach
+ #(def abundant-nums-cache (set abundant-nums-cache $1 $1))
+  abundant-nums)
+
+(defn contains? (d k)
+  (not (= nil (get d k))))
+
+(defn is-not-sum-of-abundant
+  (num)
+  (bind
+   (nums-less (take-while #(< $1 num) abundant-nums))
+   (not (any #(contains? abundant-nums-cache (- num $1)) nums-less))))

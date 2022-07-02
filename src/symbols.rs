@@ -719,6 +719,12 @@ impl std::ops::Add<&Expr> for Expr {
             (Expr::List(l), Expr::Nil) => Ok(Expr::List(l.clone())),
             (Expr::Nil, Expr::List(r)) => Ok(Expr::List(r.clone())),
             (Expr::Nil, Expr::Nil) => Ok(Expr::Nil),
+            (Expr::List(l), Expr::Tuple(r)) => {
+                Ok(Expr::Tuple(l.iter().chain(r).cloned().collect()))
+            }
+            (Expr::Tuple(l), Expr::List(r)) => {
+                Ok(Expr::Tuple(l.iter().chain(r).cloned().collect()))
+            }
             _ => bad_types!(format!(
                 "Addition between these types doesn't make sense: {} + {}",
                 &self, other
