@@ -47,7 +47,7 @@ impl SetRecord {
 
     pub(crate) fn make() -> Expr {
         StructRecord::record_builder(SetRecord::RECORD_NAME)
-            .init_fn(&|e: Vec<Expr>| Ok(SetRecord(e.into_iter().collect())))
+            .init_fn(&|e: Vec<Expr>, _| Ok(SetRecord(e.into_iter().collect())))
             .display_with(&SetRecord::display)
             .clone_with(&Clone::clone)
             .add_method("contains", SetRecord::contains)

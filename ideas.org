@@ -51,3 +51,13 @@ See the =coroutines= example.
 ** TODO Add a byte code compiler and interpreter
 
 ** TODO Completely rewrite the parser
+
+** DONE Add an http server [1/1]
+CLOSED: [2022-07-02 Sat 18:26]
+
+*** DONE Add a tcp socket server
+CLOSED: [2022-07-02 Sat 18:26]
+
+** TODO Extend the http server
+
+** TODO Add a "help" function

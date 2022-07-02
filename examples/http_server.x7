@@ -1,0 +1,151 @@
+;;(def tt (Tcp))
+
+;; The littlest, most scuffed, http library
+
+(defn sum (content)
+  (apply + content))
+
+(defn b (& content)
+  (+ "<b>" (sum content) "</b>"))
+
+(defn br ()
+  "<br/>")
+
+(defn h1 (& content)
+  (+ "<h1>" (sum content) "</h1>"))
+
+(defn h2 (& content)
+  (+ "<h2>" (sum content) "</h2>"))
+
+(defn h3 (& content)
+  (+ "<h3>" (sum content) "</h3>"))
+
+(defn h1 (& content)
+  (+ "<h1>" (sum content) "</h1>"))
+
+(defn p (& content)
+  (+ "<p>" (sum content) "</p>"))
+
+(defn html (& content)
+  (+ "<!DOCTYPE html><html lang=\"en\">" (sum content) "</html>"))
+
+(defn span (& content)
+  (+ "<span>" (sum content) "</span>"))
+
+(defn a (url & content)
+  (+ "<a href='" url "'>" (sum content) "</a>"))
+
+(defn aclrf (& content)
+  (+ (sum content) (clrf)))
+
+;; Routing and Handling
+
+(defn status-to-string (status)
+  (match status
+         200 "OK"
+         404 "NOTFOUND"
+         500 "INTERNALSERVERERROR"
+         _   "UNKNOWN"
+         ))
+
+(defn headers (status)
+  (+
+   (aclrf "HTTP/1.1 " status (status-to-string status))
+   (aclrf "Server: x7")
+   (aclrf "Content-Type: text/html")))
+
+(defn http_response (status body)
+  (do
+   (println "[" (timestamp "%A, %B %d @ %H:%M:%S") "] -- " status " -- " route)
+   (+ (headers status) (clrf) body)))
+
+(defn get_route (get_req)
+  (bind (capture (.captures
+                  (re::compile "GET ([/a-zA-Z0-9\.]+) HTTP/1.1")
+                  get_req))
+        (if (empty? capture) nil (head (head capture)))))
+
+(defn route_requests (req_lines dict_routes)
+  (bind (route (get_route (head req_lines))
+         known_route (get dict_routes route))
+        (do
+         (if (nil? route)
+             (http_response 500
+                            (html (b "Could not parse request!") (br)
+                                  (head req_lines)))
+             (if (nil? known_route)
+                 (http_response 404 (html (h1 "Not found: " route)))
+                 (known_route route req_lines))))))
+
+;; For unknown reasons, calling ".listen" in a function will cause
+;; some weird blocking when in the ".incoming" loop. Bizarre.
+;; TODO: Fix this.
+;; (defn start_http_server (addr routes)
+;;   (do
+;;    (println "Binding to " addr)
+;;    (println "Routes = " routes)
+;;    (println "Time to let it rip!")
+;;    (.listen (TcpListenerRecord addr (fn (req_lines) (route_requests req_lines routes))))))
+
+;; Routes
+
+(defn routes_list_to_a_tag (routes_list)
+  (if (empty? routes_list)
+      ()
+      (cons (a (head routes_list) (name-of (head (tail routes_list))))
+            (routes_list_to_a_tag
+             (tail (tail routes_list))))))
+
+(defn index (route req_lines)
+  (http_response
+   200
+   (html
+    (h1 "Welcome! Hello World!") (br)
+    (b "This is an extremely scuffed webserver, serving route: \"" route "\"") (br)
+    (p "I received the following request: ")
+    (p "----------------------------------")
+    (sum (map #(+ $1 (br)) req_lines))
+    (p "----------------------------------")
+    (p "Here's some other interesting routes") (br)
+    ;; HACK: Abusing the fact that routes is currently global.
+    (sum (map #(+ "/" $1 (br)) (routes_list_to_a_tag routes))))))
+
+(defn foobar (route req_lines)
+  (http_response
+   200
+   (html
+    (h1 "What a wonderful route you've found!")
+    (h3 "Here's a nice poem for your troubles: ") (br)
+    (b  "Stopping by Woods on a Snowy Evening") (br)
+    (b  "-- Robert Frost") (br)
+    (p "Whose woods these are I think I know.")
+    (p "His house is in the village though;")
+    (p "He will not see me stopping here")
+    (p "To watch his woods fill up with snow.")
+    (br)
+    (p "My little horse must think it queer")
+    (p "To stop without a farmhouse near")
+    (p "Between the woods and frozen lake")
+    (p "The darkest evening of the year.")
+    (br)
+    (p "He gives his harness bells a shake")
+    (p "To ask if there is some mistake.")
+    (p "The only other sound’s the sweep")
+    (p "Of easy wind and downy flake.")
+    (br)
+    (p "The woods are lovely, dark and deep,")
+    (p "But I have promises to keep,")
+    (p "And miles to go before I sleep,")
+    (p "And miles to go before I sleep."))))
+
+;; Register Routes and Start the Server
+
+(def addr "127.0.0.1:8080")
+(def routes
+  ^(
+    "/" index
+    "/foobar" foobar))
+(def route_dict (apply dict routes))
+
+(println "Time to let it rip!")
+(.listen (TcpListenerRecord addr (fn (req_lines) (route_requests req_lines route_dict))))

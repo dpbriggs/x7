@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use im::Vector;
 use itertools::Itertools;
 
-use crate::symbols::{Expr, LispResult};
+use crate::symbols::{Expr, LispResult, SymbolTable};
 
 use super::{struct_record::StructRecord, RecordDoc};
 
@@ -13,7 +13,7 @@ pub(crate) struct DictRecord(HashMap<Expr, Expr>);
 impl DictRecord {
     pub(crate) const RECORD_NAME: &'static str = "Dict";
 
-    fn init(items: Vec<Expr>) -> LispResult<Self> {
+    fn init(items: Vec<Expr>, _symbol_table: &SymbolTable) -> LispResult<Self> {
         anyhow::ensure!(
             items.len() % 2 == 0,
             "Dict requires an even list of arguments! Was given {:?}",

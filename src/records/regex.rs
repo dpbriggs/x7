@@ -50,12 +50,6 @@ impl RegexRecord {
     }
 
     fn captures(&self, s: String) -> LispResult<Expr> {
-        dbg!(&s);
-        dbg!(&self.re);
-        self.re.captures_iter(&s).for_each(|cap| {
-            dbg!(&cap);
-        });
-        dbg!(self.re.captures(&s));
         let captures = self
             .re
             .captures_iter(&s)
@@ -69,13 +63,12 @@ impl RegexRecord {
                 )
             })
             .collect();
-        dbg!(&captures);
         Ok(Expr::List(captures))
     }
 
     pub(crate) fn make() -> Expr {
         StructRecord::record_builder(RegexRecord::RECORD_NAME)
-            .init_fn(&|v: Vec<Expr>| {
+            .init_fn(&|v: Vec<Expr>, _| {
                 exact_len!(v, 1);
                 let re_s = v[0].get_string()?;
                 Ok(RegexRecord {

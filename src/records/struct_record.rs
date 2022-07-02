@@ -17,7 +17,7 @@ type ReadFn<T> =
 type WriteFn<T> =
     Box<dyn Fn(&StructRecord<T>, Vector<Expr>, &SymbolTable) -> LispResult<Expr> + Sync + Send>;
 type CloneFn<T> = Arc<dyn Fn(&T) -> T + Sync + Send>;
-type InitFn<T> = Arc<dyn Fn(Vector<Expr>) -> LispResult<T> + Sync + Send>;
+type InitFn<T> = Arc<dyn Fn(Vector<Expr>, &SymbolTable) -> LispResult<T> + Sync + Send>;
 type DisplayFn<T> = Arc<dyn Fn(&T) -> String + Sync + Send>;
 
 pub(crate) struct StructRecord<T> {
@@ -158,15 +158,15 @@ impl<T> StructRecord<T> {
 
     pub(crate) fn init_fn<I: ForeignData + std::fmt::Debug>(
         mut self,
-        f: &'static (dyn Fn(Vec<I>) -> LispResult<T> + Sync + Send),
+        f: &'static (dyn Fn(Vec<I>, &SymbolTable) -> LispResult<T> + Sync + Send),
     ) -> Self {
-        self.init_fn = Some(Arc::new(move |v: Vector<Expr>| {
+        self.init_fn = Some(Arc::new(move |v: Vector<Expr>, sym: &SymbolTable| {
             let mut my_v = Vec::with_capacity(v.len());
             for i in v {
                 let converted = crate::convert_arg!(I, &i);
                 my_v.push(converted)
             }
-            (f)(my_v)
+            (f)(my_v, sym)
         }));
         self
     }
@@ -249,10 +249,14 @@ impl<T: 'static + PartialEq + Sync + Send> Record for StructRecord<T> {
         self.type_name()
     }
 
-    fn call_as_fn(&self, args: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    fn call_as_fn(&self, args: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+        let args = args
+            .into_iter()
+            .map(|e| e.eval(symbol_table))
+            .collect::<Result<_, _>>()?;
         match self.init_fn {
             Some(ref ff) => {
-                let new_inner = (ff)(args).map_err(|e| anyhow!("{:?}", e))?;
+                let new_inner = (ff)(args, symbol_table).map_err(|e| anyhow!("{:?}", e))?;
                 let mut new_me = Clone::clone(self);
                 new_me.inner = Arc::new(Mutex::new(new_inner));
                 new_me.initialized = true;

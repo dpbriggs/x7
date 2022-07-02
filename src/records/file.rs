@@ -159,7 +159,7 @@ impl FileRecord {
     pub(crate) fn make() -> Expr {
         StructRecord::record_builder(FileRecord::RECORD_NAME)
             .display_with(&|me: &Self| format!("File<{}>", me.path))
-            .init_fn(&|v: Vec<Expr>| FileRecord::open_file(v[0].to_string()))
+            .init_fn(&|v: Vec<Expr>, _| FileRecord::open_file(v[0].to_string()))
             .add_method_mut("read_to_string", FileRecord::read_to_string)
             .add_method_mut("read_lines", FileRecord::read_lines)
             .add_method_mut("write", FileRecord::write)

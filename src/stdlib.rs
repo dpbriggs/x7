@@ -5,7 +5,9 @@ use crate::iterators::{
 };
 use crate::modules::load_x7_stdlib;
 use crate::records::{DictMutRecord, DictRecord, RecordDoc};
-use crate::records::{DynRecord, FileRecord, ReadChan, RegexRecord, SetRecord, WriteChan};
+use crate::records::{
+    DynRecord, FileRecord, ReadChan, RegexRecord, SetRecord, TcpListenerRecord, WriteChan,
+};
 use crate::symbols::{Expr, Function, LispResult, ProgramError, SymbolTable};
 use crate::{bad_types, iterators::LazyFilter};
 use crate::{cli::Options, iterators::IterType};
@@ -1182,6 +1184,30 @@ fn divisors(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr
     Ok(Expr::Tuple(res))
 }
 
+fn clrf(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 0);
+    Ok(Expr::string("\r\n".to_string()))
+}
+
+fn timestamp(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    let curr_time = chrono::Local::now();
+    Ok(Expr::string(
+        curr_time.format(&exprs[0].get_string()?).to_string(),
+    ))
+}
+
+fn name_of(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    if let Expr::Function(f) = &exprs[0] {
+        Ok(Expr::string(f.symbol.to_string()))
+    } else if let Expr::Record(r) = &exprs[0] {
+        Ok(Expr::string(r.type_name()))
+    } else {
+        Ok(Expr::Nil)
+    }
+}
+
 // Records
 
 fn call_method(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1666,6 +1692,12 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
         ("primes", 1, primes, true, "Prime numbers less than `n`."),
         ("divisors", 1, divisors, true, "Divisors of `n`. Example:
     (divisors 20) ;; ^(1 2 4 5 10 20)"),
+        ("clrf", 0, clrf, true, "HACK! Returns \r\n as the parser is buggy atm.
+    Example: (clrf) ; \"\r\n\""),
+        ("timestamp", 0, timestamp, true, "Returns a unix timestamp.
+    Example: (timestamp \"%b %-d, %-I:%M\") ; \"Jul 2, 5:15\""),
+        ("name-of", 1, name_of, true, "Returns the name of the object.
+    Example: (name-of +) ; \"+\""),
         ("sleep", 1, sleep, true, "Sleep for n seconds.
     Example: (sleep 10) ; sleep for 10 seconds."),
         ("type", 1, type_of, true, "Return the type of the argument as a string.
@@ -1992,6 +2024,7 @@ Example:
     register_record!(syms, DictMutRecord);
     register_record!(syms, FileRecord);
     register_record!(syms, RegexRecord);
+    register_record!(syms, TcpListenerRecord);
     document_records!(syms, SetRecord, WriteChan, ReadChan);
     syms
 }
