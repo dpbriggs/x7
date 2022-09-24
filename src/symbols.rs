@@ -210,6 +210,22 @@ impl ToNumericExpr for BigDecimal {
     }
 }
 
+impl ToNumericExpr for f32 {
+    #[inline]
+    fn to_expr(self) -> Expr {
+        if self.trunc() == self {
+            Expr::num(self.trunc() as u32)
+        } else {
+            Expr::Num(BigDecimal::from_f32(self).unwrap())
+        }
+        // if self.is_
+    }
+
+    fn to_bigdecimal(self) -> Num {
+        FromPrimitive::from_f32(self).unwrap()
+    }
+}
+
 impl Expr {
     pub(crate) fn full_order_list(&self) -> LispResult<Vector<Expr>> {
         let list = self.get_list()?;

@@ -60,4 +60,6 @@ CLOSED: [2022-07-02 Sat 18:26]
 
 ** TODO Extend the http server
 
+*** TODO Use a record to represent requests
+
 ** TODO Add a "help" function

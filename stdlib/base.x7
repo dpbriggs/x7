@@ -96,3 +96,13 @@ Example:
 
 (defn nil? (x)
   (= x nil))
+
+(defn first
+  "Get the first item of a collection, or nil. Same as head."
+  (collection)
+  (head collection))
+
+(defn second
+  "Get the second item of a collection, or nil"
+  (collection)
+  (head (tail collection)))

@@ -43,21 +43,21 @@
 (defn status-to-string (status)
   (match status
          200 "OK"
-         404 "NOTFOUND"
-         500 "INTERNALSERVERERROR"
-         _   "UNKNOWN"
+         404 "Not Found"
+         500 "Internal Server Error"
+         _   "Unknown"
          ))
 
-(defn headers (status)
+(defn response_headers (status)
   (+
-   (aclrf "HTTP/1.1 " status (status-to-string status))
+   (aclrf "HTTP/1.1 " status " " (status-to-string status))
    (aclrf "Server: x7")
    (aclrf "Content-Type: text/html")))
 
 (defn http_response (status body)
   (do
    (println "[" (timestamp "%A, %B %d @ %H:%M:%S") "] -- " status " -- " route)
-   (+ (headers status) (clrf) body)))
+   (+ (response_headers status) (clrf) body)))
 
 (defn get_route (get_req)
   (bind (capture (.captures
@@ -66,8 +66,9 @@
         (if (empty? capture) nil (head (head capture)))))
 
 (defn route_requests (req_lines dict_routes)
-  (bind (route (get_route (head req_lines))
-         known_route (get dict_routes route))
+  (bind (http_request (parse_http_request req_lines)
+         route        http_request.route
+         known_route  (get dict_routes route))
         (do
          (if (nil? route)
              (http_response 500
@@ -75,7 +76,34 @@
                                   (head req_lines)))
              (if (nil? known_route)
                  (http_response 404 (html (h1 "Not found: " route)))
-                 (known_route route req_lines))))))
+                 (known_route http_request))))))
+
+(defn parse_http_request_method_route
+  (raw_req_lines)
+  (bind
+   (first-line (head raw_req_lines)
+    regex      (re::compile "(GET|POST) ([/a-zA-Z0-9\.]+)(\\?.*)? HTTP/1.1")
+    captures   (head (.captures regex first-line)))
+   captures))
+
+(defn parse_http_request_headers
+  "Obtain the headers from a request"
+  (raw_req_lines)
+  (bind (headers-regex (re::compile "(.*): (.*)"))
+        (map #(head (.captures headers-regex $1)) (tail raw_req_lines))))
+
+(defn parse_http_request (raw_req_lines)
+  (bind
+   ((method route query_params) (parse_http_request_method_route raw_req_lines)
+    headers        (parse_http_request_headers raw_req_lines))
+   (HttpRequest route method query_params headers raw_req_lines)))
+
+(defrecord HttpRequest "An http request"
+           route
+           method
+           query_params
+           headers
+           raw_req_lines)
 
 ;; For unknown reasons, calling ".listen" in a function will cause
 ;; some weird blocking when in the ".incoming" loop. Bizarre.
@@ -96,7 +124,7 @@
             (routes_list_to_a_tag
              (tail (tail routes_list))))))
 
-(defn index (route req_lines)
+(defn index (http_request)
   (http_response
    200
    (html
@@ -104,13 +132,13 @@
     (b "This is an extremely scuffed webserver, serving route: \"" route "\"") (br)
     (p "I received the following request: ")
     (p "----------------------------------")
-    (sum (map #(+ $1 (br)) req_lines))
+    (sum (map #(+ $1 (br)) http_request.raw_req_lines))
     (p "----------------------------------")
     (p "Here's some other interesting routes") (br)
     ;; HACK: Abusing the fact that routes is currently global.
     (sum (map #(+ "/" $1 (br)) (routes_list_to_a_tag routes))))))
 
-(defn foobar (route req_lines)
+(defn foobar (http_request)
   (http_response
    200
    (html
@@ -144,8 +172,9 @@
 (def routes
   ^(
     "/" index
-    "/foobar" foobar))
+    "/foobar" foobar
+    ))
 (def route_dict (apply dict routes))
 
 (println "Time to let it rip!")
-(.listen (TcpListenerRecord addr (fn (req_lines) (route_requests req_lines route_dict))))
+;; (.listen (TcpListenerRecord addr (fn (req_lines) (route_requests req_lines route_dict))))
