@@ -1113,7 +1113,7 @@ impl SymbolTable {
     pub(crate) fn load_file<P: AsRef<Path>>(&self, path: P) -> LispResult<Expr> {
         let mut strbuf = String::new();
         File::open(path)?.read_to_string(&mut strbuf)?;
-        for expr in crate::parser::read(strbuf.as_str()) {
+        for expr in crate::parser2::read(strbuf.as_str()) {
             let prog = expr?;
             prog.eval(self)?;
         }

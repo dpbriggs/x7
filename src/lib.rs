@@ -5,6 +5,7 @@ pub mod interner;
 mod iterators;
 pub mod modules;
 pub mod parser;
+pub mod parser2;
 mod records;
 pub mod stdlib;
 pub mod symbols;

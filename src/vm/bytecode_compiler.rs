@@ -6,7 +6,7 @@ use itertools::Itertools;
 
 use crate::{
     bad_types, exact_len,
-    parser::read,
+    parser2::read,
     symbols::{ByteCompiledFunction, Expr, LispResult, ProgramError, Symbol},
 };
 

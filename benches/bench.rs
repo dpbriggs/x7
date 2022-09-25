@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use x7::parser::read;
+use x7::parser2::read;
 use x7::stdlib;
 
 fn parse_benchmark(c: &mut Criterion) {

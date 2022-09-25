@@ -276,7 +276,7 @@ fn eval(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 fn parse(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let program = exprs[0].get_string()?;
-    let parse_res: Vector<Expr> = crate::parser::read(&program)
+    let parse_res: Vector<Expr> = crate::parser2::read(&program)
         .into_iter()
         .collect::<LispResult<_>>()?;
     Ok(Expr::Tuple(parse_res))
@@ -1135,7 +1135,7 @@ fn shuffle(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr>
     use rand::seq::SliceRandom;
     use rand::thread_rng;
     list.shuffle(&mut thread_rng());
-    Ok(Expr::List(list.into()))
+    Ok(Expr::Tuple(list.into()))
 }
 
 fn random_bool(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {

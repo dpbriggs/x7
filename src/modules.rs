@@ -1,6 +1,6 @@
 #![allow(clippy::unnecessary_wraps)]
 use crate::cli::Options;
-use crate::parser::read;
+use crate::parser2::read;
 use crate::symbols::SymbolTable;
 use std::error::Error;
 use std::fs::File;
