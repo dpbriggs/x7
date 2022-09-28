@@ -227,9 +227,15 @@ fn parse_expr(input: &str) -> LispResult<(Expr, usize)> {
         return Err(anyhow!("Attempted to parse an empty input!"));
     }
     let first_char = input.chars().next().unwrap();
+    let second_char_is_numeric = input
+        .chars()
+        .nth(1)
+        .map(|c| c.is_numeric())
+        .unwrap_or(false);
     let (item, next_pos) = match first_char {
-        // TODO: This tries to parse the minus function symbol "-" as an integer.
-        _num if first_char.is_numeric() || first_char == '-' => parse_num(input)?,
+        _num if first_char.is_numeric() || (first_char == '-' && second_char_is_numeric) => {
+            parse_num(input)?
+        }
         '"' => parse_string(input)?,
         '(' => parse_sexp(input)?,
         '#' => {
