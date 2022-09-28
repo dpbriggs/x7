@@ -187,6 +187,57 @@ fn parse_sexp(input: &str) -> LispResult<(Expr, usize)> {
     Ok((Expr::List(contents), curr_pos))
 }
 
+fn parse_dict(input: &str) -> LispResult<(Expr, usize)> {
+    if input.is_empty() {
+        return Err(anyhow!("Attempted to parse a dict on an empty string!"));
+    }
+    if !input.starts_with('{') {
+        return Err(anyhow!(
+            "Attempted to parse a dict from a string not starting with a curly brace! {}",
+            input
+        ));
+    }
+    let mut curr_pos = 1;
+    let mut values = Vector::new();
+    loop {
+        if input[curr_pos..].starts_with('}') {
+            curr_pos += 1;
+            break;
+        }
+        curr_pos += next_non_whitespace_and_comment_pos(&input[curr_pos..]);
+        let (key, next_pos) = parse_expr(&input[curr_pos..])?;
+        values.push_back(key);
+        curr_pos += next_pos;
+        curr_pos += next_non_whitespace_and_comment_pos(&input[curr_pos..]);
+        if !input[curr_pos..].starts_with(':') {
+            return Err(anyhow!("Expected ':' when parsing dict in {}", input));
+        } else {
+            curr_pos += 1;
+        }
+        curr_pos += next_non_whitespace_and_comment_pos(&input[curr_pos..]);
+        let (value, next_pos) = parse_expr(&input[curr_pos..])?;
+        values.push_back(value);
+        curr_pos += next_pos;
+        curr_pos += next_non_whitespace_and_comment_pos(&input[curr_pos..]);
+        if input[curr_pos..].starts_with('}') {
+            // return Err(anyhow!("Expected dict to end with a curly brace!", input));
+            curr_pos += 1;
+            break;
+        } else if input[curr_pos..].starts_with(',') {
+            curr_pos += 1;
+            curr_pos += next_non_whitespace_and_comment_pos(&input[curr_pos..]);
+        } else {
+            return Err(anyhow!(
+                "Unexpected string \"{}\" when parsing dict in {}",
+                &input[curr_pos..],
+                input
+            ));
+        }
+    }
+    values.push_front(Expr::Symbol("dict".into()));
+    Ok((Expr::List(values), curr_pos))
+}
+
 fn next_non_whitespace_and_comment_pos(input: &str) -> usize {
     let mut output_pos = 0;
     loop {
@@ -238,6 +289,7 @@ fn parse_expr(input: &str) -> LispResult<(Expr, usize)> {
         }
         '"' => parse_string(input)?,
         '(' => parse_sexp(input)?,
+        '{' => parse_dict(input)?,
         '#' => {
             let (inner_sexp, next_pos) = parse_sexp(&input[1..])?;
             (
@@ -503,6 +555,68 @@ mod parser_tests {
                     e, text
                 ),
             };
+        }
+    }
+
+    #[test]
+    fn test_dict() {
+        let tests = [
+            ("{}", Expr::List(vector![Expr::Symbol("dict".into())]), 2),
+            (
+                "{1: 2}",
+                Expr::List(vector![
+                    Expr::Symbol("dict".into()),
+                    Expr::num(1),
+                    Expr::num(2),
+                ]),
+                6,
+            ),
+            (
+                "{1: 2, 3 : 4,}",
+                Expr::List(vector![
+                    Expr::Symbol("dict".into()),
+                    Expr::num(1),
+                    Expr::num(2),
+                    Expr::num(3),
+                    Expr::num(4),
+                ]),
+                14,
+            ),
+            (
+                "{\"hello\": 2, 3 : 4,}",
+                Expr::List(vector![
+                    Expr::Symbol("dict".into()),
+                    Expr::string("hello".into()),
+                    Expr::num(2),
+                    Expr::num(3),
+                    Expr::num(4),
+                ]),
+                20,
+            ),
+            (
+                "{{}:{3:4}}",
+                Expr::List(vector![
+                    Expr::Symbol("dict".into()),
+                    Expr::List(vector![Expr::Symbol("dict".into())]),
+                    Expr::List(vector![
+                        Expr::Symbol("dict".into()),
+                        Expr::num(3),
+                        Expr::num(4)
+                    ]),
+                ]),
+                10,
+            ),
+        ];
+        for (text, expected, idx) in tests {
+            let res = parse_dict(text);
+            let res_s = format!("{:?}", res);
+            assert_eq!(
+                res.expect(&format!(
+                    "Could not parse {} into {}; result is {}",
+                    text, expected, res_s
+                )),
+                (expected.clone(), idx),
+            )
         }
     }
 }
