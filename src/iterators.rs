@@ -1,8 +1,10 @@
 #![allow(clippy::unnecessary_wraps)]
+use crate::exact_len;
 use crate::symbols::{Expr, Function, LispResult, SymbolTable};
 use im::Vector;
 use itertools::Itertools;
 use parking_lot::Mutex;
+use std::collections::HashSet;
 use std::fmt::{self, Display};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -490,6 +492,128 @@ impl Digit {
 
     fn value(&self) -> usize {
         self.curr
+    }
+}
+
+pub(crate) struct Distinct {
+    inner: IterType,
+    seen: Arc<Mutex<HashSet<Expr>>>,
+    id: u64,
+}
+
+impl Clone for Distinct {
+    fn clone(&self) -> Self {
+        Self {
+            inner: LazyIter::clone(&self.inner),
+            seen: self.seen.clone(),
+            id: self.id,
+        }
+    }
+}
+
+impl fmt::Debug for Distinct {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DistinctGenerator")
+            .field("inner", &self.inner)
+            .field("id", &self.id)
+            .finish()
+    }
+}
+
+impl Display for Distinct {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", &self)
+    }
+}
+
+impl LazyIter for Distinct {
+    fn next(&self, symbol_table: &SymbolTable) -> Option<LispResult<Expr>> {
+        loop {
+            let item = option_try!(self.inner.next(symbol_table)?);
+            let mut seen_guard = self.seen.lock();
+            if seen_guard.contains(&item) {
+                continue;
+            } else {
+                seen_guard.insert(item.clone());
+                return Some(Ok(item));
+            }
+        }
+    }
+
+    fn name(&self) -> &'static str {
+        "DistinctGenerator"
+    }
+
+    fn clone(&self) -> Box<dyn LazyIter> {
+        Box::new(Clone::clone(self))
+    }
+
+    fn id(&self) -> u64 {
+        self.id
+    }
+}
+
+impl Distinct {
+    pub(crate) fn lisp_res(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+        exact_len!(exprs, 1);
+        let distinct_generator = Distinct::new(exprs[0].get_iterator()?);
+        Ok(Expr::LazyIter(Box::new(distinct_generator)))
+    }
+    fn new(inner: IterType) -> Self {
+        Self {
+            inner,
+            seen: Default::default(),
+            id: random(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct Inspect {
+    inner: IterType,
+    inspect_function: Function,
+    id: u64,
+}
+
+impl Display for Inspect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Inspect {
+    pub(crate) fn lisp_res(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+        exact_len!(exprs, 2);
+        let inspect_function = exprs[0].get_function()?.clone();
+        let inner = exprs[1].get_iterator()?;
+        let inspect = Inspect {
+            inner,
+            inspect_function,
+            id: random(),
+        };
+        Ok(Expr::LazyIter(Box::new(inspect)))
+    }
+}
+
+impl LazyIter for Inspect {
+    fn next(&self, symbol_table: &SymbolTable) -> Option<LispResult<Expr>> {
+        let next = option_try!(self.inner.next(symbol_table)?);
+        option_try!(self
+            .inspect_function
+            .call_fn(im::vector![next.clone()], symbol_table));
+        Some(Ok(next))
+    }
+
+    fn name(&self) -> &'static str {
+        "Inspect"
+    }
+
+    fn clone(&self) -> Box<dyn LazyIter> {
+        Box::new(Clone::clone(self))
+    }
+
+    fn id(&self) -> u64 {
+        self.id
     }
 }
 

@@ -30,9 +30,19 @@
 (defn number-of-divisors (num)
   (reduce * (map inc (prime-powers-of num))))
 
-(def res (find (fn (x) (do
-                        (println "curr = " x)
-                        (> (number-of-divisors x) 500)))
-               (triag-iterator)))
+;; (defn )
+(defn prime-divisors-of
+  (num)
+  (filter
+    (partial divides? num)
+    (take-while #(<= $1 num) primes-list)))
 
-(print-res res)
+(defn totient (n)
+  (int (apply * (cons n (map #(- 1 (/ 1 $1))
+                             (prime-divisors-of n))))))
+;; (def res (find (fn (x) (do
+;;                         (println "curr = " x)
+;;                         (> (number-of-divisors x) 500)))
+;;                (triag-iterator)))
+
+;; (print-res res)

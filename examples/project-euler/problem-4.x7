@@ -21,20 +21,14 @@
        (= (get-digit num 3) (get-digit num 4)))))
 
 (def all-tuples (product (range 100 1000) (range 100 1000)))
-(def multiplied (map (fn (tup) (* (nth 0 tup) (nth 1 tup))) all-tuples))
+(def multiplied (map #(apply * $1) all-tuples))
 ;; I'd like a progress report from the foreach below, so let's make it lazy
 (def distinct-nums (lazy (distinct multiplied)))
-(def at-least-six-dig (filter (fn (x) (> x 100000)) distinct-nums))
+(def at-least-six-dig (filter #(> $1 100000) distinct-nums))
 (def palindromes (filter is-palidrome? at-least-six-dig))
 
-(def max 0)
-
-(foreach
- (fn (x)
-     (do
-      (if (> x max) (def max x) ())
-      (println "curr palin: " x)))
- palindromes)
+(def max (max-by ident
+                 (inspect #(println "curr palin: " $1) palindromes)))
 
 (println "----------------------------")
 (println max)

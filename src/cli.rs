@@ -1,5 +1,5 @@
 // use crate::repl::read;
-use crate::parser2::read;
+use crate::parser::read;
 use crate::symbols::{Expr, SymbolTable};
 use crate::vm::ByteCodeVM;
 use rustyline::completion::{Completer, Pair};

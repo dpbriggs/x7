@@ -1,42 +1,47 @@
-use crate::symbols::{Expr, Integer, LispResult, Num, ProgramError};
-
-// s-expression parser using nom.
-// Supports the usual constructs (quotes, numbers, strings, comments)
-
-// HUGE thanks to the nom people (Geal, adamnemecek, MarcMcCaskey, et all)
-// who had an s_expression example for me to work from.
-// https://github.com/Geal/nom/blob/master/examples/s_expression.rs
-
-use crate::symbols::Function;
-use nom::bytes::complete::escaped;
-use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    bytes::complete::{take_till, take_while1},
-    character::complete::{char, multispace0, none_of},
-    combinator::{cut, map, map_res},
-    error::{context, VerboseError},
-    multi::{many0, many1},
-    number::complete::recognize_float,
-    sequence::{delimited, preceded},
-    IResult, Parser,
-};
 use std::sync::Arc;
 
-#[inline]
-fn is_symbol_char(c: char) -> bool {
-    match c {
-        '(' | ')' => false,
-        '"' => false,
-        '\'' => false,
-        ';' => false,
-        ' ' => false,
-        sym => !sym.is_whitespace(),
+use crate::symbols::{Expr, Function, Integer, LispResult, Num, SymbolTable};
+use anyhow::anyhow;
+use im::{vector, Vector};
+
+fn parse_num(input: &str) -> LispResult<(Expr, usize)> {
+    let next_whitespace_or_end = input
+        .chars()
+        .position(|c| !(c == '.' || c.is_numeric() || c == '-')) // TODO: Handle floating patterns like 1e3
+        .unwrap_or(input.len());
+    let input = &input[0..next_whitespace_or_end];
+    if let Ok(res) = input.parse::<Integer>() {
+        return Ok((Expr::num(res), next_whitespace_or_end));
     }
+    if let Ok(res) = input.parse::<Num>() {
+        return Ok((Expr::num(res), next_whitespace_or_end));
+    }
+    Err(anyhow!("Cannot convert: \"{}\" into an int", input))
 }
 
-use crate::symbols::SymbolTable;
-use im::Vector;
+fn parse_symbol(input: &str) -> LispResult<(Expr, usize)> {
+    if input.is_empty() || input.chars().next().unwrap().is_numeric() {
+        return Err(anyhow!("Invalid symbol! {}", input));
+    }
+    let output_str: String = input.chars().take_while(|&c| is_symbol_char(c)).collect();
+    let end_index = output_str.len();
+
+    let res = match output_str.as_str() {
+        "true" => Expr::Bool(true),
+        "false" => Expr::Bool(false),
+        "nil" => Expr::Nil,
+        _ if output_str.contains('.') => {
+            let parts = output_str
+                .split('.')
+                .filter(|s| !s.is_empty())
+                .map(|st| st.to_string())
+                .collect();
+            method_call_multiple(parts)
+        }
+        otherwise => Expr::Symbol(otherwise.into()),
+    };
+    Ok((res, end_index))
+}
 
 fn method_call(method: String) -> Expr {
     let method_clone = method.clone();
@@ -91,149 +96,225 @@ fn method_call_multiple(methods: Vec<String>) -> Expr {
     });
     ff
 }
-
-fn parse_symbol(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
-    map(take_while1(is_symbol_char), |sym: &str| {
-        if sym.contains('.') {
-            let methods = sym
-                .split('.')
-                .filter(|s| !s.is_empty())
-                .map(|st| st.to_string())
-                .collect();
-            method_call_multiple(methods)
-        } else if sym == "nil" {
-            Expr::Nil
-        } else {
-            Expr::Symbol(sym.into())
-        }
-    })(i)
-}
-
-fn decode_control_character_str(input: &str) -> String {
-    // TODO: Remake this function. It's ugly and hard to follow.
+fn parse_string(input: &str) -> LispResult<(Expr, usize)> {
+    // TODO: Clean this up
+    if input.len() < 2 {
+        return Err(anyhow!("Could not parse the string: {}", input));
+    } else if !input.starts_with('\"') {
+        return Err(anyhow!(
+            "Parse string called on something that does not start with a quote: {}",
+            input
+        ));
+    }
+    let mut curr_pos = 0;
     let mut output_str = String::new();
-    match input {
-        "\\n" => return "\n".to_string(),
-        "\\r" => return "\r".to_string(),
-        u if u.is_empty() => return output_str,
-        _ => (),
-    }
-    let mut skip_next_c = false;
-    for (first_c, second_c) in input.chars().zip(input.chars().skip(1)) {
-        if skip_next_c {
-            skip_next_c = false;
-            continue;
-        }
-        if first_c == '\\' {
-            skip_next_c = true;
-            match second_c {
-                'n' => output_str.push('\n'),
-                'r' => output_str.push('\r'),
-                _ => {
-                    skip_next_c = false;
+    let mut chars_iterator = input.chars().skip(1).peekable();
+    loop {
+        curr_pos += 1;
+        match chars_iterator.next() {
+            Some(curr_char) => match (curr_char, chars_iterator.peek()) {
+                ('\\', None) => return Err(anyhow!("Tried to escape, failed! {}", input)),
+                ('\\', Some('\\')) => {
+                    curr_pos += 1;
+                    chars_iterator.next().unwrap();
+                    output_str.push('\\');
                 }
-            }
-        } else {
-            output_str.push(first_c);
+                ('\\', Some('n')) => {
+                    curr_pos += 1;
+                    chars_iterator.next().unwrap();
+                    output_str.push('\n');
+                }
+                ('\\', Some('r')) => {
+                    curr_pos += 1;
+                    chars_iterator.next().unwrap();
+                    output_str.push('\r');
+                }
+                ('\\', Some('"')) => {
+                    curr_pos += 1;
+                    chars_iterator.next().unwrap();
+                    output_str.push('"');
+                }
+                ('"', _) => {
+                    assert!(input.chars().nth(curr_pos) == Some('"'));
+                    // advance one after that ending quote
+                    curr_pos += 1;
+                    break;
+                }
+                (c, _) => output_str.push(c),
+            },
+            None => break,
         }
     }
-    output_str.push(input.chars().last().unwrap());
-    output_str
+    Ok((Expr::string(output_str), curr_pos))
 }
 
-fn parse_string(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
-    let esc = escaped(none_of("\\\""), '\\', none_of(""));
-    // let esc = escaped(none_of("\\\""), '\\', one_of(r#"n"\"#));
-    let esc_or_empty = alt((esc, tag("")));
-
-    map(delimited(tag("\""), esc_or_empty, tag("\"")), |s: &str| {
-        Expr::string(decode_control_character_str(s))
-    })(i)
-}
-
-fn parse_bool(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
-    alt((
-        map(tag("true"), |_| Expr::Bool(true)),
-        map(tag("false"), |_| Expr::Bool(false)),
-    ))(i)
-}
-
-fn ignored_input(i: &str) -> IResult<&str, &str, VerboseError<&str>> {
-    let comment_parse = delimited(
-        preceded(multispace0, tag(";")),
-        take_till(|c| c == '\n'),
-        multispace0,
-    );
-    let comment_parse = many1(comment_parse).map(|_| "");
-    alt((comment_parse, multispace0))(i)
-}
-
-fn parse_tuple(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
-    let make_tuple = |exprs: Vec<_>| {
-        let mut tuple_list = im::Vector::unit(Expr::Symbol("tuple".into()));
-        tuple_list.append(exprs.into());
-        Expr::List(tuple_list)
-    };
-    map(
-        context("tuple", preceded(tag("^"), cut(s_exp(many0(parse_expr))))),
-        make_tuple,
-    )(i)
-}
-
-fn parse_quote(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
-    map(
-        context("quote", preceded(tag("'"), cut(s_exp(many0(parse_expr))))),
-        |exprs| Expr::Quote(exprs.into()),
-    )(i)
-}
-
-fn parse_num(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
-    map_res(recognize_float, |digit_str: &str| {
-        match digit_str.parse::<Integer>() {
-            Ok(i) => Ok(Expr::Integer(i)),
-            Err(_) => digit_str.parse::<Num>().map(Expr::num),
+fn parse_sexp(input: &str) -> LispResult<(Expr, usize)> {
+    if input.is_empty() {
+        return Err(anyhow!("Attempted to parse sexp on empty string!"));
+    }
+    let mut char_iterator = input.chars().peekable();
+    if char_iterator.next() != Some('(') {
+        return Err(anyhow!(
+            "Attempted to parse sexp not starting with a brace! {}",
+            input
+        ));
+    }
+    let mut curr_pos = 1;
+    let mut contents = Vector::new();
+    loop {
+        let curr_input_slice = &input[curr_pos..];
+        let next_pos = next_non_whitespace_and_comment_pos(curr_input_slice);
+        for _ in 0..next_pos {
+            char_iterator.next();
+            curr_pos += 1;
         }
-    })(i)
+        match char_iterator.peek() {
+            None => return Err(anyhow!("Unexpected end of sexp! {}", input)),
+            Some(curr_char) => {
+                if curr_char == &')' {
+                    curr_pos += 1;
+                    break;
+                }
+                let (next_item, new_pos) = parse_expr(&input[curr_pos..])?;
+                contents.push_back(next_item);
+                for _ in 0..new_pos {
+                    char_iterator.next();
+                }
+                curr_pos += new_pos;
+            }
+        }
+    }
+    Ok((Expr::List(contents), curr_pos))
 }
 
-fn s_exp<'a, O1, F>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O1, VerboseError<&'a str>>
-where
-    F: Parser<&'a str, O1, VerboseError<&'a str>>,
-{
-    delimited(
-        char('('),
-        preceded(ignored_input, inner),
-        context("closing paren", cut(preceded(ignored_input, char(')')))),
-    )
+fn parse_dict(input: &str) -> LispResult<(Expr, usize)> {
+    if input.is_empty() {
+        return Err(anyhow!("Attempted to parse a dict on an empty string!"));
+    }
+    if !input.starts_with('{') {
+        return Err(anyhow!(
+            "Attempted to parse a dict from a string not starting with a curly brace! {}",
+            input
+        ));
+    }
+    let mut curr_pos = 1;
+    let mut values = Vector::new();
+    loop {
+        if input[curr_pos..].starts_with('}') {
+            curr_pos += 1;
+            break;
+        }
+        curr_pos += next_non_whitespace_and_comment_pos(&input[curr_pos..]);
+        let (key, next_pos) = parse_expr(&input[curr_pos..])?;
+        values.push_back(key);
+        curr_pos += next_pos;
+        curr_pos += next_non_whitespace_and_comment_pos(&input[curr_pos..]);
+        if !input[curr_pos..].starts_with(':') {
+            return Err(anyhow!("Expected ':' when parsing dict in {}", input));
+        } else {
+            curr_pos += 1;
+        }
+        curr_pos += next_non_whitespace_and_comment_pos(&input[curr_pos..]);
+        let (value, next_pos) = parse_expr(&input[curr_pos..])?;
+        values.push_back(value);
+        curr_pos += next_pos;
+        curr_pos += next_non_whitespace_and_comment_pos(&input[curr_pos..]);
+        if input[curr_pos..].starts_with('}') {
+            // return Err(anyhow!("Expected dict to end with a curly brace!", input));
+            curr_pos += 1;
+            break;
+        } else if input[curr_pos..].starts_with(',') {
+            curr_pos += 1;
+            curr_pos += next_non_whitespace_and_comment_pos(&input[curr_pos..]);
+        } else {
+            return Err(anyhow!(
+                "Unexpected string \"{}\" when parsing dict in {}",
+                &input[curr_pos..],
+                input
+            ));
+        }
+    }
+    values.push_front(Expr::Symbol("dict".into()));
+    Ok((Expr::List(values), curr_pos))
 }
 
-fn s_exp_inner(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
-    map(many0(parse_expr), |l| Expr::List(l.into()))(i)
+fn next_non_whitespace_and_comment_pos(input: &str) -> usize {
+    let mut output_pos = 0;
+    loop {
+        let input = &input[output_pos..];
+        if input.is_empty() {
+            break;
+        }
+        let leading_char = input.chars().next().unwrap();
+        if leading_char == ';' {
+            output_pos += input
+                .chars()
+                .position(|c| c == '\n')
+                .unwrap_or(input.len() - 1)
+                + 1;
+        } else if leading_char.is_whitespace() {
+            output_pos += input.chars().take_while(|c| c.is_whitespace()).count();
+        } else {
+            break;
+        }
+    }
+    output_pos
 }
 
-fn parse_list(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
-    // finally, we wrap it in an s-expression
-
-    let anon_fn_sugar = map(preceded(tag("#"), s_exp(s_exp_inner)), |e: Expr| {
-        Expr::List(im::vector![Expr::Symbol("anon-fn-sugar".into()), e])
-    });
-    alt((anon_fn_sugar, s_exp(s_exp_inner)))(i)
+#[inline]
+fn is_symbol_char(c: char) -> bool {
+    match c {
+        '(' | ')' => false,
+        '"' => false,
+        '\'' => false,
+        ';' => false,
+        ' ' => false,
+        sym => !sym.is_whitespace(),
+    }
 }
 
-fn parse_expr(i: &str) -> IResult<&str, Expr, VerboseError<&str>> {
-    delimited(
-        ignored_input,
-        alt((
-            parse_list,
-            parse_quote,
-            parse_tuple,
-            parse_string,
-            parse_num,
-            parse_bool,
-            parse_symbol,
-        )),
-        ignored_input,
-    )(i)
+fn parse_expr(input: &str) -> LispResult<(Expr, usize)> {
+    if input.is_empty() {
+        return Err(anyhow!("Attempted to parse an empty input!"));
+    }
+    let first_char = input.chars().next().unwrap();
+    let second_char_is_numeric = input
+        .chars()
+        .nth(1)
+        .map(|c| c.is_numeric())
+        .unwrap_or(false);
+    let (item, next_pos) = match first_char {
+        _num if first_char.is_numeric() || (first_char == '-' && second_char_is_numeric) => {
+            parse_num(input)?
+        }
+        '"' => parse_string(input)?,
+        '(' => parse_sexp(input)?,
+        '{' => parse_dict(input)?,
+        '#' => {
+            let (inner_sexp, next_pos) = parse_sexp(&input[1..])?;
+            (
+                Expr::List(vector![Expr::Symbol("anon-fn-sugar".into()), inner_sexp]),
+                next_pos + 1,
+            )
+        }
+        '^' => {
+            let (inner_sexp, next_pos) = parse_sexp(&input[1..])?;
+            (Expr::Tuple(inner_sexp.get_list()?), next_pos + 1)
+        }
+        '\'' => {
+            let (inner_sexp, next_pos) = parse_sexp(&input[1..])?;
+            (Expr::Quote(inner_sexp.get_list()?), next_pos + 1)
+        }
+        _sym if is_symbol_char(first_char) => parse_symbol(input)?,
+        otherwise => {
+            return Err(anyhow!(
+                "Failed to parse! Unknown prefix {} in {}",
+                otherwise,
+                input
+            ))
+        }
+    };
+    Ok((item, next_pos))
 }
 
 pub struct ExprIterator<'a> {
@@ -251,20 +332,26 @@ impl<'a> Iterator for ExprIterator<'a> {
     type Item = LispResult<Expr>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.done || self.input.is_empty() {
+        if self.done {
             return None;
         }
-        let (rest, res) = match parse_expr(self.input) {
-            Ok(r) => r,
+        let ignored_prefix_pos = next_non_whitespace_and_comment_pos(self.input);
+        self.input = &self.input[ignored_prefix_pos..];
+        if self.input.is_empty() {
+            self.done = true;
+            return None;
+        }
+        let res = match parse_expr(self.input) {
+            Ok((item, next_pos)) => {
+                self.input = &self.input[next_pos..];
+                Ok(item)
+            }
             Err(e) => {
                 self.done = true;
-                return Some(Err(anyhow::Error::new(ProgramError::FailedToParse(
-                    e.to_string(),
-                ))));
+                Err(e)
             }
         };
-        self.input = rest;
-        Some(Ok(res))
+        Some(res)
     }
 }
 
@@ -273,133 +360,263 @@ pub fn read(s: &str) -> ExprIterator {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use bigdecimal::{BigDecimal, FromPrimitive};
+mod parser_tests {
+    use im::vector;
 
-    macro_rules! num_f {
-        ($n:expr) => {
-            Expr::num(BigDecimal::from_f64($n).unwrap())
-        };
-    }
+    use super::*;
+    use crate::symbols::Expr;
 
     #[test]
     fn parse_floats() {
-        assert_eq!(parse_num("1").unwrap(), ("", num_f!(1.0)));
-        assert_eq!(parse_num("1.0").unwrap(), ("", num_f!(1.0)));
-        assert_eq!(parse_num("1.1").unwrap(), ("", num_f!(1.1)));
-        assert_eq!(parse_num("-1.1").unwrap(), ("", num_f!(-1.1)));
-        assert_eq!(parse_num("-0.1").unwrap(), ("", num_f!(-0.1)));
-    }
-
-    macro_rules! test_symbol {
-        ($($sym:literal),*) => {
-            $(
-                assert_eq!(
-                    parse_symbol($sym).unwrap(),
-                    ("", Expr::Symbol($sym.into()))
-                );
-            )*
-        }
+        assert_eq!(parse_num("1").unwrap(), (Expr::num(1), 1));
+        assert_eq!(parse_num("3 hello").unwrap(), (Expr::num(3), 1));
+        assert_eq!(parse_num("1.0").unwrap(), (Expr::num(1.0f32), 3));
+        assert_eq!(parse_num("1.1").unwrap(), (Expr::num(1.1f32), 3));
+        assert!(parse_num("ee").is_err());
     }
 
     #[test]
-    fn parse_sym() {
-        test_symbol!("abc", "abc1", "empty?", "test", "foo-bar", "-foobar");
-    }
-
-    // TODO: Make this way less brittle
-    #[test]
-    fn parse_str() {
+    fn parse_strings() {
         assert_eq!(
-            parse_string(r#""1""#).unwrap(),
-            ("", Expr::string("1".into()))
+            parse_string("\"abc\"").unwrap(),
+            (Expr::string("abc".to_string()), 5)
+        );
+        assert_eq!(
+            parse_string(r#""abc""#).unwrap(),
+            (Expr::string("abc".to_string()), 5)
         );
 
         assert_eq!(
             parse_string(r#""""#).unwrap(),
-            ("", Expr::string("".into()))
+            (Expr::string("".to_string()), 2)
         );
-
+        // "\r\n"
         assert_eq!(
-            parse_string(r#""hello-world""#).unwrap(),
-            ("", Expr::string("hello-world".into()))
+            parse_string(r#""\r\n""#).unwrap(),
+            (Expr::string("\r\n".to_string()), 6)
         );
-
         assert_eq!(
-            parse_string(r#""hello world""#).unwrap(),
-            ("", Expr::string("hello world".into()))
+            parse_string(r#""\r\n\"hello\""#).unwrap(),
+            (Expr::string("\r\n\"hello\"".to_string()), 14)
         );
-
         assert_eq!(
-            parse_string(r#""hello? world""#).unwrap(),
-            ("", Expr::string("hello? world".into()))
+            parse_string(r#""hello" 123"#).unwrap(),
+            (Expr::string("hello".to_string()), 7)
         );
     }
 
     #[test]
-    fn parse_ex() {
-        assert_eq!(parse_expr("1").unwrap(), ("", num_f!(1.0)));
+    fn test_parse_symbol() {
         assert_eq!(
-            parse_expr(r#""hello? world""#).unwrap(),
-            ("", Expr::string("hello? world".into()))
+            parse_symbol("symbol 123").unwrap(),
+            (Expr::Symbol("symbol".into()), 6)
         );
-        assert_eq!(
-            parse_expr(r#""1""#).unwrap(),
-            ("", Expr::string("1".into()))
-        );
+        assert_eq!(parse_symbol("s").unwrap(), (Expr::Symbol("s".into()), 1));
+        assert!(parse_symbol("123").is_err());
+    }
 
-        assert_eq!(parse_expr(r#""""#).unwrap(), ("", Expr::string("".into())));
-
-        assert_eq!(
-            parse_expr(r#""hello-world""#).unwrap(),
-            ("", Expr::string("hello-world".into()))
-        );
-
-        assert_eq!(
-            parse_expr(r#""hello world""#).unwrap(),
-            ("", Expr::string("hello world".into()))
-        );
-
-        assert_eq!(
-            parse_expr(r#""hello? world""#).unwrap(),
-            ("", Expr::string("hello? world".into()))
-        );
-
-        assert_eq!(parse_expr("; hello\n\n\n1").unwrap(), ("", num_f!(1.0)));
-        assert_eq!(parse_expr("1 ; hello").unwrap(), ("", num_f!(1.0)));
-
-        use im::vector;
-        assert_eq!(
-            parse_expr("(+ 1 1)").unwrap(),
+    #[test]
+    fn test_sexp() {
+        let tests = [
             (
-                "",
-                Expr::List(vector![Expr::Symbol("+".into()), num_f!(1.0), num_f!(1.0)])
+                "(1 2 3)",
+                Expr::List(vector![Expr::num(1), Expr::num(2), Expr::num(3)]),
+                7,
+            ),
+            ("()", Expr::List(vector![]), 2),
+            (
+                "(neato)",
+                Expr::List(vector![Expr::Symbol("neato".into())]),
+                7,
+            ),
+            (
+                "(neato   (1 2))   ",
+                Expr::List(vector![
+                    Expr::Symbol("neato".into()),
+                    Expr::List(vector![Expr::num(1), Expr::num(2),]),
+                ]),
+                15,
+            ),
+        ];
+        for (text, expected, idx) in tests {
+            let res = parse_sexp(text);
+            let res_s = format!("{:?}", res);
+            assert_eq!(
+                res.expect(&format!(
+                    "Could not parse {} into {}; result is {}",
+                    text, expected, res_s
+                )),
+                (expected.clone(), idx),
             )
-        )
+        }
     }
 
     #[test]
-    fn parse_ignored_input() {
-        assert_eq!(ignored_input("; hello\n"), Ok(("", "")));
-        assert_eq!(ignored_input("; hello"), Ok(("", "")));
-        assert_eq!(ignored_input(";hello"), Ok(("", "")));
-        assert_eq!(ignored_input(" ; hello"), Ok(("", "")));
+    fn test_parse_expr() {
+        let tests = [
+            (
+                "(1 2 3)",
+                Expr::List(vector![Expr::num(1), Expr::num(2), Expr::num(3)]),
+                7,
+            ),
+            ("\"hello\"", Expr::string("hello".to_string()), 7),
+            ("123.12   456", Expr::num(123.12), 6),
+        ];
+        for (text, expected, idx) in tests {
+            let res = parse_expr(text);
+            let res_s = format!("{:?}", res);
+            assert_eq!(
+                res.expect(&format!(
+                    "Could not parse {} into {}; result is {}",
+                    text, expected, res_s
+                )),
+                (expected.clone(), idx),
+            )
+        }
     }
 
     #[test]
     fn test_expr_iterator() {
-        let mut iter = ExprIterator::new("1 ; hello");
-        let next = iter.next();
-        assert!(next.is_some());
-        assert_eq!(next.unwrap().unwrap(), num_f!(1.0));
-        assert!(iter.next().is_none());
+        let tests = [
+            (
+                "123 456 \"789\"",
+                vec![
+                    Expr::num(123),
+                    Expr::num(456),
+                    Expr::string("789".to_string()),
+                ],
+            ),
+            ("()", vec![Expr::List(vector![])]),
+            (
+                "(1 2 3)",
+                vec![Expr::List(vector![
+                    Expr::num(1),
+                    Expr::num(2),
+                    Expr::num(3)
+                ])],
+            ),
+            (
+                "^(1 2 3)",
+                vec![Expr::Tuple(vector![
+                    Expr::num(1),
+                    Expr::num(2),
+                    Expr::num(3)
+                ])],
+            ),
+            (
+                "'(1 2 3)",
+                vec![Expr::Quote(vector![
+                    Expr::num(1),
+                    Expr::num(2),
+                    Expr::num(3)
+                ])],
+            ),
+            ("hello ; 3123", vec![Expr::Symbol("hello".into())]),
+            (
+                "123;commented text\n456 ",
+                vec![Expr::num(123), Expr::num(456)],
+            ),
+            (";", vec![]),
+            (
+                "#(+ $1 $2)",
+                vec![Expr::List(vector![
+                    Expr::Symbol("anon-fn-sugar".into()),
+                    Expr::List(vector![
+                        Expr::Symbol("+".into()),
+                        Expr::Symbol("$1".into()),
+                        Expr::Symbol("$2".into()),
+                    ])
+                ])],
+            ),
+            (
+                "(defn foo () (println \"hello\"))",
+                vec![Expr::List(vector![
+                    Expr::Symbol("defn".into()),
+                    Expr::Symbol("foo".into()),
+                    Expr::List(vector![]),
+                    Expr::List(vector![
+                        Expr::Symbol("println".into()),
+                        Expr::string("hello".into())
+                    ])
+                ])],
+            ),
+        ];
+        for (text, expected) in tests {
+            let parsed: Result<Vec<Expr>, _> = ExprIterator::new(text).into_iter().collect();
+            match parsed {
+                Ok(output) => assert_eq!(
+                    output, expected,
+                    "Could not parse {} into {:?}, instead {:?} was parsed",
+                    text, expected, output
+                ),
+                Err(e) => assert!(
+                    false,
+                    "Was given error message {} when trying to parse {}",
+                    e, text
+                ),
+            };
+        }
     }
 
     #[test]
-    fn can_parse_control_characters() {
-        assert_eq!("\n", decode_control_character_str("\\n"));
-        assert_eq!("\r", decode_control_character_str("\\r"));
-        assert_eq!("\n123", decode_control_character_str("\\n123"));
+    fn test_dict() {
+        let tests = [
+            ("{}", Expr::List(vector![Expr::Symbol("dict".into())]), 2),
+            (
+                "{1: 2}",
+                Expr::List(vector![
+                    Expr::Symbol("dict".into()),
+                    Expr::num(1),
+                    Expr::num(2),
+                ]),
+                6,
+            ),
+            (
+                "{1: 2, 3 : 4,}",
+                Expr::List(vector![
+                    Expr::Symbol("dict".into()),
+                    Expr::num(1),
+                    Expr::num(2),
+                    Expr::num(3),
+                    Expr::num(4),
+                ]),
+                14,
+            ),
+            (
+                "{\"hello\": 2, 3 : 4,}",
+                Expr::List(vector![
+                    Expr::Symbol("dict".into()),
+                    Expr::string("hello".into()),
+                    Expr::num(2),
+                    Expr::num(3),
+                    Expr::num(4),
+                ]),
+                20,
+            ),
+            (
+                "{{}:{3:4}}",
+                Expr::List(vector![
+                    Expr::Symbol("dict".into()),
+                    Expr::List(vector![Expr::Symbol("dict".into())]),
+                    Expr::List(vector![
+                        Expr::Symbol("dict".into()),
+                        Expr::num(3),
+                        Expr::num(4)
+                    ]),
+                ]),
+                10,
+            ),
+        ];
+        for (text, expected, idx) in tests {
+            let res = parse_dict(text);
+            let res_s = format!("{:?}", res);
+            assert_eq!(
+                res.expect(&format!(
+                    "Could not parse {} into {}; result is {}",
+                    text, expected, res_s
+                )),
+                (expected.clone(), idx),
+            )
+        }
     }
 }

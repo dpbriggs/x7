@@ -38,9 +38,6 @@ Example:
    true (+ (* (head l) (head r))
            (dot-product (tail l) (tail r)))))
 
-(defn inspect (x)
-  (do (println x) x))
-
 (defn quicksort
   "Sort a list using quicksort.
 Example:
@@ -106,3 +103,7 @@ Example:
   "Get the second item of a collection, or nil"
   (collection)
   (head (tail collection)))
+
+(defn divides?
+  (num divisor)
+  (= 0 (% num divisor)))

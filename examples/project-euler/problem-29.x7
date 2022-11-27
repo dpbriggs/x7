@@ -1,0 +1,7 @@
+(include "examples/project-euler/utils.x7")
+
+(defn produce-powers (lower upper)
+  (map #(apply pow $1) (product (range lower upper) (range lower upper))))
+
+(print-res
+ (len (apply Set (doall (produce-powers 2 101)))))

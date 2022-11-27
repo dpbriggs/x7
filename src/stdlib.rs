@@ -1,7 +1,7 @@
 #![allow(clippy::unnecessary_wraps)]
 use crate::interner::InternedString;
 use crate::iterators::{
-    CartesianProduct, LazyList, LazyMap, NaturalNumbers, Skip, Take, TakeWhile,
+    CartesianProduct, Distinct, Inspect, LazyList, LazyMap, NaturalNumbers, Skip, Take, TakeWhile,
 };
 use crate::modules::load_x7_stdlib;
 use crate::records::{DictMutRecord, DictRecord, RecordDoc};
@@ -276,7 +276,7 @@ fn eval(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
 fn parse(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let program = exprs[0].get_string()?;
-    let parse_res: Vector<Expr> = crate::parser2::read(&program)
+    let parse_res: Vector<Expr> = crate::parser::read(&program)
         .into_iter()
         .collect::<LispResult<_>>()?;
     Ok(Expr::Tuple(parse_res))
@@ -549,6 +549,23 @@ fn map(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::List(l))
 }
 
+fn mapt(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    map(exprs, symbol_table).map(|list| match list {
+        Expr::List(l) => Expr::Tuple(l),
+        ll @ Expr::LazyIter(_) => ll,
+        _ => unreachable!(),
+    })
+}
+
+fn threading_operator(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    let (item, funcs) = exprs.split_at(1);
+    let mut res = item.get(0).cloned().unwrap_or(Expr::Nil);
+    for func in funcs {
+        res = func.call_fn(Vector::unit(res), symbol_table)?;
+    }
+    Ok(res)
+}
+
 // Like map, but doesn't produce a list.
 fn foreach(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
@@ -677,6 +694,9 @@ fn skip(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
 
 fn lazy(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
+    if let Ok(iter) = exprs[0].get_iterator() {
+        return Ok(Expr::LazyIter(iter));
+    }
     if let Ok(list) = exprs[0].get_list() {
         return LazyList::lisp_new(list);
     }
@@ -1180,8 +1200,12 @@ fn divisors(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr
     for i in 1..=num {
         if num % i == 0 {
             res.push_back(Expr::Integer(i));
+            if i >= num / 2 {
+                break;
+            }
         }
     }
+    res.push_back(Expr::Integer(num));
     Ok(Expr::Tuple(res))
 }
 
@@ -1245,11 +1269,19 @@ fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     Ok(Expr::List(list))
 }
 
-fn distinct(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
-    let sorted = sort(exprs, _symbol_table)?.get_list().unwrap();
+fn distinct(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 1);
+    if let Ok(_iter) = exprs[0].get_iterator() {
+        return Distinct::lisp_res(exprs, symbol_table);
+    }
+    let sorted = sort(exprs, symbol_table)?.get_list().unwrap();
     let mut v: Vec<_> = sorted.into_iter().collect();
     v.dedup();
     Ok(Expr::List(v.drain(..).collect()))
+}
+
+fn inspect(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
+    Inspect::lisp_res(exprs, symbol_table)
 }
 
 fn max_by(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
@@ -1713,6 +1745,10 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
         ("map", 1, map, true, "Apply a function to each element of a sequence and return a list.
 Example: (map inc '(1 2 3)) ; (2 3 4)
 "),
+        ("mapt", 1, mapt, true, "Apply a function to each element of a sequence and return a tuple.
+Example: (map inc '(1 2 3)) ; ^(2 3 4)
+"),
+        ("->", 1, threading_operator, true, "DOCS TBD"),
         ("inline_transform", 2, inline_transform, true, "Given a list of data and another of functions, apply each function pairwise onto the list.
 Example:
 
@@ -1970,7 +2006,14 @@ Example:
 Example:
 (distinct '(1 1 1 2 2 0 0)) ; (0 1 2)
 "),
-
+        ("inspect", 2, inspect, true, "Inspect values in a lazy iterator while its running.
+Example:
+>>> (doall (inspect #(println \"curr_item=\" $1) (take 3 (range))))
+curr_item=0
+curr_item=1
+curr_item=2
+(0 1 2)
+"),
         ("max-by", 2, max_by, true, "Get the maximum value of an iterator by a some function f. Throws an error if called with an empty iteratable.
 Example:
 (max-by
