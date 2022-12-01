@@ -7,12 +7,12 @@
 
 (defn read-input (filename)
   (reduce parse-input-reduce-fn
-          (tuple (tuple))
+          ^(^())
           (.read_lines (fs::open input-file))))
 
 (defn get-calorie-sums (filename)
-  (mapt #(apply + $1) (tail (read-input filename)))
-  )
+  (mapt @(apply +)
+        (tail (read-input filename))))
 
 (defn part-1 ()
   (do
