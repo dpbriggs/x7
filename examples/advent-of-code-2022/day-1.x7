@@ -1,0 +1,36 @@
+(def input-file "examples/advent-of-code-2022/input/day1.txt")
+
+(defn parse-input-reduce-fn (acc x)
+  (cond
+    (empty? x) (cons ^() acc)
+    true       (cons (cons (int x) (head acc)) (tail acc))))
+
+(defn read-input (filename)
+  (reduce parse-input-reduce-fn
+          (tuple (tuple))
+          (.read_lines (fs::open input-file))))
+
+(defn get-calorie-sums (filename)
+  (mapt #(apply + $1) (tail (read-input filename)))
+  )
+
+(defn part-1 ()
+  (do
+   (println "-------Part 1-------")
+   (println "--------------------")
+   (println (max (get-calorie-sums input-file)))
+   (println "--------------------")))
+
+(defn part-2 ()
+  (do
+   (println "-------Part 2-------")
+   (println "--------------------")
+   (bind
+    (values (slice 0 3 (-> (get-calorie-sums input-file) sort rev )))
+    (do
+     (println "values = " values)
+     (println "sum = " (apply + values))))
+   (println "--------------------")))
+
+(part-1)
+(part-2)
