@@ -991,7 +991,7 @@ impl SymbolTable {
             .read()
             .get(symbol)
             .cloned()
-            .ok_or_else(|| anyhow!("Unknown Symbol {}", symbol.to_string()))
+            .ok_or_else(|| anyhow!("Unknown Symbol '{}'", symbol.to_string()))
     }
 
     pub(crate) fn symbol_exists(&self, sym: &InternedString) -> bool {

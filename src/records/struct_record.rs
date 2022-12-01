@@ -584,6 +584,27 @@ where
     }
 }
 
+impl<F, T, A, B, Out> IntoWriteFn<(A, B, SymbolTable), T, Out> for F
+where
+    F: Fn(&mut T, A, B, &SymbolTable) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+    A: ForeignData,
+    B: ForeignData,
+{
+    fn into_write_fn(self) -> WriteFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, sym: &SymbolTable| {
+            crate::exact_len!(args, 2);
+            let a = crate::convert_arg!(A, &args[0]);
+            let b = crate::convert_arg!(B, &args[1]);
+            let mut s = sr.inner.lock();
+            (self)(&mut s, a, b, sym)
+                .to_x7()
+                .map_err(|e| anyhow!("{:?}", e))
+        };
+        Box::new(ff)
+    }
+}
+
 impl<F, T, A, B, C, Out> IntoWriteFn<(A, B, C), T, Out> for F
 where
     F: Fn(&mut T, A, B, C) -> Out + Sync + Send + 'static,
@@ -600,6 +621,29 @@ where
             let c = crate::convert_arg!(C, &args[2]);
             let mut s = sr.inner.lock();
             (self)(&mut s, a, b, c)
+                .to_x7()
+                .map_err(|e| anyhow!("{:?}", e))
+        };
+        Box::new(ff)
+    }
+}
+
+impl<F, T, A, B, C, Out> IntoWriteFn<(A, B, C, SymbolTable), T, Out> for F
+where
+    F: Fn(&mut T, A, B, C, &SymbolTable) -> Out + Sync + Send + 'static,
+    Out: ForeignData,
+    A: ForeignData,
+    B: ForeignData,
+    C: ForeignData,
+{
+    fn into_write_fn(self) -> WriteFn<T> {
+        let ff = move |sr: &StructRecord<T>, args: Vector<Expr>, sym: &SymbolTable| {
+            crate::exact_len!(args, 3);
+            let a = crate::convert_arg!(A, &args[0]);
+            let b = crate::convert_arg!(B, &args[1]);
+            let c = crate::convert_arg!(C, &args[2]);
+            let mut s = sr.inner.lock();
+            (self)(&mut s, a, b, c, sym)
                 .to_x7()
                 .map_err(|e| anyhow!("{:?}", e))
         };

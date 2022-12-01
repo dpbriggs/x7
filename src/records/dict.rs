@@ -80,6 +80,18 @@ impl DictRecord {
         self.0.values().cloned().collect()
     }
 
+    fn update_entry(
+        &mut self,
+        key: Expr,
+        update_fn: Expr,
+        default: Expr,
+        symbol_table: &SymbolTable,
+    ) -> LispResult<Expr> {
+        let value = self.0.entry(key).or_insert(default);
+        *value = update_fn.call_fn(Vector::unit(value.clone()), symbol_table)?;
+        Ok(value.clone())
+    }
+
     fn update(&mut self, key: Expr, value: Expr) -> Option<Expr> {
         self.0.insert(key, value)
     }
@@ -135,6 +147,7 @@ impl DictMutRecord {
             .add_method("remove", DictRecord::remove)
             .add_method_mut("merge", DictRecord::merge_mut)
             .add_method_mut("update", DictRecord::update)
+            .add_method_mut("update_entry", DictRecord::update_entry)
             .build()
     }
 }

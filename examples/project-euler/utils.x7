@@ -1,7 +1,7 @@
 (defn print-res
     "print the result in a nice way"
-  (x)
+  (& items)
   (do
    (println "-----------------------")
-   (println x)
+   (map println items)
    (println "-----------------------")))

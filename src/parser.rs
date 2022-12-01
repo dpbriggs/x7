@@ -297,6 +297,14 @@ fn parse_expr(input: &str) -> LispResult<(Expr, usize)> {
                 next_pos + 1,
             )
         }
+        '@' => {
+            let (inner_sexp, next_pos) = parse_sexp(&input[1..])?;
+            (
+                inner_sexp.push_front(Expr::Symbol("partial".into()))?,
+                next_pos + 1,
+            )
+        }
+
         '^' => {
             let (inner_sexp, next_pos) = parse_sexp(&input[1..])?;
             (Expr::Tuple(inner_sexp.get_list()?), next_pos + 1)

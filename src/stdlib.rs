@@ -1266,7 +1266,7 @@ fn sort(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 1);
     let mut list = exprs[0].full_order_list()?;
     list.sort();
-    Ok(Expr::List(list))
+    Ok(Expr::Tuple(list))
 }
 
 fn distinct(exprs: Vector<Expr>, symbol_table: &SymbolTable) -> LispResult<Expr> {
