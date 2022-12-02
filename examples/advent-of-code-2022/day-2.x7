@@ -1,0 +1,104 @@
+(def ROCK "Rock")
+(def PAPER "Paper")
+(def SCISSORS "Scissors")
+(def LOSS 0)
+(def DRAW 3)
+(def WIN 6)
+
+(def input-file "examples/advent-of-code-2022/input/day2.txt")
+(def parsing-regex (re::compile "([ABC]) ([XYZ])"))
+
+(def mapping-dict (dict "A" ROCK
+                        "B" PAPER
+                        "C" SCISSORS
+                        "X" ROCK
+                        "Y" PAPER
+                        "Z" SCISSORS
+                        ))
+
+(defn letters-to-items (input-tuple)
+  (mapt #(get mapping-dict $1) input-tuple))
+
+(defn parse-input-part-1 ()
+  (map letters-to-items
+       (filter #(not (nil? $1))
+               (mapt #(head (.captures parsing-regex $1))
+                     (.read_lines (fs::open input-file))))))
+
+(defn item-to-score (item)
+  (match item
+         ROCK 1
+         PAPER 2
+         SCISSORS 3))
+
+;; Sadly cond and match are broken w.r.t tuple comparisons
+
+(defn match-result (input-tuple)
+  (bind ((opponent you) input-tuple)
+        (cond
+          (= opponent you)                           DRAW
+          (and (= opponent ROCK) (= you PAPER))      WIN
+          (and (= opponent ROCK ) (= you SCISSORS))  LOSS
+          (and (= opponent PAPER) (= you ROCK))      LOSS
+          (and (= opponent PAPER) (= you SCISSORS))  WIN
+          (and (= opponent SCISSORS) (= you PAPER))  LOSS
+          (and (= opponent SCISSORS) (= you ROCK))   WIN)))
+
+(defn score-for-play (input-tuple)
+  (item-to-score (second input-tuple)))
+
+(defn calculate-overall-score (input)
+  (+ (sum (map match-result input))
+     (sum (map score-for-play input))))
+
+(defn part-1 ()
+  (bind (input (parse-input-part-1))
+        (do
+         (println "-------Part 1-------")
+         (println "--------------------")
+         (println (calculate-overall-score input))
+         (println "--------------------"))))
+
+;; ------------ Part 2 ------------
+
+
+(defn parse-input-part-2 ()
+  (filter #(not (nil? $1))
+          (mapt #(head (.captures parsing-regex $1))
+                (.read_lines (fs::open input-file)))))
+
+(defn losing-choice-for (opponent)
+  (match opponent
+         ROCK     SCISSORS
+         PAPER    ROCK
+         SCISSORS PAPER))
+
+(defn winning-choice-for (opponent)
+  (match opponent
+         SCISSORS ROCK
+         ROCK     PAPER
+         PAPER    SCISSORS))
+
+(defn implement-strategy (input-tuple)
+  (bind
+   ((opponent-raw decision) input-tuple
+    opponent                (get mapping-dict opponent-raw))
+   (tuple
+    opponent
+    (match decision
+           "X"    (losing-choice-for opponent)
+           "Y"    opponent
+           "Z"    (winning-choice-for opponent)))))
+
+(defn part-2 ()
+  (bind (input (parse-input-part-1))
+        (do
+         (println "-------Part 2-------")
+         (println "--------------------")
+          (println
+           (calculate-overall-score
+            (map implement-strategy (parse-input-part-2))))
+          (println "--------------------"))))
+
+(part-1)
+(part-2)

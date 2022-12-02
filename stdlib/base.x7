@@ -107,3 +107,6 @@ Example:
 (defn divides?
   (num divisor)
   (= 0 (% num divisor)))
+
+(defn sum (coll)
+  (apply + coll))

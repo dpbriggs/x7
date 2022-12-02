@@ -1,6 +1,6 @@
 [package]
 name = "x7"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["David Briggs <david@dpbriggs.ca>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
@@ -47,4 +47,4 @@ criterion = "0.3.3"
 
 [profile.release]
 debug = false
-# lto = "fat"
+lto = "fat"
