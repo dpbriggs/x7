@@ -135,7 +135,7 @@ impl FileRecord {
             .split('\n')
             .map(|s| Expr::string(s.into()))
             .collect();
-        Ok(Expr::List(split))
+        Ok(Expr::Tuple(split))
     }
 
     fn append(&mut self, content: String) -> LispResult<Expr> {

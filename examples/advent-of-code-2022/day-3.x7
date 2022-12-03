@@ -1,0 +1,52 @@
+(defn split-string-in-half (string)
+  (tuple (slice 0 (/ (len string) 2) string)
+         (slice (/ (len string) 2) (len string) string)))
+
+(def lowercase-letter-score (apply Dict (flatten (zip (chars "abcdefghijklmnopqrstuvwxyz") (range 1 27)))))
+(def uppercase-letter-score (apply Dict (flatten (zip (chars "ABCDEFGHIJKLMNOPQRSTUVWXYZ") (range 27 53)))))
+(def letter-score-map (.merge lowercase-letter-score uppercase-letter-score))
+
+(defn letter-score (letter)
+  (.get letter-score-map letter))
+
+(def input-file "examples/advent-of-code-2022/input/day3.txt")
+
+(defn read-input-file (filename)
+  (.read_lines (fs::open filename)))
+
+(defn common-characters-in (list-of-strings)
+  (-> list-of-strings
+      @(mapt chars)
+      @(mapt @(apply Set))
+      @(reduce .intersection)
+      .to_list))
+
+(defn part-1 ()
+  (do
+   (println "-------Part 1-------")
+   (println "--------------------")
+    (println
+     (sum (map letter-score (flatten (map common-characters-in (map split-string-in-half (read-input-file input-file))))))
+     )
+    (println "--------------------")))
+
+(defn windows (window-size coll)
+  (doall
+   (map @(apply slice)
+   (take (/ (len coll) window-size)
+         (map #(tuple (* $1 window-size)
+                      (+ window-size (* $1 window-size))
+                      coll)
+           (range))))))
+
+(defn part-2 ()
+  (do
+   (println "-------Part 2-------")
+   (println "--------------------")
+    (println
+     (sum (map letter-score
+               (flatten (map common-characters-in (windows 3 (read-input-file input-file)))))))
+    (println "--------------------")))
+
+(part-1)
+(part-2)
