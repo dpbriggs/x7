@@ -693,10 +693,10 @@ impl std::ops::Rem<&Expr> for Expr {
     type Output = LispResult<Expr>;
     fn rem(self, other: &Expr) -> LispResult<Expr> {
         match (&self, &other) {
-            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::num(l % r))),
-            (Expr::Integer(l), Expr::Integer(r)) => (Ok(Expr::num(l % r))),
-            (Expr::Integer(l), Expr::Num(r)) => (Ok(Expr::num(l.to_bigdecimal() % r))),
-            (Expr::Num(l), Expr::Integer(r)) => (Ok(Expr::num(l % r.to_bigdecimal()))),
+            (Expr::Num(l), Expr::Num(r)) => Ok(Expr::num(l % r)),
+            (Expr::Integer(l), Expr::Integer(r)) => Ok(Expr::num(l % r)),
+            (Expr::Integer(l), Expr::Num(r)) => Ok(Expr::num(l.to_bigdecimal() % r)),
+            (Expr::Num(l), Expr::Integer(r)) => Ok(Expr::num(l % r.to_bigdecimal())),
             _ => bad_types!(format!(
                 "Remainder requires left and right are num types, was given {:?} % {:?}",
                 &self, &other
@@ -710,7 +710,7 @@ impl std::ops::Add<&Expr> for Expr {
     #[inline]
     fn add(self, other: &Expr) -> LispResult<Expr> {
         match (&self, &other) {
-            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::num(l + r))),
+            (Expr::Num(l), Expr::Num(r)) => Ok(Expr::num(l + r)),
             (Expr::Integer(l), Expr::Integer(r)) => match l.checked_add(*r) {
                 Some(res) => Ok(Expr::num(res)),
                 None => Ok(Expr::num(l.to_bigdecimal() + r.to_bigdecimal())),
@@ -718,10 +718,10 @@ impl std::ops::Add<&Expr> for Expr {
             (Expr::Integer(l), Expr::Num(r)) => Ok(Expr::num(l.to_bigdecimal() + r)),
             (Expr::Num(l), Expr::Integer(r)) => Ok(Expr::num(l + r.to_bigdecimal())),
             (Expr::String(l), Expr::String(r)) => Ok(Expr::string(l.to_string() + r)),
-            (Expr::Num(l), Expr::String(r)) => (Ok(Expr::string(format!("{}{}", l, r)))),
-            (Expr::String(l), Expr::Num(r)) => (Ok(Expr::string(format!("{}{}", l, r)))),
-            (Expr::String(l), Expr::Integer(r)) => (Ok(Expr::string(format!("{}{}", l, r)))),
-            (Expr::Integer(l), Expr::String(r)) => (Ok(Expr::string(format!("{}{}", l, r)))),
+            (Expr::Num(l), Expr::String(r)) => Ok(Expr::string(format!("{}{}", l, r))),
+            (Expr::String(l), Expr::Num(r)) => Ok(Expr::string(format!("{}{}", l, r))),
+            (Expr::String(l), Expr::Integer(r)) => Ok(Expr::string(format!("{}{}", l, r))),
+            (Expr::Integer(l), Expr::String(r)) => Ok(Expr::string(format!("{}{}", l, r))),
             (Expr::List(l), Expr::List(r)) => {
                 let mut res = l.clone();
                 res.append(r.clone());
@@ -753,7 +753,7 @@ impl std::ops::Sub<&Expr> for Expr {
     type Output = LispResult<Expr>;
     fn sub(self, other: &Expr) -> LispResult<Expr> {
         match (&self, &other) {
-            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::num(l - r))),
+            (Expr::Num(l), Expr::Num(r)) => Ok(Expr::num(l - r)),
             (Expr::Integer(l), Expr::Integer(r)) => match l.checked_sub(*r) {
                 Some(res) => Ok(Expr::num(res)),
                 None => Ok(Expr::num(l.to_bigdecimal() - r.to_bigdecimal())),
@@ -772,7 +772,7 @@ impl std::ops::Mul<&Expr> for Expr {
     type Output = LispResult<Expr>;
     fn mul(self, other: &Expr) -> LispResult<Expr> {
         match (&self, &other) {
-            (Expr::Num(l), Expr::Num(r)) => (Ok(Expr::num(l * r))),
+            (Expr::Num(l), Expr::Num(r)) => Ok(Expr::num(l * r)),
             (Expr::Integer(l), Expr::Integer(r)) => match l.checked_mul(*r) {
                 Some(res) => Ok(Expr::num(res)),
                 None => Ok(Expr::Num(l.to_bigdecimal() * r.to_bigdecimal())), // res is larger than i64

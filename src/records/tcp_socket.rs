@@ -43,7 +43,7 @@ impl TcpListenerRecord {
         exact_len!(args, 2);
         let address = args[0].get_string()?;
         let accept_fn = args[1].get_function()?.clone();
-        let tcp_listener = TcpListener::bind(&address)
+        let tcp_listener = TcpListener::bind(address)
             .map_err(|e| anyhow!("Could not bind to network address! {:?}", e))?;
         Ok(TcpListenerRecord {
             tcp_listener: Some(tcp_listener),
