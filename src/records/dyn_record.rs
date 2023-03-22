@@ -72,6 +72,10 @@ impl Record for DynRecord {
         self.call_method(sym, args, symbol_table)
     }
 
+    fn has_method(&self, sym: &str) -> bool {
+        self.methods.contains_key(&sym.into())
+    }
+
     fn display(&self) -> String {
         if self.initialized {
             format!(

@@ -36,6 +36,7 @@ pub trait Record: Sync + Send + downcast_rs::DowncastSync {
         args: Vector<Expr>,
         symbol_table: &SymbolTable,
     ) -> LispResult<Expr>;
+    fn has_method(&self, sym: &str) -> bool;
     fn id(&self) -> u64 {
         0
     }

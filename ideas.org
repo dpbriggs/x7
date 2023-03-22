@@ -6,7 +6,7 @@ CLOSED: [2022-02-08 Tue 11:19]
 ** DONE Add truthiness to the language
 CLOSED: [2022-02-03 Thu 12:30]
 
-** TODO Allow truthiness override for Records
+** DONE Allow truthiness override for Records
 
 ** TODO Finish up StructRecord conversion; deprecate stdlib =dict=
 

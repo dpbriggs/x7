@@ -441,10 +441,17 @@ impl Expr {
 
     pub(crate) fn is_truthy(&self, symbol_table: &SymbolTable) -> LispResult<bool> {
         if let Expr::Bool(b) = self {
-            Ok(*b)
-        } else {
-            self.len(symbol_table).map(|len| len > 0)
+            return Ok(*b);
         }
+        if let Expr::Record(r) = self {
+            if r.has_method("~=") {
+                return r
+                    .call_method("~=", Vector::new(), symbol_table)
+                    .and_then(|x| x.is_truthy(symbol_table));
+            }
+        }
+
+        self.len(symbol_table).map(|len| len > 0)
     }
 }
 

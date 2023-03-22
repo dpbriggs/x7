@@ -203,6 +203,10 @@ impl<T: 'static + PartialEq + Sync + Send> Record for StructRecord<T> {
         }
     }
 
+    fn has_method(&self, sym: &str) -> bool {
+        self.read_method_map.contains_key(sym) || self.write_method_map.contains_key(sym)
+    }
+
     fn display(&self) -> String {
         self.debug()
     }
