@@ -186,6 +186,12 @@ fn sqrt_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Ex
     Ok(Expr::num(BigDecimal::from_f64(num_f64.sqrt()).unwrap()))
 }
 
+// copilot coming in clutch :flushed:
+fn print_smiley_face(_exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    println!("( ͡° ͜ʖ ͡°)");
+    Ok(Expr::Nil)
+}
+
 fn pow(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     exact_len!(exprs, 2);
     let base = exprs[0].get_num()?;
@@ -2050,11 +2056,13 @@ Example:
 (call_method f \"read_to_string\") ;; no args required
 (call_method f \"write\" \"hello world\") ;; pass it an arg
 "),
-        ("re::compile", 1, RegexRecord::compile_x7, true, RegexRecord::type_doc()),       ("methods", 1, doc_methods, true, "Grab all documentation for a record's methods"),
+        ("re::compile", 1, RegexRecord::compile_x7, true, RegexRecord::type_doc()),
+        ("methods", 1, doc_methods, true, "Grab all documentation for a record's methods"),
         ("time", 1, time, false, "Return the time taken to evaluate an expression in milliseconds."),
         ("catch-err", 1, catch_err, false, "Catch an error. Returns nil if no error is caught."),
         ("interner-stats", 0, interner_stats, true, "Internal string interner stats."),
         // ("Foo", 0, crate::records::struct_record::get_foobar_record, true, "Foobar"),
+        ("print-smiley-face", 0, print_smiley_face, true, "print a smiley face"),
         ("assert-eq", 2, assert_eq, false, "Assert if two items are equal.")
 
     );
