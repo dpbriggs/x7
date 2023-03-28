@@ -21,7 +21,7 @@ fn parse_num(input: &str) -> LispResult<(Expr, usize)> {
 
 fn parse_symbol(input: &str) -> LispResult<(Expr, usize)> {
     if input.is_empty() || input.chars().next().unwrap().is_numeric() {
-        return Err(anyhow!("Invalid symbol! {}", input));
+        return Err(anyhow!("Invalid symbol: {}", input));
     }
     let output_str: String = input.chars().take_while(|&c| is_symbol_char(c)).collect();
     let end_index = output_str.len();
