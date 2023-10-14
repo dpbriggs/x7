@@ -1,22 +1,22 @@
 (include "examples/project-euler/utils.x7")
 
-(def collatz-seen (dict 1 0 2 1 4 2))
+(def collatz-seen (DictMut 1 0 2 1 4 2))
 
 (defn update-seen
   "Update the collatz-seen dict and calculate the true chain length"
   (x acc orig)
   (bind
-   (steps-left (get collatz-seen x)
+   (steps-left (.get collatz-seen x)
     full-steps (+ steps-left acc))
    (do
-       (def collatz-seen (set collatz-seen orig full-steps))
+       (.update collatz-seen orig full-steps)
        full-steps)))
 
 (defn collatz-inner
   "Actual work for collatz. Will use the collatz-seen dict"
   (x acc orig)
   (cond
-   (not= nil (get collatz-seen x)) (update-seen x acc orig)  ;; Turns out it's just as slow to cache intermediates.
+   (not= nil (.get collatz-seen x)) (update-seen x acc orig)  ;; Turns out it's just as slow to cache intermediates.
    (<= x 1)      acc
    (= 0 (% x 2)) (collatz-inner (/ x 2) (inc acc) orig)
    true          (collatz-inner (inc (* 3 x)) (inc acc) orig)))
