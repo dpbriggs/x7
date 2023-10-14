@@ -507,6 +507,1544 @@ Example: (* 1 2 3) ; 6
 
 #+BEGIN_SRC elisp
 Take the remainder of the first item against the second.
+    Example: (% 4 2) ; 0
+#+END_SRC
+
+*** =/=
+
+#+BEGIN_SRC elisp
+Divide the first element by the rest.
+Example: (/ 8 2 2 2) ; 1
+
+#+END_SRC
+
+*** =sqrt=
+
+#+BEGIN_SRC elisp
+Take the square root of a number. There's minor precision loss as it's way faster to convert to floats internally over using a bigdecimal.
+Example: (sqrt 9) ; 3
+
+#+END_SRC
+
+*** ===
+
+#+BEGIN_SRC elisp
+Test if all items are equal.
+Example: (= 1 1) ; true
+         (= 1) ; true
+
+#+END_SRC
+
+*** =<=
+
+#+BEGIN_SRC elisp
+Test if the first item is strictly smaller than the rest.
+    Example: (< 0 1 2) ; true
+#+END_SRC
+
+*** =<==
+
+#+BEGIN_SRC elisp
+Test if the first item is smaller or equal to the rest.
+    Example: (<= 0 0 0.05 1) ; true
+#+END_SRC
+
+*** =>=
+
+#+BEGIN_SRC elisp
+Test if the first item is strictly greater than the rest.
+    Example: (> 10 0 1 2 3 4) ; true
+#+END_SRC
+
+*** =>==
+
+#+BEGIN_SRC elisp
+Test if the first item is greater than or equal to the rest.
+    Example: (>= 10 10 5) ; true
+#+END_SRC
+
+*** =inc=
+
+#+BEGIN_SRC elisp
+Increment the given number.
+Example:
+(inc 2.2) ;; 3.3
+(inc 1) ;; 2
+
+#+END_SRC
+
+*** =dec=
+
+#+BEGIN_SRC elisp
+Decrement the given number.
+Example:
+(dec 2.2) ;; 3.3
+(dec 1) ;; 2
+
+#+END_SRC
+
+*** =pow=
+
+#+BEGIN_SRC elisp
+Raise a number to an exponent.
+Example:
+(pow 2 3) ;; 8
+(pow 10 3) ;; 1000
+
+#+END_SRC
+
+*** =floor=
+
+#+BEGIN_SRC elisp
+Floor a number.
+Example:
+(floor 5.5) ;; 5.5
+
+#+END_SRC
+
+*** =int=
+
+#+BEGIN_SRC elisp
+Create an integer from the input.
+
+Example:
+(int 3.2) ;; 3
+
+#+END_SRC
+
+*** =not=
+
+#+BEGIN_SRC elisp
+Invert the bool. true becomes false and vice-versa.
+#+END_SRC
+
+*** =or=
+
+#+BEGIN_SRC elisp
+logical or.
+#+END_SRC
+
+*** =and=
+
+#+BEGIN_SRC elisp
+logical and.
+#+END_SRC
+
+*** =xor=
+
+#+BEGIN_SRC elisp
+logical xor.
+#+END_SRC
+
+*** =ident=
+
+#+BEGIN_SRC elisp
+Identity function. Returns what you give it.
+#+END_SRC
+
+*** =quote=
+
+#+BEGIN_SRC elisp
+Transforms the given input into a quote. Usually you will want to use the '(1 2 3) syntax.
+#+END_SRC
+
+*** =symbol=
+
+#+BEGIN_SRC elisp
+Turn a string into a symbol
+#+END_SRC
+
+*** =str=
+
+#+BEGIN_SRC elisp
+Make a string
+#+END_SRC
+
+*** =bool=
+
+#+BEGIN_SRC elisp
+Coerce a value to bool. In general if a collection is non-empty, it is true. The len method is called on Records
+#+END_SRC
+
+*** =print=
+
+#+BEGIN_SRC elisp
+Print the given argument WITHOUT a newline.
+#+END_SRC
+
+*** =println=
+
+#+BEGIN_SRC elisp
+Print the given argument WITH a newline.
+#+END_SRC
+
+*** =input=
+
+#+BEGIN_SRC elisp
+Get user input from stdin
+#+END_SRC
+
+*** =split=
+
+#+BEGIN_SRC elisp
+Split a string with some substring.
+Example:
+>>> (split "," "hello, world")
+(tuple "hello" " world")
+
+#+END_SRC
+
+*** =replace=
+
+#+BEGIN_SRC elisp
+Replace a substring in a string with some other string.
+Example:
+>>> (replace "abc" "OwO" "abc def")
+"OwO def"
+#+END_SRC
+
+*** =ident-exists=
+
+#+BEGIN_SRC elisp
+Returns true if a given symbol exists in the interpeter
+#+END_SRC
+
+*** =eval=
+
+#+BEGIN_SRC elisp
+Eval an expression.
+Example (in repl):
+>>> '(+ 1 2)
+(+ 1 2)
+>>> (eval '(+ 1 2))
+3
+#+END_SRC
+
+*** =parse=
+
+#+BEGIN_SRC elisp
+Parse an expression.
+Example (in repl):
+>>> (parse "(+ 1 2)")
+#+END_SRC
+
+*** =def=
+
+#+BEGIN_SRC elisp
+Associate a given symbol with a value. Overwrites local variables.
+Example:
+>>> (def a 3)
+>>> a
+3
+
+#+END_SRC
+
+*** =cond=
+
+#+BEGIN_SRC elisp
+Branching control flow construct. Given an even list of [pred then], if `pred` is true, return `then`.
+Example:
+(def input 10)
+(cond
+  (= input 3)  (print "input is 3")
+  (= input 10) (print "input is 10")
+  true         (print "hit base case, input is: " input))
+
+#+END_SRC
+
+*** =loop=
+
+#+BEGIN_SRC elisp
+Not done yet. Loop in a weird way. Repeatedly runs the body until (break) is called.
+#+END_SRC
+
+*** =match=
+
+#+BEGIN_SRC elisp
+Branching control flow construct. Given an item and an even list of [value then], if `item` == `value`, return `then`.
+Example:
+(def input 10)
+(match input
+  3  (print "input is 3")
+  10 (print "input is 10")
+  _  (print "hit base case, input is: " input))
+
+#+END_SRC
+
+*** =if=
+
+#+BEGIN_SRC elisp
+Branching control flow construct. Given pred?, then, and else, if pred? is true, return then, otherwise, else.
+Note: Does not evaluate branches not taken.
+Example:
+(def input 10)
+(if (= input 10)
+  (print "input is 10!")
+  (print ":[ input is not 10"))
+
+#+END_SRC
+
+*** =shuffle=
+
+#+BEGIN_SRC elisp
+Shuffle (randomize) a given list.
+Example:
+>>> (shuffle (range 10))
+(6 3 2 9 4 0 1 8 5 7)
+
+#+END_SRC
+
+*** =go=
+
+#+BEGIN_SRC elisp
+Run a function in a new thread. Example:
+(go (fn ()
+        (do
+         (sleep 2)
+         (println "from another thread!"))))
+
+;; After two seconds, something is printed
+#+END_SRC
+
+*** =chan=
+
+#+BEGIN_SRC elisp
+Make a channel. Returns a tuple of (writer, reader). Example:
+(bind
+ ((w r) (chan))
+ (do
+   (go (fn () (print-recv r)))
+   (.send w "in bind context 1")
+   (sleep 1)
+   (.send w "in bind context 2")
+   (.close w)
+  ))
+
+;; Two things are printed.
+#+END_SRC
+
+*** =random_bool=
+
+#+BEGIN_SRC elisp
+Randomly return true or false.
+#+END_SRC
+
+*** =random_int=
+
+#+BEGIN_SRC elisp
+Randomly return an integer between lower and upper.
+
+Example:
+(random_int 0 10) ;; Returns a num between 0 and 10 (exclusive)
+#+END_SRC
+
+*** =panic=
+
+#+BEGIN_SRC elisp
+Abort the program printing the given message.
+
+Example: (panic "goodbye") ; kills program
+
+Your console will print the following:
+
+thread 'main' panicked at 'goodbye', src/stdlib.rs:216:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+... and the interpreter will stop.
+
+#+END_SRC
+
+*** =primes=
+
+#+BEGIN_SRC elisp
+Prime numbers less than `n`.
+#+END_SRC
+
+*** =divisors=
+
+#+BEGIN_SRC elisp
+Divisors of `n`. Example:
+    (divisors 20) ;; ^(1 2 4 5 10 20)
+#+END_SRC
+
+*** =clrf=
+
+#+BEGIN_SRC elisp
+HACK! Returns 
+ as the parser is buggy atm.
+    Example: (clrf) ; "
+"
+#+END_SRC
+
+*** =timestamp=
+
+#+BEGIN_SRC elisp
+Returns a unix timestamp.
+    Example: (timestamp "%b %-d, %-I:%M") ; "Jul 2, 5:15"
+#+END_SRC
+
+*** =name-of=
+
+#+BEGIN_SRC elisp
+Returns the name of the object.
+    Example: (name-of +) ; "+"
+#+END_SRC
+
+*** =sleep=
+
+#+BEGIN_SRC elisp
+Sleep for n seconds.
+    Example: (sleep 10) ; sleep for 10 seconds.
+#+END_SRC
+
+*** =type=
+
+#+BEGIN_SRC elisp
+Return the type of the argument as a string.
+    Example: (type "hello") ; str
+#+END_SRC
+
+*** =doc=
+
+#+BEGIN_SRC elisp
+Return the documentation of a symbol as a string.
+    Example: (doc doc) ; Return the documentation of a symbol as a...
+#+END_SRC
+
+*** =err=
+
+#+BEGIN_SRC elisp
+Return an error with a message string.
+    Example: (err "Something bad happened!") ; return an error
+#+END_SRC
+
+*** =all-symbols=
+
+#+BEGIN_SRC elisp
+Return all symbols defined in the interpreter.
+#+END_SRC
+
+*** =include=
+
+#+BEGIN_SRC elisp
+Include a file into the interpreter.
+#+END_SRC
+
+*** =map=
+
+#+BEGIN_SRC elisp
+Apply a function to each element of a sequence and return a list.
+Example: (map inc '(1 2 3)) ; (2 3 4)
+
+#+END_SRC
+
+*** =mapt=
+
+#+BEGIN_SRC elisp
+Apply a function to each element of a sequence and return a tuple.
+Example: (map inc '(1 2 3)) ; ^(2 3 4)
+
+#+END_SRC
+
+*** =->=
+
+#+BEGIN_SRC elisp
+DOCS TBD
+#+END_SRC
+
+*** =inline_transform=
+
+#+BEGIN_SRC elisp
+Given a list of data and another of functions, apply each function pairwise onto the list.
+Example:
+
+(defn adder-maker (x) (fn (y) (+ x y)))
+
+(inline_transform
+  '(1 1 1)
+   (list (adder-maker 1) (adder-maker 2) (adder-maker 3)))  ;; ^(2 3 4)
+
+#+END_SRC
+
+*** =foreach=
+
+#+BEGIN_SRC elisp
+Eagerly apply the given function to a sequence or list.
+Example:
+(foreach
+  (fn (x) (println x))
+  (range 20)) ; prints 0 to 20. Returns ().
+
+(foreach
+  (fn (x) (println x))
+  (take 5 (map (fn (x) (* x x x x x x)) (range)))) ; prints 0, 1, 64, 729, 4096
+
+#+END_SRC
+
+*** =filter=
+
+#+BEGIN_SRC elisp
+Retain elements in a sequence according to a predicate.
+Example:
+(defn is-odd (x) (= 1 (% x 2)))
+(filter is-odd (range 20)) ; outputs (1 3 5 7 9 11 13 15 17 19)
+
+#+END_SRC
+
+*** =any=
+
+#+BEGIN_SRC elisp
+Ask whether a predicate is true in some sequence. Short circuits.
+#+END_SRC
+
+*** =all=
+
+#+BEGIN_SRC elisp
+Ask whether a predicate is true for every element of a sequence. Short circuits.
+#+END_SRC
+
+*** =lazy=
+
+#+BEGIN_SRC elisp
+Turn a list into a lazy sequence. Useful for building complex iterators over some source list.
+#+END_SRC
+
+*** =skip=
+
+#+BEGIN_SRC elisp
+Skip some amount in a lazy iterator.
+#+END_SRC
+
+*** =product=
+
+#+BEGIN_SRC elisp
+Cartesian Product every list passed in.
+Example:
+>>> (doall (product '(0 1) '(0 1) '(0 1)))
+(
+  (tuple 0 0 0)
+  (tuple 1 0 0)
+  (tuple 0 1 0)
+  (tuple 1 1 0)
+  (tuple 0 0 1)
+  (tuple 1 0 1)
+  (tuple 0 1 1)
+  (tuple 1 1 1)
+)
+
+#+END_SRC
+
+*** =apply=
+
+#+BEGIN_SRC elisp
+Apply a function to a given list.
+(def my-list '(1 2 3))
+(apply + my-list) ; outputs 6
+
+#+END_SRC
+
+*** =do=
+
+#+BEGIN_SRC elisp
+Evaluate a sequence of expressions and return the last one.
+Example:
+(defn complex-fn (x)
+  (do
+    (print "current state: " x)
+    (+ x x)))
+
+#+END_SRC
+
+*** =partial=
+
+#+BEGIN_SRC elisp
+;; Construct a partial function.
+
+;; Example:
+(defn foobar (x y z) (+ x y z))
+
+(def part (partial foobar 1 2))
+(part 3) ;; 6
+
+((partial foobar 1) 0 -1) ;; 0
+
+(partial + 1) ;; Fn<Partial<Fn<+, 1, [ ]>; remaining=0>, 0, [ ]>
+
+#+END_SRC
+
+*** =comp=
+
+#+BEGIN_SRC elisp
+Compose given functions and return a new function. NOT IMPLEMENTED YET!
+#+END_SRC
+
+*** =reduce=
+
+#+BEGIN_SRC elisp
+Reduce (fold) a given sequence using the given function. Reduce is multi-arity, and will accept an `init` parameter.
+Example:
+(reduce + '(1 2 3)) ; 6
+(reduce + 100 '(1 2 3)) ; 106
+
+#+END_SRC
+
+*** =fn=
+
+#+BEGIN_SRC elisp
+Create a anonymous function.
+Example:
+(fn (x) (* x 2)) ; Fn<AnonFn, 1, [ x ]>
+
+#+END_SRC
+
+*** =defn=
+
+#+BEGIN_SRC elisp
+Define a function and add it to the symbol table. Supports doc strings.
+Example:
+(defn is-odd? (x) (= 1 (% x 2)))
+(defn get-odd-numbers
+  "Extract the odd numbers out of the given sequence `x`"
+  (x)
+  (filter is-odd? x)) ; for fun, try (doc get-odd-numbers)
+
+#+END_SRC
+
+*** =anon-fn-sugar=
+
+#+BEGIN_SRC elisp
+Create an anonymous, automatic binding function. You normally want to use the #(+ 1 2) syntax. Fields are labelled $1, $2, $3, and so on.
+
+Example:
+
+(#(+ $1 $2) 1 2) ;; 3
+(anon-fn-sugar (+ $1 $2)) ;; Fn<AnonFn, 0, [ ]>
+
+
+Note: This currently does not capture values.
+
+;; >>> (def foo (fn (x) #(+ $1 x)))
+;; nil
+;; >>> ((foo 3) 5)
+;; Error: Unknown Symbol x
+;;
+;; Stacktrace:
+;;   - Error in Fn<AnonFn, 0, [ ]>, with args (5)
+
+#+END_SRC
+
+*** =bind=
+
+#+BEGIN_SRC elisp
+Bind symbol-value pairs, adding them to the symbol table.
+Example:
+(defn quicksort
+  "Sort a list."
+  (l)
+  (cond
+   (empty? l) l
+   true (bind
+         (pivot (head l)
+          rest  (tail l)
+          le    (filter (fn (x) (<= x pivot)) rest)
+          ge    (filter (fn (x) (> x pivot)) rest))
+         (+ (quicksort le) (list pivot) (quicksort ge)))))
+
+;; Bind also supports list patterns
+(bind ((x y) '(1 2)) (+ x y)) ;; 3
+
+#+END_SRC
+
+*** =take=
+
+#+BEGIN_SRC elisp
+Take the first `n` items from a list or sequence.
+Example:
+(take 2 '(1 2 3)) ; (1 2)
+(take 5 (range)) ; lazy seq of (0 1 2 3 4)
+(doall (take 5 (range))) ; (0 1 2 3 4)
+
+#+END_SRC
+
+*** =find=
+
+#+BEGIN_SRC elisp
+Find and return some value matching a predicate in an iterator.
+
+Note: This will stop iterating once it's found an item. If nothing is found, nil is returned.
+
+Example:
+
+>>> (find #(= $1 3) (take 4 (range)))
+3
+>>> (find #(= $1 300) (take 4 (range)))
+nil
+
+#+END_SRC
+
+*** =slice=
+
+#+BEGIN_SRC elisp
+Slice a list.
+Example:
+
+>>> (def ll '(1 2 3 4 5 6))
+nil
+>>> (slice 0 2 ll)
+(tuple 1 2)
+
+#+END_SRC
+
+*** =take-while=
+
+#+BEGIN_SRC elisp
+Continue taking items while `pred` is true.
+Example:
+(defn less-than-five (x) (< x 5))
+(doall (take-while less-than-five (range))) ; (0 1 2 3 4)
+(take 2 '(1 2 3)) ; (1 2)
+(take 5 (range)) ; lazy seq of (0 1 2 3 4)
+(doall (take 5 (range))) ; (0 1 2 3 4)
+
+#+END_SRC
+
+*** =doall=
+
+#+BEGIN_SRC elisp
+Evaluate a sequence, collecting the results into a list.
+Example:
+(doall (take 5 (range))) ; (0 1 2 3 4)
+
+#+END_SRC
+
+*** =dict=
+
+#+BEGIN_SRC elisp
+Create a dict from the given elements.
+Example:
+(dict "a" 1 "b" 2) ;
+
+#+END_SRC
+
+*** =assoc=
+
+#+BEGIN_SRC elisp
+Create a new dict from an old dict with the given elements.
+Example:
+(assoc (dict) 1 2 3 4) ; {1: 2, 3: 4}
+
+#+END_SRC
+
+*** =remove=
+
+#+BEGIN_SRC elisp
+Remove a key-value pair from a dict.
+Example:
+(remove (dict 1 2) 1) ; {}
+
+#+END_SRC
+
+*** =set-dict=
+
+#+BEGIN_SRC elisp
+Set a key to a value in a dict. It'll return the new dict.
+Example:
+(set-dict (dict 1 2) 3 4) ; {1: 2, 3: 4}
+(get (dict) 1 2) ; {1: 2}
+
+#+END_SRC
+
+*** =values=
+
+#+BEGIN_SRC elisp
+Get the values of a dict.
+Example:
+>>> (values (dict 1 2 3 4))
+(tuple 2 4)
+#+END_SRC
+
+*** =get=
+
+#+BEGIN_SRC elisp
+Get a value from a dict by key.
+Example:
+(get (dict 1 2) 1) ; 2
+(get (dict) 1) ; nil
+
+#+END_SRC
+
+*** =list=
+
+#+BEGIN_SRC elisp
+Create a list from the given elements.
+Example:
+(list 1 2 3) ; (1 2 3)
+
+#+END_SRC
+
+*** =tuple=
+
+#+BEGIN_SRC elisp
+Create a list from the given elements.
+(tuple 1 2 3) ; (tuple 1 2 3)
+;; It's usually easier to use the tuple syntax:
+^(1 2 3) ; (tuple 1 2 3)
+
+#+END_SRC
+
+*** =nth=
+
+#+BEGIN_SRC elisp
+Extract the nth item from a list or tuple. Throws error if this fails.
+Example
+(nth 0 ^(1 2 3)) ; 1
+(nth 1 '(1 2 3)) ; 2
+
+#+END_SRC
+
+*** =flatten=
+
+#+BEGIN_SRC elisp
+Flatten a list of lists.
+Example:
+>>> (flatten '('(1 2 3) '(4 5 6) 7))
+(tuple 1 2 3 4 5 6 7)
+
+#+END_SRC
+
+*** =chars=
+
+#+BEGIN_SRC elisp
+Get a tuple of characters from a string.
+Example:
+(chars "hello") ;; (tuple "h" "e" "l" "l" "o")
+
+#+END_SRC
+
+*** =head=
+
+#+BEGIN_SRC elisp
+Get the first item in a list.
+Example:
+(head ()) ; nil
+(head (1 2 3)) ; 1
+
+#+END_SRC
+
+*** =tail=
+
+#+BEGIN_SRC elisp
+Get all items after the first in a list or tuple.
+(tail '(1 2 3)) ; (2 3)
+(tail ^()) ; nil
+
+#+END_SRC
+
+*** =cons=
+
+#+BEGIN_SRC elisp
+Push an item to the front of a list.
+Example:
+(cons 1 '()) ; (1)
+(cons 1 '(2 3)) ; (1 2 3)
+
+#+END_SRC
+
+*** =range=
+
+#+BEGIN_SRC elisp
+Generate a range of numbers. It accepts 0, 1, or 2 arguments. No arguments
+yields an infinite range, one arg stops the range at that arg, and two args denote start..end.
+Example:
+(range) ; infinite range
+(range 5) ; (0 1 2 3 4)
+(range 5 10); (5 6 7 8 9)
+
+#+END_SRC
+
+*** =len=
+
+#+BEGIN_SRC elisp
+Get the number of items in a list or tuple.
+Example:
+(len '(0 0 0)) ; 3
+(len '()) ; 0
+
+#+END_SRC
+
+*** =rev=
+
+#+BEGIN_SRC elisp
+Reverse a list.
+#+END_SRC
+
+*** =zip=
+
+#+BEGIN_SRC elisp
+Zip two lists together into a list of tuples.
+#+END_SRC
+
+*** =len=
+
+#+BEGIN_SRC elisp
+Get the number of items in a list or tuple.
+Example:
+(len '(0 0 0)) ; 3
+(len '()) ; 0
+
+#+END_SRC
+
+*** =sort=
+
+#+BEGIN_SRC elisp
+Sort a given homogeneously typed list in ascending order. Returns an error if types are all not the same.
+Example:
+(sort '(3 7 0 5 4 8 1 2 6 9)) ; (0 1 2 3 4 5 6 7 8 9)
+
+#+END_SRC
+
+*** =distinct=
+
+#+BEGIN_SRC elisp
+Remove all duplicates from a list. This will sort the list.
+Example:
+(distinct '(1 1 1 2 2 0 0)) ; (0 1 2)
+
+#+END_SRC
+
+*** =inspect=
+
+#+BEGIN_SRC elisp
+Inspect values in a lazy iterator while its running.
+Example:
+>>> (doall (inspect #(println "curr_item=" $1) (take 3 (range))))
+curr_item=0
+curr_item=1
+curr_item=2
+(0 1 2)
+
+#+END_SRC
+
+*** =max-by=
+
+#+BEGIN_SRC elisp
+Get the maximum value of an iterator by a some function f. Throws an error if called with an empty iteratable.
+Example:
+(max-by
+  (fn (x) (nth 0 x))
+  (lazy (zip (range 10) (range 10)))) ;; (tuple 9 9)
+#+END_SRC
+
+*** =fs::open=
+
+#+BEGIN_SRC elisp
+Manipulate files in x7.
+Example:
+(def my-file (fs::open "my_file.txt"))
+
+;; Write to the file
+(.write my-file "Hello World")
+
+;; Read from the file
+(.read_to_string my-file)
+
+#+END_SRC
+
+*** =defrecord=
+
+#+BEGIN_SRC elisp
+Define a Record structure.
+
+Use defmethod to add methods a record.
+
+Example:
+;; Define a record
+(defrecord Vec3 "Three Dimensional Vector" x y z)
+
+;; Instantiate a Vec3
+(def v (Vec 1 2 3))
+
+;; Access attributes
+
+v.x    ;; 1
+(.y v) ;; 2
+
+#+END_SRC
+
+*** =defmethod=
+
+#+BEGIN_SRC elisp
+Add a method to a record. Cannot be called on instantiated records.
+
+NOTE: Methods get an implicit `self` reference.
+
+;; Example
+
+;; Define a record
+(defrecord Vec3 "Three Dimensional Vector" x y z)
+
+(defmethod Vec3 +
+  "Add two vectors together"
+  (other)
+  (Vec3
+   (+ other.x self.x)
+   (+ other.y self.y)
+   (+ other.z self.z)))
+
+(def v (Vec3 1 1 1))
+
+(.+ v v) ;; (Vec3 2 2 2)
+#+END_SRC
+
+*** =call_method=
+
+#+BEGIN_SRC elisp
+
+Call a method on a record.
+
+Example:
+
+(def f (fs::open "Hello.txt"))
+(call_method f "read_to_string") ;; no args required
+(call_method f "write" "hello world") ;; pass it an arg
+
+#+END_SRC
+
+*** =re::compile=
+
+#+BEGIN_SRC elisp
+Regular Expressions - regular search patterns.
+
+This is backed by the excellent regex crate: https://github.com/rust-lang/regex
+
+Example:
+
+;; Compile a regex
+(def a (re::compile "(abc)+"))
+
+;; Test if a string matches
+
+(.is_match a "abcabc") ;; true
+(.is_match a "ab") ;; false
+
+#+END_SRC
+
+*** =methods=
+
+#+BEGIN_SRC elisp
+Grab all documentation for a record's methods
+#+END_SRC
+
+*** =time=
+
+#+BEGIN_SRC elisp
+Return the time taken to evaluate an expression in milliseconds.
+#+END_SRC
+
+*** =catch-err=
+
+#+BEGIN_SRC elisp
+Catch an error. Returns nil if no error is caught.
+#+END_SRC
+
+*** =interner-stats=
+
+#+BEGIN_SRC elisp
+Internal string interner stats.
+#+END_SRC
+
+*** =print-smiley-face=
+
+#+BEGIN_SRC elisp
+print a smiley face
+#+END_SRC
+
+*** =assert-eq=
+
+#+BEGIN_SRC elisp
+Assert if two items are equal.
+#+END_SRC
+
+*** =TestResult=
+
+#+BEGIN_SRC elisp
+Result of a test
+#+END_SRC
+
+*** =not==
+
+#+BEGIN_SRC elisp
+Test if a sequence is not equal to each other.
+Example:
+(not= 1 1 2) ; false
+
+#+END_SRC
+
+*** =empty?=
+
+#+BEGIN_SRC elisp
+Test if a collection is empty.
+#+END_SRC
+
+*** =non-empty?=
+
+#+BEGIN_SRC elisp
+Test if a collection is non-empty.
+#+END_SRC
+
+*** =is-even?=
+
+#+BEGIN_SRC elisp
+Test if the given item is even.
+#+END_SRC
+
+*** =dot-product=
+
+#+BEGIN_SRC elisp
+Dot product two vectors.
+Example:
+(dot-product '(1 2 3) '(4 5 6)) ; 32
+
+#+END_SRC
+
+*** =quicksort=
+
+#+BEGIN_SRC elisp
+Sort a list using quicksort.
+Example:
+(quicksort '(3 1 2)) ; (1 2 3)
+
+#+END_SRC
+
+*** =fib=
+
+#+BEGIN_SRC elisp
+Find the `num'th Fibonacci number.
+#+END_SRC
+
+*** =docp=
+
+#+BEGIN_SRC elisp
+Pretty print the doc string of a function
+   Example: (docp docp) ;; Pretty print the doc string of a function...
+#+END_SRC
+
+*** =max=
+
+#+BEGIN_SRC elisp
+Maximum element in a list
+#+END_SRC
+
+*** =first=
+
+#+BEGIN_SRC elisp
+Get the first item of a collection, or nil. Same as head.
+#+END_SRC
+
+*** =second=
+
+#+BEGIN_SRC elisp
+Get the second item of a collection, or nil
+#+END_SRC
+
+*** =Set=
+
+#+BEGIN_SRC elisp
+Basic Hash Set in x7.
+
+;; Contains. Test whether an element exists in a Set. O(1) time.
+;; Example:
+(.contains (Set 0 1 2 3) 2)  ;; true
+(.contains (Set 0 1 2 3) 10) ;; false
+
+;; Union (creates new Set with elements from each)
+;; Example:
+(.union (Set 1 2 3)
+        (Set 4 5 6)) ;; Set<{4, 5, 2, 6, 1, 3}>
+(.union (apply Set (range 5)) (apply Set (range 5 10)))
+;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
+
+;; Intersection. Obtain the intersection of two Sets.
+;; Example:
+(.intersection (apply Set (range 10)) (apply Set (range 5 10)))
+;; Set<{5, 6, 9, 7, 8}>
+
+;; to_list. Convert the Set into a list. Order is undefined.
+;; Example:
+(.to_list (apply Set (range 5))) ;; (1 2 0 3 4)
+
+;; len. Get the number of elements in a Set. Implements the "len" magic method.
+;; Example:
+(.len (Set '(0 1 2 3)))  ;; 4
+(len (Set '())) ;; 0
+
+#+END_SRC
+
+*** =Set.contains=
+
+#+BEGIN_SRC elisp
+Test whether an element exists in a set. O(1) time.
+Example:
+(.contains (Set 0 1 2 3) 2)  ;; true
+(.contains (Set 0 1 2 3) 10) ;; false
+#+END_SRC
+
+*** =Set.len=
+
+#+BEGIN_SRC elisp
+Get the number of elements in a Set. Implements the "len" magic method.
+Example:
+(.len (Set 0 1 2 3))  ;; 4
+(len (Set)) ;; 0
+#+END_SRC
+
+*** =Set.union=
+
+#+BEGIN_SRC elisp
+Obtain the union of two Sets.
+Example:
+(.union (Set (range 5)) (Set (range 5 10)))
+;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
+
+#+END_SRC
+
+*** =Set.intersection=
+
+#+BEGIN_SRC elisp
+Obtain the intersection of two Sets.
+Example:
+(.intersection (apply Set (range 10)) (apply Set (range 5 10)))
+;; Set<{5, 6, 9, 7, 8}>
+#+END_SRC
+
+*** =Set.to_list=
+
+#+BEGIN_SRC elisp
+Convert the Set into a list. Order is undefined.
+Example:
+(.to_list (apply Set (range 5))) ;; (1 2 0 3 4)
+
+#+END_SRC
+
+*** =Dict=
+
+#+BEGIN_SRC elisp
+Immutable dictionary.
+Example:
+(dict "a" 1 "b" 2) ;
+
+#+END_SRC
+
+*** =DictMut=
+
+#+BEGIN_SRC elisp
+Mutable dictionary type
+#+END_SRC
+
+*** =DictMut.Docs=
+
+#+BEGIN_SRC elisp
+TBD
+#+END_SRC
+
+*** =FileRecord=
+
+#+BEGIN_SRC elisp
+Manipulate files in x7.
+Example:
+(def my-file (fs::open "my_file.txt"))
+
+;; Write to the file
+(.write my-file "Hello World")
+
+;; Read from the file
+(.read_to_string my-file)
+
+#+END_SRC
+
+*** =FileRecord.read_to_string=
+
+#+BEGIN_SRC elisp
+Read a files as a string.
+Example:
+(def my-file (fs::open "my_file.txt"))
+(.read_to_string my-file) ; file contents
+
+#+END_SRC
+
+*** =FileRecord.read_lines=
+
+#+BEGIN_SRC elisp
+Get all lines of a file as a list.
+Example:
+(def my-file (fs::open "my_file.txt"))
+(.read_lines my-file) ; '("first_line" "second_line")
+
+#+END_SRC
+
+*** =FileRecord.write=
+
+#+BEGIN_SRC elisp
+Overwrite the file's content with the given string.
+Example:
+(def new-file (fs::open "new_file.txt"))
+(.write "Hello world!")
+
+#+END_SRC
+
+*** =FileRecord.append_to_file=
+
+#+BEGIN_SRC elisp
+Append to a file without a newline.
+Example:
+(def new-file (fs::open "new_file.txt"))
+(.append_to_file "Hello world!") ; file contains '...old-contents...Hello world!'
+
+
+#+END_SRC
+
+*** =FileRecord.append_line=
+
+#+BEGIN_SRC elisp
+Append a string to a file with a newline.
+Example:
+(def new-file (fs::open "new_file.txt"))
+(.append_line "Hello world!") ; file contains '...old-contents...Hello world!
+'
+
+#+END_SRC
+
+*** =Regex=
+
+#+BEGIN_SRC elisp
+Regular Expressions - regular search patterns.
+
+This is backed by the excellent regex crate: https://github.com/rust-lang/regex
+
+Example:
+
+;; Compile a regex
+(def a (re::compile "(abc)+"))
+
+;; Test if a string matches
+
+(.is_match a "abcabc") ;; true
+(.is_match a "ab") ;; false
+
+#+END_SRC
+
+*** =Regex.is_match=
+
+#+BEGIN_SRC elisp
+Returns true if a string matches the regex.
+
+Example:
+(def re (re::compile "abc"))
+(assert-eq true (.is_match re "abc") "Did not match!")
+#+END_SRC
+
+*** =Regex.captures=
+
+#+BEGIN_SRC elisp
+Returns a list of lists of all captures in the input.
+;; Example
+(def lines "15-16 f: ffffffffffffffhf
+             6-8 b: bbbnvbbb
+             6-10 z: zhzzzzfzzzzzzzzzpzz
+             9-13 s: dmssskssqsssssf")
+(def re (re::compile "(\d+)-(\d+) (.): (.*)"))
+(.captures re lines)
+;; Outputs:
+((tuple "15" "16" "f" "ffffffffffffffhf")
+ (tuple "6" "8" "b" "bbbnvbbb")
+ (tuple "6" "10" "z" "zhzzzzfzzzzzzzzzpzz")
+ (tuple "9" "13" "s" "dmssskssqsssssf"))
+
+#+END_SRC
+
+*** =TcpListenerRecord=
+
+#+BEGIN_SRC elisp
+Tcp Socket Server TBD
+#+END_SRC
+
+*** =Set=
+
+#+BEGIN_SRC elisp
+Basic Hash Set in x7.
+
+;; Contains. Test whether an element exists in a Set. O(1) time.
+;; Example:
+(.contains (Set 0 1 2 3) 2)  ;; true
+(.contains (Set 0 1 2 3) 10) ;; false
+
+;; Union (creates new Set with elements from each)
+;; Example:
+(.union (Set 1 2 3)
+        (Set 4 5 6)) ;; Set<{4, 5, 2, 6, 1, 3}>
+(.union (apply Set (range 5)) (apply Set (range 5 10)))
+;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
+
+;; Intersection. Obtain the intersection of two Sets.
+;; Example:
+(.intersection (apply Set (range 10)) (apply Set (range 5 10)))
+;; Set<{5, 6, 9, 7, 8}>
+
+;; to_list. Convert the Set into a list. Order is undefined.
+;; Example:
+(.to_list (apply Set (range 5))) ;; (1 2 0 3 4)
+
+;; len. Get the number of elements in a Set. Implements the "len" magic method.
+;; Example:
+(.len (Set '(0 1 2 3)))  ;; 4
+(len (Set '())) ;; 0
+
+#+END_SRC
+
+*** =Set.contains=
+
+#+BEGIN_SRC elisp
+Test whether an element exists in a set. O(1) time.
+Example:
+(.contains (Set 0 1 2 3) 2)  ;; true
+(.contains (Set 0 1 2 3) 10) ;; false
+#+END_SRC
+
+*** =Set.len=
+
+#+BEGIN_SRC elisp
+Get the number of elements in a Set. Implements the "len" magic method.
+Example:
+(.len (Set 0 1 2 3))  ;; 4
+(len (Set)) ;; 0
+#+END_SRC
+
+*** =Set.union=
+
+#+BEGIN_SRC elisp
+Obtain the union of two Sets.
+Example:
+(.union (Set (range 5)) (Set (range 5 10)))
+;; Set<{5, 1, 7, 4, 3, 2, 8, 0, 9, 6}>
+
+#+END_SRC
+
+*** =Set.intersection=
+
+#+BEGIN_SRC elisp
+Obtain the intersection of two Sets.
+Example:
+(.intersection (apply Set (range 10)) (apply Set (range 5 10)))
+;; Set<{5, 6, 9, 7, 8}>
+#+END_SRC
+
+*** =Set.to_list=
+
+#+BEGIN_SRC elisp
+Convert the Set into a list. Order is undefined.
+Example:
+(.to_list (apply Set (range 5))) ;; (1 2 0 3 4)
+
+#+END_SRC
+
+*** =WriteChan=
+
+#+BEGIN_SRC elisp
+Write side of a channel
+#+END_SRC
+
+*** =WriteChan.send=
+
+#+BEGIN_SRC elisp
+Sent some item into a channel.
+;; `w` is some writer
+(.send w "Some item 1")
+
+#+END_SRC
+
+*** =WriteChan.close=
+
+#+BEGIN_SRC elisp
+Close the writer. This will stop any readers on the channel.
+#+END_SRC
+
+*** =WriteChan.is_closed=
+
+#+BEGIN_SRC elisp
+Returns true if the channel is closed.
+#+END_SRC
+
+*** =ReadChan=
+
+#+BEGIN_SRC elisp
+Read side of a channel
+#+END_SRC
+
+*** =ReadChan.recv=
+
+#+BEGIN_SRC elisp
+Read some item from a channel. This will block until an item is received or the sender is closed. Example:
+
+;; `w` is some writer
+(bind
+ ((writer reader) (chan))
+ (do
+   (go (fn () (do (println (.recv r))))) ;; recv items
+   (.send writer "item 1")
+   (sleep 1)
+   (.send writer "item 2")
+   (.close writer) ;; "item 1" and "item 2" are printed
+  ))
+#+END_SRC
+
+*** =ReadChan.close=
+
+#+BEGIN_SRC elisp
+Close the reader. This will fail if the reader has been closed.
+#+END_SRC
+
+*** =ReadChan.is_closed=
+
+#+BEGIN_SRC elisp
+Returns true if the channel is closed.
+#+END_SRC
+
+*** =pretty-print=
+
+#+BEGIN_SRC elisp
+Format doc strings into something org-mode will agree with.
+#+END_SRC
+
+*** =+=
+
+#+BEGIN_SRC elisp
+Add two items together. Concatenates strings, lists, and tuples.
+Example: (+ 1 1 1) ; 3
+Example: (+ "Hello " "World") ; "Hello World"
+
+#+END_SRC
+
+*** =-=
+
+#+BEGIN_SRC elisp
+Subtracts all items from the first. Only works with Nums.
+Example: (- 2 1 1) ; 0
+
+#+END_SRC
+
+*** =*=
+
+#+BEGIN_SRC elisp
+Multiply all items against the first. Works with Nums and (String Num*)
+Example: (* 1 2 3) ; 6
+         (* "abc" 3) ; "abcabcabc"
+
+#+END_SRC
+
+*** =%=
+
+#+BEGIN_SRC elisp
+Take the remainder of the first item against the second.
 Example: (% 4 2) ; 0
 #+END_SRC
 
