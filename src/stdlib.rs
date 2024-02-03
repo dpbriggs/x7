@@ -27,17 +27,15 @@ macro_rules! exact_len {
     };
     ($args:expr, $($len:literal),*) => {
         {
-            use std::fmt::Write as _;
             let mut is_ok_len = false;
             $(
                 is_ok_len = is_ok_len || $args.len() == $len;
             )*
                 if !is_ok_len {
-                    let mut expected_args = String::new();
-                    $(
-                        write!(expected_args, "{}", $len).unwrap();
-                    )*
-                    bail!(anyhow!(format!("Wrong number of args! Expected {}, but received {}", expected_args, $args.len())));
+                    let lengths = [$(
+                        $len,
+                    )*];
+                    bail!(anyhow!(format!("Wrong number of args! Expected number of args to be in {:?} but received {}", lengths, $args.len())));
                 }
         }
     };
