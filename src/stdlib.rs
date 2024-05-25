@@ -184,6 +184,26 @@ fn sqrt_exprs(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Ex
     Ok(Expr::num(BigDecimal::from_f64(num_f64.sqrt()).unwrap()))
 }
 
+fn nth_root(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
+    exact_len!(exprs, 2);
+    let root = exprs[0]
+        .get_num()?
+        .to_f64()
+        .ok_or_else(|| anyhow!("Failed to convert root to floating point"))?;
+    if root <= 0.0 {
+        bail!("{root} must be non-negative to nth_root!");
+    }
+    let num = exprs[1]
+        .get_num()?
+        .to_f64()
+        .ok_or_else(|| anyhow!("Failed to convert num to floating point"))?;
+    // TODO: Try out newton's method here (and find a good way of making guesses)
+
+    // TODO: What if this fails? (sqrt -1, etc)
+    let res = num.powf(1.0 / root);
+    Ok(Expr::num(BigDecimal::from_f64(res).unwrap()))
+}
+
 // copilot coming in clutch :flushed:
 fn print_smiley_face(_exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     println!("( ͡° ͜ʖ ͡°)");
@@ -225,10 +245,10 @@ fn floor(exprs: Vector<Expr>, _symbol_table: &SymbolTable) -> LispResult<Expr> {
     let n = exprs[0]
         .get_num()?
         .to_f64()
-        .unwrap()
+        .ok_or_else(|| anyhow!("Number cannot be converted to a floating point"))?
         .trunc()
         .to_u64()
-        .unwrap(); // jesus
+        .ok_or_else(|| anyhow!("Truncated floating point could not be converted a u64"))?;
     Ok(Expr::num(BigDecimal::from(n)))
 }
 
@@ -1467,6 +1487,16 @@ Example: (sqrt 9) ; 3
 "
         ),
         (
+            "nth-root",
+            2,
+            nth_root,
+            true,
+            "Take the nth root of a number
+Example: (nth-root 3 9) ; 3
+"
+        ),
+
+        (
             "=",
             1,
             eq_exprs,
@@ -1523,7 +1553,7 @@ Example:
 (pow 2 3) ;; 8
 (pow 10 3) ;; 1000
 "),
-        ("floor", 1, floor, true, "Floor a number.
+        ("floor", 1, floor, true, "Floor a number. Throws an error if the number is outside the domain of a u64.
 Example:
 (floor 5.5) ;; 5.5
 "),

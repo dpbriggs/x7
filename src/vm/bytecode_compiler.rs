@@ -274,7 +274,6 @@ impl ByteCodeCompiler {
     )> {
         for expr in read(input) {
             self.compile_expr(expr?)?;
-            // self.push_instruction(Instruction::Pop);
         }
         let instructions = self.link()?;
         Ok((instructions, self.named_functions.clone()))

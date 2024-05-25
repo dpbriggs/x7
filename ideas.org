@@ -73,3 +73,5 @@ Fn<foo, 2, [ a b ]>
 >>> (foo ROCK ROCK)
 false
 #+end_src
+
+** TODO Make this work - =(def  ͡° ͜ʖ ͡° 3)=
